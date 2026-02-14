@@ -2,10 +2,12 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.schemas.users import UserCreate, UserOut
-from app.services.users import (
+from app.api.exceptions.users import (
     EmailAlreadyRegisteredException,
     PasswordNotComplexEnoughException,
+)
+from app.schemas.users import UserCreate, UserOut
+from app.services.users import (
     UserService,
 )
 
