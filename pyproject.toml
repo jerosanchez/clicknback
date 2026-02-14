@@ -1,0 +1,28 @@
+[project]
+name = "clicknback"
+version = "0.1.0"
+description = "ClicknBack - A minimal, production-grade cashback backend system."
+authors = [{ name = "Jero Sanchez", email = "dev@jerosanchez.com" }]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[all]==0.127.0",
+    "psycopg[binary]==3.3.2",
+    "sqlalchemy==2.0.45",
+    "alembic==1.17.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.0.2",
+    "pytest-cov==7.0.0",
+    "pylint==4.0.4",
+    "black==25.12.0",
+    "ruff",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["app"]
