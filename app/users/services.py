@@ -1,26 +1,15 @@
 from typing import Callable
 
-from fastapi import Depends
 from passlib.context import CryptContext
 
-from app.api.exceptions.users import EmailAlreadyRegisteredException
-from app.schemas.users import UserCreate
+from app.users.exceptions import EmailAlreadyRegisteredException
+from app.users.schemas import UserCreate
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def get_enforce_complexity_policy() -> Callable[[str], None]:
-    policy = PasswordComplexityPolicy()
-    return lambda password: policy.enforce(password)
-
-
 class UserService:
-    def __init__(
-        self,
-        enforce_password_complexity: Callable[[str], None] = Depends(
-            get_enforce_complexity_policy
-        ),
-    ):
+    def __init__(self, enforce_password_complexity: Callable[[str], None]):
         self.enforce_password_complexity = enforce_password_complexity
 
     def create_user(self, create_data: UserCreate):

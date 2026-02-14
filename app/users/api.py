@@ -1,21 +1,28 @@
+from collections.abc import Callable
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.exceptions.users import (
+from app.users.exceptions import (
     EmailAlreadyRegisteredException,
     PasswordNotComplexEnoughException,
 )
-from app.schemas.users import UserCreate, UserOut
-from app.services.users import (
+from app.users.policies import PasswordComplexityPolicy
+from app.users.schemas import UserCreate, UserOut
+from app.users.services import (
     UserService,
 )
 
 router = APIRouter(prefix="/api/v1")
 
 
+def get_enforce_complexity_policy() -> Callable[[str], None]:
+    policy = PasswordComplexityPolicy()
+    return lambda password: policy.enforce(password)
+
+
 def get_user_service():
-    return UserService()
+    return UserService(get_enforce_complexity_policy())
 
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)

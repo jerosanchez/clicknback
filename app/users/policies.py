@@ -1,6 +1,6 @@
 from re import search as re_search
 
-from app.api.exceptions.users import PasswordNotComplexEnoughException
+from app.users.exceptions import PasswordNotComplexEnoughException
 
 
 class PasswordComplexityPolicy:
