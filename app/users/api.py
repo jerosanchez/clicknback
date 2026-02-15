@@ -7,6 +7,7 @@ from app.users.exceptions import (
     EmailAlreadyRegisteredException,
     PasswordNotComplexEnoughException,
 )
+from app.users.password_utils import hash_password
 from app.users.policies import PasswordComplexityPolicy
 from app.users.schemas import UserCreate, UserOut
 from app.users.services import (
@@ -21,8 +22,12 @@ def get_enforce_complexity_policy() -> Callable[[str], None]:
     return lambda password: policy.enforce(password)
 
 
+def get_password_hasher():
+    return hash_password
+
+
 def get_user_service():
-    return UserService(get_enforce_complexity_policy())
+    return UserService(get_enforce_complexity_policy(), get_password_hasher())
 
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
