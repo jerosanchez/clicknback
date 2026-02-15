@@ -1,14 +1,16 @@
 from collections.abc import Callable
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
+from app.core.database import get_db
 from app.users.exceptions import (
     EmailAlreadyRegisteredException,
     PasswordNotComplexEnoughException,
 )
 from app.users.password_utils import hash_password
 from app.users.policies import PasswordComplexityPolicy
+from app.users.repositories import UserRepository
 from app.users.schemas import UserCreate, UserOut
 from app.users.services import (
     UserService,
@@ -18,24 +20,33 @@ router = APIRouter(prefix="/api/v1")
 
 
 def get_enforce_complexity_policy() -> Callable[[str], None]:
-    policy = PasswordComplexityPolicy()
-    return lambda password: policy.enforce(password)
+    return lambda password: PasswordComplexityPolicy().enforce(password)
 
 
 def get_password_hasher():
     return hash_password
 
 
+def get_user_repository():
+    return UserRepository()
+
+
 def get_user_service():
-    return UserService(get_enforce_complexity_policy(), get_password_hasher())
+    return UserService(
+        get_enforce_complexity_policy(),
+        get_password_hasher(),
+        get_user_repository(),
+    )
 
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
-    create_data: UserCreate, user_service: UserService = Depends(get_user_service)
-):
+    create_data: UserCreate,
+    user_service: UserService = Depends(get_user_service),
+    db: Session = Depends(get_db),
+) -> UserOut:
     try:
-        user_service.create_user(create_data)
+        new_user = user_service.create_user(create_data.model_dump(), db)
     except EmailAlreadyRegisteredException as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except PasswordNotComplexEnoughException as exc:
@@ -46,10 +57,5 @@ async def create_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
         )
-
-    new_user = UserOut(
-        id=uuid4(),
-        email=create_data.email,
-    )
 
     return new_user

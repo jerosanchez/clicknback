@@ -8,6 +8,7 @@ class PasswordComplexityPolicy:
         pass
 
     def enforce(self, password: str) -> None:
+        # TODO: extract these rules to configuration
         if len(password) < 8:
             raise PasswordNotComplexEnoughException(
                 "Password must be at least 8 characters long."
