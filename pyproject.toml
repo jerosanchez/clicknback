@@ -6,7 +6,7 @@ authors = [{ name = "Jero Sanchez", email = "dev@jerosanchez.com" }]
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[all]==0.127.0",
-    "psycopg[binary]==3.3.2",
+    "psycopg2-binary==2.9.11",
     "sqlalchemy==2.0.45",
     "alembic==1.17.2",
     "passlib==1.7.4",
