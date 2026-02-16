@@ -8,12 +8,13 @@ Accepted
 
 In layered architectures, full DTO patterns require multiple model definitions per entity:
 
-```
+```text
 Request → RequestDTO → ServiceDTO → PersistenceDTO → ORM Model
 (API)    (API layer)  (Service)    (Repository)      (DB)
 ```
 
 **Full DTO Pattern Costs/Benefits:**
+
 - ✅ Maximum decoupling between layers
 - ❌ 3-5x more code per entity
 - ❌ Mapping boilerplate everywhere
@@ -112,6 +113,7 @@ Don't skip Pydantic schemas at the API boundary. Validation is essential.
 **Better way:** Use type hints and documentation instead.
 
 **Revisit if:**
+
 - Schema changes become painful (signals API design problem, not DTO problem)
 - Business logic diverges dramatically from ORM structure
 - Team grows and needs strict boundaries (time for DDD or microservices)

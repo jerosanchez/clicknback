@@ -52,21 +52,25 @@ We will use the following core technologies for the backend:
 ## Alternatives Considered
 
 ### Django + Django ORM
+
 - **Pros:** Batteries-included, migrations, admin UI, large community
 - **Cons:** Monolithic, opinionated, overkill for API-first services, slower development cycle
 - **Rejected:** Over-engineered for our use case; FastAPI's modularity better aligns with domain-driven design
 
 ### Flask + SQLAlchemy (Manual DI)
+
 - **Pros:** Lightweight, minimal magic
 - **Cons:** No built-in async, manual dependency injection, no automatic API docs
 - **Rejected:** More boilerplate; FastAPI provides same flexibility with better DX
 
 ### TypeScript/Node.js (Express + Typeorm)
+
 - **Pros:** Single language across frontend/backend  
 - **Cons:** JavaScript ecosystem fragmentation, debugging complexity, slower execution
 - **Rejected:** Python's type safety through type hints rivals TypeScript without requiring compilation
 
 ### Go (Echo/Gin + GORM)
+
 - **Pros:** Fast execution, simple concurrency model
 - **Cons:** Steeper learning curve, verbose error handling, less suitable for data-heavy CRUD
 - **Rejected:** Overkill for current project size; Python's rapid iteration speed higher priority than raw execution speed
@@ -86,4 +90,3 @@ This stack strikes a balance between **developer productivity**, **code quality*
 - **Scalability:** Async I/O and connection pooling support high throughput. SQLAlchemy handles complex queries efficiently. Alembic supports zero-downtime migrations.
 
 This choice enables us to move fast while maintaining code quality and providing a strong foundation for growth.
-
