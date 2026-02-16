@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Callable
 from unittest.mock import Mock, create_autospec
 
 import pytest
@@ -39,23 +39,6 @@ def user_service(
         hash_password=hash_password,
         user_repository=user_repository,
     )
-
-
-@pytest.fixture
-def user_factory() -> Callable[..., User]:
-    def _make_user(**kwargs: Any) -> User:
-        defaults: dict[str, Any] = {
-            "id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
-            "email": "alice@example.com",
-            "hashed_password": "hashed_pw",
-            "role": "admin",
-            "active": True,
-            "created_at": "2026-02-15 18:42:18.340977+00",
-        }
-        defaults.update(kwargs)
-        return User(**defaults)
-
-    return _make_user
 
 
 def test_create_user_success(

@@ -12,7 +12,7 @@ class UserSchemaBase(BaseModel):
 class UserOut(UserSchemaBase):
     id: UUID
     role: str = "user"
-    created_at: datetime = datetime.now()
+    created_at: str = datetime.now().isoformat()
 
     model_config = {"from_attributes": True}
 

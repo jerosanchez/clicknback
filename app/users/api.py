@@ -51,7 +51,7 @@ async def create_user(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except PasswordNotComplexEnoughException as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         )
     except Exception as exc:
         raise HTTPException(
