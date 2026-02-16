@@ -1,4 +1,4 @@
-# ADR-001: Adopt Modular Monolith Approach
+# ADR 001: Adopt Modular Monolith Approach
 
 ## Status
 
@@ -6,36 +6,121 @@ Accepted
 
 ## Context
 
-When designing the architecture for this project, we considered two main options: building a system as a set of independent microservices from the start, or adopting a modular monolith approach. Microservices offer strong isolation, independent deployment, and scalability, but introduce significant complexity in terms of infrastructure, deployment, and inter-service communication. For many early-stage or evolving projects, this overhead can outweigh the benefits.
+When designing architecture, two main patterns emerge:
 
-The modular monolith approach, on the other hand, keeps the codebase within a single deployable unit but enforces clear boundaries between features/domains and layers.
+**Microservices from Day 1:**
+- ✅ Strong domain isolation
+- ❌ Distributed systems complexity (eventual consistency, service discovery, deployment infrastructure)
+- ❌ Higher operational burden (container orchestration, inter-service communication, debugging)
 
-This approach is common in FastAPI and other modern Python backends, and is a well-established pattern in the broader software engineering community.
+**Monolith:**
+- ✅ Simple operations
+- ❌ All features tightly coupled
+
+**Modular Monolith (Hybrid):**
+- ✅ Single deployable unit with independent domains
+- ✅ Can extract services later without major refactoring
+- ✅ Fast development + good maintainability
+- ✅ Well-established in Python community
 
 ## Decision
 
-- The project will be structured using a layered architecture:
-	- **API layer**: Handles HTTP requests and responses, input validation, and serialization.
-	- **Service layer**: Contains business logic and orchestrates operations between the API and repository layers.
-	- **Repository layer**: Manages data persistence and retrieval, abstracting the underlying database or storage mechanism.
-- Code will be organized by feature/domain, with each feature (e.g., users, merchants) having its own module containing all relevant logic for that domain.
-- This structure is intended to ease future refactoring, including the potential extraction of features into microservices.
+Use **modular monolith** with domain-driven directory structure:
+
+```
+app/
+├── core/             # Shared infrastructure
+│   ├── database.py
+│   ├── config.py
+│   └── security.py
+├── users/            # Feature domain: self-contained
+│   ├── api.py        # HTTP handlers
+│   ├── services.py   # Business logic
+│   ├── repositories.py  # Data access
+│   ├── models.py     # SQLAlchemy models
+│   ├── schemas.py    # Pydantic schemas
+│   └── exceptions.py
+└── merchants/        # Another feature domain
+    ├── api.py
+    ├── services.py
+    └── ...
+```
+
+### Layered Architecture Within Each Domain
+
+Services orchestrate business logic, not expose it to API:
+
+```python
+# app/users/services.py - Business logic isolated
+class UserService:
+    def create_user(self, data: dict, repository: UserRepository) -> User:
+        if repository.get_by_email(data["email"]):
+            raise EmailAlreadyRegisteredException()
+        user = User(**data)
+        return repository.add(user)
+
+# app/users/api.py - HTTP handlers delegate to services
+@router.post("/", response_model=UserResponse)
+async def create_user(data: CreateUserRequest, service: UserService = Depends()):
+    return service.create_user(data.model_dump())
+```
+
+### Domain Boundaries
+
+- Each domain owns its models, schemas, and exceptions
+- Domains communicate through services, never directly accessing repos
+- No circular dependencies between domains
 
 ## Consequences
 
-- Improved separation of concerns and maintainability.
-- Easier onboarding for new developers, as each feature is self-contained.
-- Facilitates future migration to microservices if/when required.
-- May introduce some duplication or indirection, but the benefits for scaling and maintainability outweigh these costs.
+- ✅ Clear separation of concerns (API/Service/Repository per domain)
+- ✅ Easy onboarding—each feature self-contained
+- ✅ Testable—layers independently testable with mocks (ADR 007)
+- ✅ Future-proof—extract service with minimal refactoring
+- ✅ Simple operations—single deployment, database, monitoring
+- ⚠️ Shared database means coordinated schema migrations
+- ⚠️ Cannot scale individual features independently
+- ⚠️ Large codebases need discipline on domain boundaries
 
-## Alternatives Considered
+## What NOT to Do
 
-- Organizing code strictly by technical layer (e.g., all models, all services, all repositories in separate folders).
-- Using a flat structure without clear separation of concerns.
+### Anti-Pattern: Organize by Technical Layer
+
+```
+app/
+├── models/       # All ORM together (BAD)
+├── services/     # All logic together (BAD)
+├── api/          # All handlers together (BAD)
+└── schemas/
+```
+
+**Problem:** Hard to find related code. Scattered across folders. Features blur together.
+
+### Anti-Pattern: Flat Structure
+
+```
+app/
+├── user_api.py
+├── user_service.py
+├── merchant_api.py
+├── merchant_service.py
+...
+```
+
+**Problem:** No clear boundaries. Implicit coupling.
 
 ## Rationale
 
-This decision aligns with best practices for scalable Python backends and prepares the codebase for future growth.
+**Pragmatic middle ground for early-stage projects:**
 
-It allows to balance maintainability, scalability, and simplicity, while keeping open the option to migrate to microservices as requirements evolve.
+- **Time to market:** Single process + shared DB = faster iteration
+- **Maintainability:** Clear boundaries prevent spaghetti code
+- **Growth path:** Extract service later if needed, no major refactoring
+- **Industry standard:** Netflix, Airbnb before moving to microservices
+
+**When to extract to microservices:**
+- A feature needs independent scaling
+- Languages/frameworks diverge per feature
+- Team grows large enough for service ownership
+- Operational infrastructure (Kubernetes, service mesh) is manageable
 
