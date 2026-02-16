@@ -1,8 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Column, Index, String
-from sqlalchemy import Enum as SqlEnum
+from sqlalchemy import Boolean, Column, Enum, Index, String
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 
 from app.core.database import Base
@@ -19,7 +18,7 @@ class User(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, nullable=False, unique=True)
     hashed_password = Column(String, nullable=False)
-    role = Column(SqlEnum(UserRoleEnum), nullable=False, default=UserRoleEnum.user)
+    role = Column(Enum(UserRoleEnum), nullable=False, default=UserRoleEnum.user)
     active = Column(Boolean, server_default="TRUE", nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default="now()")
 
