@@ -1,0 +1,62 @@
+### Happy path: create user
+POST http://localhost:8000/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### Sad path: email already registered
+POST http://localhost:8000/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### Sad path: password too short
+POST http://localhost:8000/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "shortpass@example.com",
+  "password": "S1!a"
+}
+
+### Sad path: missing uppercase letter
+POST http://localhost:8000/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "noupper@example.com",
+  "password": "str0ng!pass"
+}
+
+### Sad path: missing lowercase letter
+POST http://localhost:8000/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "nolower@example.com",
+  "password": "STR0NG!PASS"
+}
+
+### Sad path: missing digit
+POST http://localhost:8000/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "nodigit@example.com",
+  "password": "Strong!Pass"
+}
+
+### Sad path: missing special character
+POST http://localhost:8000/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "nospecial@example.com",
+  "password": "Str0ngPass"
+}

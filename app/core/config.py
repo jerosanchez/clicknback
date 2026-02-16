@@ -1,0 +1,16 @@
+import os
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    # --- database
+    database_url: str
+
+    model_config = {
+        "env_file": ".env" if os.path.exists(".env") else None,
+        "extra": "ignore",
+    }
+
+
+settings = Settings()  # type: ignore[call-arg]

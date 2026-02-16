@@ -1,0 +1,3 @@
+[flake8]
+# Ignore line length warnings (E501) project-wide
+ignore = E501
