@@ -9,7 +9,7 @@ from app.users.exceptions import (
     PasswordNotComplexEnoughException,
 )
 from app.users.password_utils import hash_password
-from app.users.policies import PasswordComplexityPolicy
+from app.users.policies import enforce_password_complexity
 from app.users.repositories import UserRepository
 from app.users.schemas import UserCreate, UserOut
 from app.users.services import (
@@ -19,8 +19,8 @@ from app.users.services import (
 router = APIRouter(prefix="/api/v1")
 
 
-def get_enforce_complexity_policy() -> Callable[[str], None]:
-    return lambda password: PasswordComplexityPolicy().enforce(password)
+def get_enforce_password_complexity() -> Callable[[str], None]:
+    return lambda password: enforce_password_complexity(password)
 
 
 def get_password_hasher():
@@ -33,7 +33,7 @@ def get_user_repository():
 
 def get_user_service():
     return UserService(
-        get_enforce_complexity_policy(),
+        get_enforce_password_complexity(),
         get_password_hasher(),
         get_user_repository(),
     )
