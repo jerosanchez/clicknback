@@ -23,6 +23,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: lint
+    env:
+      # Set a placeholder DATABASE_URL for testing purposes
+      DATABASE_URL: "postgresql://user:password@localhost:5432/db"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
