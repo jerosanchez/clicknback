@@ -1,5 +1,5 @@
 <!-- markdownlint-disable MD041 -->
-![CI](https://github.com/yourusername/clicknback/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/jerosanchez/clicknback/actions/workflows/ci.yml/badge.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)
 ![status: early development](https://img.shields.io/badge/status-early%20development-orange)
 <!-- markdownlint-enable MD041 -->
