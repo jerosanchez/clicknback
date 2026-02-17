@@ -1,6 +1,9 @@
-class EmailAlreadyRegisteredException(Exception):
+from app.core.exceptions import DomainException
+
+
+class EmailAlreadyRegisteredException(DomainException):
     pass
 
 
-class PasswordNotComplexEnoughException(Exception):
+class PasswordNotComplexEnoughException(DomainException):
     pass

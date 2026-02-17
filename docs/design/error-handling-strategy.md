@@ -204,17 +204,12 @@ ClickNBack uses a layered exception model matching the modular monolith architec
 ```text
 Exception (Python base)
 ├── DomainException (Base for all ClickNBack errors)
-│   ├── ValidationError (Input doesn't meet rules)
-│   ├── AuthenticationError (Invalid credentials)
-│   ├── AuthorizationError (Insufficient permissions)
-│   ├── ConflictError (Business rule violation, retryable)
-│   ├── UnprocessableError (Semantic validation failed, non-retryable)
-│   └── [Domain-specific errors]
-│       ├── EmailAlreadyRegisteredException
-│       ├── PasswordNotComplexEnoughException
-│       ├── InactiveOfferException
-│       ├── InsufficientBalanceException
-│       └── DuplicatePurchaseException
+│   ├── EmailAlreadyRegisteredException
+│   ├── PasswordNotComplexEnoughException
+│   ├── InactiveOfferException
+│   ├── InsufficientBalanceException
+│   ├── DuplicatePurchaseException
+│   └── ...
 ```
 
 **Rationale:**
