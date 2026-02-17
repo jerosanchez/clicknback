@@ -113,6 +113,36 @@ ClickNBack uses a focused set of HTTP status codes corresponding to error catego
 }
 ```
 
+#### Authentication Error (401)
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Authentication token is missing or invalid.",
+    "details": {
+      "issue": "Token expired",
+      "action": "Re-authenticate to obtain a fresh token."
+    }
+  }
+}
+```
+
+#### Forbidden Error (403)
+
+```json
+{
+    "error": {
+        "code": "FORBIDDEN",
+        "message": "You do not have permission to access this resource.",
+        "details": {
+            "required_role": "admin",
+            "action": "Contact your administrator or use an authorized account."
+        }
+    }
+}
+```
+
 #### Business Rule Violation (409)
 
 ```json
@@ -130,18 +160,19 @@ ClickNBack uses a focused set of HTTP status codes corresponding to error catego
 }
 ```
 
-#### Authentication Error (401)
+#### Unprocessable Entity Error (422)
 
 ```json
 {
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Authentication token is missing or invalid.",
-    "details": {
-      "issue": "Token expired",
-      "action": "Re-authenticate to obtain a fresh token."
+    "error": {
+        "code": "UNPROCESSABLE_ENTITY",
+        "message": "The offer is inactive and cannot be used.",
+        "details": {
+            "offer_id": "offer_456",
+            "status": "inactive",
+            "action": "Please select an active offer or contact support."
+        }
     }
-  }
 }
 ```
 
