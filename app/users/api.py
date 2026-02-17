@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -48,14 +49,50 @@ async def create_user(
     try:
         new_user = user_service.create_user(create_data.model_dump(), db)
     except EmailAlreadyRegisteredException as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        # 409 Conflict: Email already registered
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": {
+                    "code": "EMAIL_ALREADY_REGISTERED",
+                    "message": str(exc),
+                    "details": {
+                        "email": create_data.email,
+                    },
+                }
+            },
+        )
     except PasswordNotComplexEnoughException as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "PASSWORD_NOT_COMPLEX_ENOUGH",
+                    "message": "Validation failed for request body.",
+                    "details": {
+                        "violations": [
+                            {
+                                "field": "password",
+                                "reason": str(exc),
+                            },
+                        ]
+                    },
+                }
+            },
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "message": "An unexpected error occurred. Our team has been notified. Please retry later.",
+                    "details": {
+                        "request_id": "not available",
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                }
+            },
         )
 
     return new_user
