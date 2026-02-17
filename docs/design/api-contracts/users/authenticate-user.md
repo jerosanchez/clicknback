@@ -27,8 +27,40 @@
 
 ## Failure Responses
 
-- **401 Unauthorized** – wrong credentials
+### 400 Bad Request – Validation Error
 
-  ```json
-  { "error": "Invalid email or password" }
-  ```
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed for request body.",
+    "details": {
+      "violations": [
+        {
+          "field": "email",
+          "reason": "Email is required."
+        },
+        {
+          "field": "password",
+          "reason": "Password is required."
+        }
+      ]
+    }
+  }
+}
+```
+
+### 401 Unauthorized – Invalid Credentials
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Email or password is incorrect. Please check your credentials and try again.",
+    "details": {
+      "issue": "Authentication failed",
+      "action": "Verify your email and password. If you forgot your password, use the password recovery option."
+    }
+  }
+}
+```

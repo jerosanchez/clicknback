@@ -32,26 +32,80 @@
 
 ## Failure Responses
 
-- **400 Bad Request** – invalid request payload
+### 400 Bad Request – Validation Error
 
-  ```json
-  { "error": "Invalid amount or missing bank details" }
-  ```
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed for request body.",
+    "details": {
+      "violations": [
+        {
+          "field": "amount",
+          "reason": "Amount must be positive and a valid decimal."
+        },
+        {
+          "field": "method",
+          "reason": "Payment method must be one of: bank_transfer, card."
+        },
+        {
+          "field": "details.iban",
+          "reason": "IBAN format is invalid for bank_transfer method."
+        }
+      ]
+    }
+  }
+}
+```
 
-- **403 Forbidden** – withdrawal policy not met (e.g., minimum amount, frequency cap)
+### 401 Unauthorized – Missing Authentication
 
-  ```json
-  { "error": "Withdrawal policy not satisfied" }
-  ```
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Authentication token is missing or invalid.",
+    "details": {
+      "issue": "Token expired or malformed",
+      "action": "Include a valid Bearer token in the Authorization header."
+    }
+  }
+}
+```
 
-- **409 Conflict** – insufficient available balance
+### 409 Conflict – Insufficient Available Balance
 
-  ```json
-  { "error": "Available balance (25.50) is less than requested amount (50.00)" }
-  ```
+```json
+{
+  "error": {
+    "code": "INSUFFICIENT_BALANCE",
+    "message": "Available balance (25.50) is less than requested amount (50.00).",
+    "details": {
+      "requested_amount": 50.00,
+      "available_balance": 25.50,
+      "pending_balance": 5.00,
+      "action": "Request a smaller amount or wait for pending cashback to be confirmed."
+    }
+  }
+}
+```
 
-- **401 Unauthorized** – user not authenticated
+### 422 Unprocessable Entity – Withdrawal Policy Violation
 
-  ```json
-  { "error": "Unauthorized" }
-  ```
+```json
+{
+  "error": {
+    "code": "UNPROCESSABLE_ENTITY",
+    "message": "Withdrawal request violates policy constraints.",
+    "details": {
+      "violations": [
+        "Minimum withdrawal amount is 10.00. Requested: 5.00.",
+        "Weekly withdrawal limit (200.00) would be exceeded. Already withdrawn this week: 195.00.",
+        "Must wait 48 hours between withdrawals. Last withdrawal was 24 hours ago."
+      ],
+      "action": "Adjust request amount or timing according to policy limits."
+    }
+  }
+}
+```

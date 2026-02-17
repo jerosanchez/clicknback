@@ -23,5 +23,48 @@
 
 ## Failure Responses
 
-- **404 Not Found** – offer does not exist
-- **403 Forbidden** – user not authorized
+### 401 Unauthorized – Missing Authentication
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Authentication token is missing or invalid.",
+    "details": {
+      "issue": "Token expired or malformed",
+      "action": "Include a valid Bearer token in the Authorization header."
+    }
+  }
+}
+```
+
+### 403 Forbidden – Insufficient Permissions
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You do not have permission to view this offer.",
+    "details": {
+      "resource_type": "offer",
+      "resource_id": "f4b0c442-98fc-1c14-9afb-4c4e6c2e2a8c",
+      "reason": "Only admin users and merchants can view inactive offers."
+    }
+  }
+}
+```
+
+### 404 Not Found – Offer Does Not Exist
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Offer with ID 'f4b0c442-98fc-1c14-9afb-4c4e6c2e2a8c' does not exist.",
+    "details": {
+      "resource_type": "offer",
+      "resource_id": "f4b0c442-98fc-1c14-9afb-4c4e6c2e2a8c"
+    }
+  }
+}
+```

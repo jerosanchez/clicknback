@@ -24,8 +24,17 @@
 
 ## Failure Responses
 
-- **401 Unauthorized** – missing/invalid token
+### 401 Unauthorized – Missing or Invalid Token
 
-  ```json
-  { "error": "Unauthorized" }
-  ```
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Authentication token is missing or invalid.",
+    "details": {
+      "issue": "Token expired or malformed",
+      "action": "Re-authenticate to obtain a fresh token."
+    }
+  }
+}
+```

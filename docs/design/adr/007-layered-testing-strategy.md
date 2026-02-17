@@ -121,9 +121,9 @@ def test_create_user_returns_422_on_weak_password(user_service_mock):
 - Include realistic error scenarios
 - Verify response formats and status codes match contracts
 
-## What NOT to Unit Test
+### What NOT to Unit Test
 
-### Thin Repositories
+#### Thin Repositories
 
 Direct ORM query forwarders are not unit tested because:
 
@@ -154,7 +154,7 @@ def find_eligible_cashback_users(self, db, min_transactions, min_amount):
         .all()
 ```
 
-### Shared Test Infrastructure
+#### Shared Test Infrastructure
 
 - **conftest.py:** Place common fixtures here (factories, DB session, mocked services)
 - **Factory fixtures:** Reusable across all test types for consistent test data

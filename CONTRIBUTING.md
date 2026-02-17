@@ -116,38 +116,6 @@ Follow a pragmatic approach:
 - Prioritize **simplicity and maintainability** over over-engineering
 - Keep options open for growth as the project evolves
 
-## Project Structure
-
-```text
-app/
-├── core/               # Application configuration and infrastructure
-│   ├── config.py       # Environment and app settings
-│   └── database.py     # Database session management
-├── users/              # Domain module: User management
-│   ├── api.py          # FastAPI route handlers
-│   ├── schemas.py      # Request/response schemas (Pydantic)
-│   ├── models.py       # SQLAlchemy database models
-│   ├── repositories.py # Data access layer
-│   ├── services.py     # Business logic
-│   ├── policies.py     # Domain policies and rules
-│   ├── exceptions.py   # Domain exceptions
-│   └── ...
-└── main.py             # Application entry point
-
-tests/
-├── conftest.py         # Pytest fixtures and shared test configuration
-└── users/
-    ├── test_users_api.py        # API endpoint tests
-    ├── test_users_services.py   # Business logic tests
-    ├── test_users_policies.py   # Policy and validation tests
-    └── ...
-docs/
-├── adr/                # Architecture Decision Records
-├── agents/             # Coding guidelines for human devs & AI
-├── design/             # Design documents and specs
-└── specs/              # Use cases and feature specifications
-```
-
 ## Quality Enforcement
 
 To ensure code quality and consistency, always run the following before pushing or opening a pull request:

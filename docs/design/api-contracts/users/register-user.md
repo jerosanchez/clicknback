@@ -29,14 +29,60 @@
 
 ## Failure Responses
 
-- **409 Conflict** – email already registered
+### 400 Bad Request – Validation Error
 
-  ```json
-  { "detail": "Email already registered." }
-  ```
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed for request body.",
+    "details": {
+      "violations": [
+        {
+          "field": "email",
+          "reason": "Invalid email format."
+        },
+        {
+          "field": "password",
+          "reason": "Password must be at least 12 characters."
+        }
+      ]
+    }
+  }
+}
+```
 
-- **422 Unprocessable Entity** – password not complex enough
+### 409 Conflict – Email Already Registered
 
-  ```json
-  { "detail": "Password must contain at least one special character." }
-  ```
+```json
+{
+  "error": {
+    "code": "EMAIL_ALREADY_REGISTERED",
+    "message": "Email 'alice@example.com' is already registered. Use a different email or recover your account.",
+    "details": {
+      "email": "alice@example.com",
+      "timestamp": "2026-02-17T14:33:22Z"
+    }
+  }
+}
+```
+
+### 422 Unprocessable Entity – Password Not Complex Enough
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Password does not meet complexity requirements.",
+    "details": {
+      "field": "password",
+      "violations": [
+        "Password must be at least 12 characters.",
+        "Must contain at least one special character (e.g., !@#$%^&*).",
+        "Must contain at least one uppercase letter.",
+        "Must contain at least one digit."
+      ]
+    }
+  }
+}
+```

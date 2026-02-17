@@ -15,3 +15,20 @@
   "paid_balance": 100.00
 }
 ```
+
+## Failure Responses
+
+### 401 Unauthorized – Missing Authentication
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Authentication token is missing or invalid.",
+    "details": {
+      "issue": "Token expired or malformed",
+      "action": "Include a valid Bearer token in the Authorization header."
+    }
+  }
+}
+```
