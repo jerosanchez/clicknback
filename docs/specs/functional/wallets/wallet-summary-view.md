@@ -73,3 +73,7 @@ Authenticated user successfully views wallet summary
 3. System retrieves wallet record.
 4. System finds user has no balance activity.
 5. System returns `HTTP 200 OK` with all balances as zero.
+
+## API Contract
+
+See [Get wallet summary](../../design/api-contracts/wallets/get-wallet-summary.md) for detailed API specifications.

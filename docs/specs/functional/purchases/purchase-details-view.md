@@ -90,3 +90,7 @@ Authenticated user successfully views purchase details
 3. System attempts to retrieve purchase.
 4. System finds purchase does not exist.
 5. System returns `HTTP 404 Not Found`.
+
+## API Contract
+
+See [Get purchase details](../../design/api-contracts/purchases/get-purchase-details.md) for detailed API specifications.

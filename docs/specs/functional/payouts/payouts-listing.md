@@ -88,3 +88,7 @@ Admin successfully retrieves all payouts
 3. System retrieves payouts matching filters.
 4. System finds no payouts match criteria.
 5. System returns `HTTP 200 OK` with empty paginated list.
+
+## API Contract
+
+See [List all payouts](../../design/api-contracts/payouts/list-payouts.md) for detailed API specifications.

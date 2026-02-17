@@ -81,3 +81,8 @@ A registered user successfully authenticates with valid credentials
 2. System validates email format.
 3. System detects invalid email format.
 4. System returns `HTTP 400 Bad Request` with validation error.
+
+## API Contracts
+
+- [Authenticate user, return JWT](../../design/api-contracts/users/authenticate-user.md) for login specifications
+- [Get current authenticated user info](../../design/api-contracts/users/get-current-user.md) for retrieving user details

@@ -100,3 +100,7 @@ An admin successfully creates a new cashback offer
 3. System validates offer configuration.
 4. System detects invalid cashback amount.
 5. System returns `HTTP 400 Bad Request` with validation error.
+
+## API Contract
+
+See [Create cashback offer](../../design/api-contracts/offers/create-offer.md) for detailed API specifications.

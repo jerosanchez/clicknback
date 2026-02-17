@@ -102,3 +102,7 @@ Admin successfully completes payout processing
 2. System verifies authentication.
 3. System finds no valid credentials.
 4. System returns `HTTP 401 Unauthorized`.
+
+## API Contract
+
+See [Complete/fail payout](../../design/api-contracts/payouts/process-payout.md) for detailed API specifications.

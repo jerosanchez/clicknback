@@ -92,3 +92,7 @@ An authenticated user successfully discovers active offers
 3. System validates pagination parameters.
 4. System detects invalid parameters.
 5. System returns `HTTP 400 Bad Request` with validation error.
+
+## API Contract
+
+See [List active offers for users](../../design/api-contracts/offers/list-active-offers.md) for detailed API specifications.

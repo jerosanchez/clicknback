@@ -100,3 +100,7 @@ Admin successfully reverses a purchase
 2. System verifies authentication.
 3. System finds no valid credentials.
 4. System returns `HTTP 401 Unauthorized`.
+
+## API Contract
+
+See [Reverse purchase](../../design/api-contracts/purchases/reverse-purchase.md) for detailed API specifications.

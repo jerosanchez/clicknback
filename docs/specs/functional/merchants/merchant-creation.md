@@ -86,3 +86,7 @@ An authenticated admin successfully creates a new merchant
 3. System validates merchant input.
 4. System detects validation errors.
 5. System returns `HTTP 400 Bad Request` with error details.
+
+## API Contract
+
+See [Create a merchant](../../design/api-contracts/merchants/create-merchant.md) for detailed API specifications.

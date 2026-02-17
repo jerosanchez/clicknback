@@ -89,3 +89,7 @@ Authentication user successfully retrieves purchase history
 3. System validates pagination parameters.
 4. System detects invalid parameters.
 5. System returns `HTTP 400 Bad Request` with validation error.
+
+## API Contract
+
+See [List user purchases](../../design/api-contracts/purchases/list-user-purchases.md) for detailed API specifications.

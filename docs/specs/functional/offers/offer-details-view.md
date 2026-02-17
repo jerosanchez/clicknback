@@ -100,3 +100,7 @@ Unauthenticated Request
 4. System checks associated merchant status.
 5. System finds merchant is inactive.
 6. System returns `HTTP 404 Not Found` or `HTTP 403 Forbidden`.
+
+## API Contract
+
+See [Get offer details](../../design/api-contracts/offers/get-offer-details.md) for detailed API specifications.

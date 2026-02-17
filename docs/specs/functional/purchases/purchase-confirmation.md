@@ -100,3 +100,7 @@ Admin successfully confirms a pending purchase
 2. System verifies authentication.
 3. System finds no valid credentials.
 4. System returns `HTTP 401 Unauthorized`.
+
+## API Contract
+
+See [Confirm purchase](../../design/api-contracts/purchases/confirm-purchase.md) for detailed API specifications.

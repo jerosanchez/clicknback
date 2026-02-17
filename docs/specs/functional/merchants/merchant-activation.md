@@ -89,3 +89,7 @@ An admin successfully changes merchant availability status
 2. System verifies authentication.
 3. System finds no valid credentials.
 4. System returns `HTTP 401 Unauthorized`.
+
+## API Contract
+
+See [Activate/deactivate merchant](../../design/api-contracts/merchants/activate-deactivate-merchant.md) for detailed API specifications.

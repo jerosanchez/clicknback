@@ -88,3 +88,7 @@ An authenticated admin successfully retrieves merchant list
 3. System retrieves merchant records from database.
 4. System finds no merchants exist.
 5. System returns `HTTP 200 OK` with empty paginated list.
+
+## API Contract
+
+See [List merchants](../../design/api-contracts/merchants/list-merchants.md) for detailed API specifications.

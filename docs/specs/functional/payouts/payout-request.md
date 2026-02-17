@@ -104,3 +104,7 @@ Authenticated user successfully requests payout
 3. System validates requested amount.
 4. System detects invalid amount.
 5. System returns `HTTP 400 Bad Request` with validation error.
+
+## API Contract
+
+See [Request payout](../../design/api-contracts/payouts/request-payout.md) for detailed API specifications.

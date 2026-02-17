@@ -88,3 +88,7 @@ Authenticated user successfully retrieves transaction history
 3. System validates pagination parameters.
 4. System detects invalid parameters.
 5. System returns `HTTP 400 Bad Request` with validation error.
+
+## API Contract
+
+See [List wallet transactions](../../design/api-contracts/wallets/list-wallet-transactions.md) for detailed API specifications.

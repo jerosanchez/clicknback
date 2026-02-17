@@ -89,3 +89,7 @@ An authenticated admin successfully retrieves offer list
 3. System retrieves offer records from database.
 4. System finds no offers exist.
 5. System returns `HTTP 200 OK` with empty paginated list.
+
+## API Contract
+
+See [List all offers](../../design/api-contracts/offers/list-offers.md) for detailed API specifications.

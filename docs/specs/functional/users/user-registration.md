@@ -87,3 +87,7 @@ A new user successfully registers with valid email and password
 3. System enforces password complexity.
 4. System detects password does not meet requirements.
 5. System returns `HTTP 422 Unprocessable Content` with password requirements error.
+
+## API Contract
+
+See [Register a new user](../../design/api-contracts/users/register-user.md) for detailed API specifications.

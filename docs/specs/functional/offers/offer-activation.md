@@ -89,3 +89,7 @@ An admin successfully changes offer availability status
 2. System verifies authentication.
 3. System finds no valid credentials.
 4. System returns `HTTP 401 Unauthorized`.
+
+## API Contract
+
+See [Activate/deactivate offer](../../design/api-contracts/offers/activate-deactivate-offer.md) for detailed API specifications.

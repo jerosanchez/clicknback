@@ -92,3 +92,7 @@ External system successfully ingests a new purchase
 3. System validates purchase data.
 4. System detects invalid data.
 5. System returns `HTTP 400 Bad Request` with validation error.
+
+## API Contract
+
+See [Ingest purchase](../../design/api-contracts/purchases/ingest-purchase.md) for detailed API specifications.
