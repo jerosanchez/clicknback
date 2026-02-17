@@ -49,7 +49,6 @@ async def create_user(
     try:
         new_user = user_service.create_user(create_data.model_dump(), db)
     except EmailAlreadyRegisteredException as exc:
-        # 409 Conflict: Email already registered
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
