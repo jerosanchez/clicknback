@@ -21,6 +21,7 @@ We adopt a **layered testing strategy** with three tiers:
 **Scope:** Service layer, API layer (for error handling/status codes), and business logic modules (policies, utilities, validators, etc.)
 
 **Approach:**
+
 - Use pytest fixtures for dependency injection
 - Mock external dependencies (repositories, external APIs, services, etc.)
 - Use `create_autospec()` for type-safe mocks
@@ -56,6 +57,7 @@ def test_create_user_success(user_service, user_factory):
 **What to test:** HTTP status codes, error response mappings, response schema correctness
 
 **When to test:**
+
 - Error scenarios → verify correct status codes (409 for conflict, 422 for validation, etc.)
 - Exception handling → ensure service exceptions map to proper HTTP responses
 - Response serialization → verify schema correctness and field transformations
@@ -99,6 +101,7 @@ def test_create_user_returns_422_on_weak_password(user_service_mock):
 **Scope:** Service + Repository + Database interactions
 
 **Approach:**
+
 - Use a real test database (containerized PostgreSQL via docker-compose)
 - Seed test data using factory fixtures
 - Test complete workflows with real DB transactions
@@ -112,14 +115,15 @@ def test_create_user_returns_422_on_weak_password(user_service_mock):
 **Scope:** Full API request/response cycles for key workflows
 
 **Approach:**
+
 - Use `TestClient` from FastAPI to make HTTP requests
 - Test complete user journeys (auth, transactions, cashback calculations)
 - Include realistic error scenarios
 - Verify response formats and status codes match contracts
 
-## What NOT to Unit Test
+### What NOT to Unit Test
 
-### Thin Repositories
+#### Thin Repositories
 
 Direct ORM query forwarders are not unit tested because:
 
@@ -130,6 +134,7 @@ Direct ORM query forwarders are not unit tested because:
 5. ORM migration becomes complicated when tests depend on SQL query details
 
 **Example—No unit test needed:**
+
 ```python
 class UserRepository:
     def get_user_by_email(self, db: Session, email: str) -> User | None:
@@ -137,6 +142,7 @@ class UserRepository:
 ```
 
 **However, test these if they have complex logic:**
+
 ```python
 # This would benefit from a unit or integration test
 def find_eligible_cashback_users(self, db, min_transactions, min_amount):
@@ -148,7 +154,7 @@ def find_eligible_cashback_users(self, db, min_transactions, min_amount):
         .all()
 ```
 
-### Shared Test Infrastructure
+#### Shared Test Infrastructure
 
 - **conftest.py:** Place common fixtures here (factories, DB session, mocked services)
 - **Factory fixtures:** Reusable across all test types for consistent test data
@@ -169,10 +175,8 @@ def find_eligible_cashback_users(self, db, min_transactions, min_amount):
 
 1. **Unit test everything** (services, repositories, utils)
    - Rejected: Too much maintenance burden, requires test DB for repository tests, doesn't scale
-   
 2. **Only E2E tests**
    - Rejected: Slow feedback loop, hard to debug business logic issues, expensive to run
-   
 3. **Test repositories with fixtures/test records**
    - Rejected: Same maintenance cost, but without the integration test benefits
 
@@ -182,7 +186,7 @@ This approach balances several competing concerns:
 
 - **Developer velocity:** Fast unit test feedback on business logic and HTTP contracts
 - **Maintainability:** Avoid testing thin wrapper code that will change; focus on behavior
-- **Confidence:** 
+- **Confidence:**
   - Service tests catch business logic bugs
   - API tests catch HTTP contract violations (wrong status codes, bad error messages)
   - Integration tests verify real DB interactions

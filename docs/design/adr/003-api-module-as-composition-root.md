@@ -8,7 +8,8 @@ Accepted
 
 In FastAPI projects, dependencies (services, policies, repositories) must be composed and injected. Where should this wiring happen?
 
-**Option 1: Centralized Container**
+### Option 1: Centralized Container
+
 ```python
 # composition_root.py
 @contextmanager
@@ -17,11 +18,13 @@ def create_user_service():
     policy = PasswordPolicy()
     yield UserService(repo, policy)
 ```
+
 - ✅ Single place to understand wiring
 - ❌ Couples features together
 - ❌ Hard to extend per-feature logic
 
-**Option 2: Feature-Level Composition (per API module)**
+### Option 2: Feature-Level Composition (per API module)
+
 ```python
 # app/users/api.py - Wiring close to usage
 def get_user_service(db: Session = Depends(get_db)) -> UserService:
@@ -33,12 +36,14 @@ def get_user_service(db: Session = Depends(get_db)) -> UserService:
 async def create_user(service = Depends(get_user_service)):
     ...
 ```
+
 - ✅ Explicit and colocated with usage
 - ✅ Each feature manages its own dependencies
 - ✅ Easy to override in tests
 - ✅ Aligns with FastAPI idioms
 
-**Option 3: DI Container Framework (python-dependency-injector)**
+### Option 3: DI Container Framework (python-dependency-injector)
+
 ```python
 class Container(containers.DeclarativeContainer):
     config = providers.Configuration()
@@ -48,6 +53,7 @@ class Container(containers.DeclarativeContainer):
         repository=providers.Factory(UserRepository, db=db)
     )
 ```
+
 - ✅ Powerful for complex scenarios
 - ❌ Overkill for Flask/FastAPI micro-services
 - ❌ Learning curve, harder to debug
@@ -134,16 +140,19 @@ def test_create_user_returns_409_on_duplicate(client):
 ## Alternatives Considered
 
 ### Centralized Composition Root
+
 - **Pros:** Single view of all dependencies
 - **Cons:** Couples all features together, centralized bottleneck
 - **Rejected:** Harder to scale to multiple teams/domains
 
 ### Dependency Injection Framework
+
 - **Pros:** Powerful, flexible, industry-standard in some ecosystems
 - **Cons:** Overkill for FastAPI, adds learning curve and complexity
 - **Rejected:** FastAPI's built-in DI is sufficient and more idiomatic
 
 ### Global Dependency Imports
+
 - **Pros:** Minimal boilerplate
 - **Cons:** Hidden dependencies, hard to test, implicit contracts
 - **Rejected:** Violates explicit-is-better-than-implicit principle
@@ -160,6 +169,7 @@ FastAPI's dependency injection system is designed to work exactly like this appr
 This approach balances **clarity** (explicit wiring), **maintainability** (per-feature composition), and **testability** (easy overrides) without requiring external frameworks or complex configuration.
 
 **When to reconsider:**
+
 - Project has 50+ features and composition becomes unwieldy (migrate to centralized container)
 - Multiple teams own different features and need guaranteed composition consistency
 - Deployment configuration needs to vary per environment (add configuration layer)

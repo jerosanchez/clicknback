@@ -8,7 +8,8 @@ Accepted
 
 Services frequently need utility dependencies: password hashers, validation policies, encryption functions. How should these be provided?
 
-**Option 1: Inject Objects/Classes**
+### Option 1: Inject Objects/Classes
+
 ```python
 class PasswordHasher:
     def hash(self, password: str) -> str:
@@ -25,7 +26,8 @@ class UserService:
 
 **Cost:** Extra object overhead for stateless utilities. More boilerplate.
 
-**Option 2: Inject Callables (Functions/Lambdas)**
+### Option 2: Inject Callables (Functions/Lambdas)
+
 ```python
 from passlib.context import CryptContext
 
@@ -176,15 +178,18 @@ This approach aligns with **Pythonic principles**:
 - **Practicality beats purity:** Testability and flexibility without boilerplate
 
 **Cost/Benefit:**
+
 - Cost of injecting functions: Zero additional code vs. classes
 - Benefit: Easier testing, simpler code, fewer objects in memory
 
 **When to use objects instead:**
+
 - Dependency has state (configuration, cached values)
 - Dependency has multiple related functions (strategy pattern)
 - Dependency needs lifecycle management (close connections, cleanup)
 
 **Example of when NOT to use functions:**
+
 ```python
 class DatabaseConnection:
     def __init__(self, connection_string: str):
@@ -198,4 +203,3 @@ class DatabaseConnection:
 
 # This HAS STATE and LIFECYCLE -> use class, don't use function
 ```
-

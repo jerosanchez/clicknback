@@ -10,8 +10,24 @@ from app.users.policies import enforce_password_complexity
 
 def random_password(length: int = 12, chars: Optional[str] = None) -> str:
     if chars is None:
-        chars = string.ascii_letters + string.digits + string.punctuation
-    return "".join(random.choice(chars) for _ in range(length))
+        if length < 8:
+            raise ValueError(
+                "Password length must be at least 8 to satisfy complexity requirements."
+            )
+        # Ensure at least one from each category
+        password = [
+            random.choice(string.ascii_uppercase),
+            random.choice(string.ascii_lowercase),
+            random.choice(string.digits),
+            random.choice(string.punctuation),
+        ]
+        all_chars = string.ascii_letters + string.digits + string.punctuation
+        password += [random.choice(all_chars) for _ in range(length - 4)]
+        random.shuffle(password)
+
+        return "".join(password)
+    else:
+        return "".join(random.choice(chars) for _ in range(length))
 
 
 @pytest.mark.parametrize(

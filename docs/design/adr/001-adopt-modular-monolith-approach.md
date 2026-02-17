@@ -9,15 +9,18 @@ Accepted
 When designing architecture, two main patterns emerge:
 
 **Microservices from Day 1:**
+
 - ✅ Strong domain isolation
 - ❌ Distributed systems complexity (eventual consistency, service discovery, deployment infrastructure)
 - ❌ Higher operational burden (container orchestration, inter-service communication, debugging)
 
 **Monolith:**
+
 - ✅ Simple operations
 - ❌ All features tightly coupled
 
 **Modular Monolith (Hybrid):**
+
 - ✅ Single deployable unit with independent domains
 - ✅ Can extract services later without major refactoring
 - ✅ Fast development + good maintainability
@@ -27,7 +30,7 @@ When designing architecture, two main patterns emerge:
 
 Use **modular monolith** with domain-driven directory structure:
 
-```
+```text
 app/
 ├── core/             # Shared infrastructure
 │   ├── database.py
@@ -86,7 +89,7 @@ async def create_user(data: CreateUserRequest, service: UserService = Depends())
 
 ### Anti-Pattern: Organize by Technical Layer
 
-```
+```text
 app/
 ├── models/       # All ORM together (BAD)
 ├── services/     # All logic together (BAD)
@@ -98,7 +101,7 @@ app/
 
 ### Anti-Pattern: Flat Structure
 
-```
+```text
 app/
 ├── user_api.py
 ├── user_service.py
@@ -119,8 +122,8 @@ app/
 - **Industry standard:** Netflix, Airbnb before moving to microservices
 
 **When to extract to microservices:**
+
 - A feature needs independent scaling
 - Languages/frameworks diverge per feature
 - Team grows large enough for service ownership
 - Operational infrastructure (Kubernetes, service mesh) is manageable
-

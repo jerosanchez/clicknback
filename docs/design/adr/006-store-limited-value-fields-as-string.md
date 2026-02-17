@@ -8,7 +8,8 @@ Accepted
 
 For limited-value fields (role, status, type), two strategies exist:
 
-**Strategy 1: Database ENUM Type**
+### Strategy 1: Database ENUM Type
+
 ```sql
 CREATE TYPE user_role AS ENUM ('admin', 'user', 'merchant');
 
@@ -17,18 +18,21 @@ CREATE TABLE users (
   role user_role NOT NULL
 );
 ```
+
 - ✅ Strong database constraints
 - ❌ Schema migration required for every value change
 - ❌ Migration downtime and complexity
 - ❌ Hard to deprecate old values
 
-**Strategy 2: Application-Level Validation (String Column)**
+### Strategy 2: Application-Level Validation (String Column)
+
 ```sql
 CREATE TABLE users (
   id UUID PRIMARY KEY,
   role VARCHAR(50) NOT NULL
 );
 ```
+
 - ✅ Change valid values in code, no DB migration
 - ✅ Easier to add/deprecate/rename values
 - ✅ Flexible (list values can evolve dynamically)
@@ -108,6 +112,7 @@ No database migration needed. Code deployment = done.
 ### Anti-Pattern: Trusting Only Database Constraints
 
 ❌ **DON'T**
+
 ```python
 # If you only rely on DB constraint, you can't change values without migration
 class User(Base):
@@ -124,6 +129,7 @@ def get_user(user_id):
 ### Anti-Pattern: Skip Validation Entirely
 
 ❌ **DON'T** Accept any string for role:
+
 ```python
 @router.put(\"/users/{user_id}\")
 def update_user(user_id: str, data: dict):

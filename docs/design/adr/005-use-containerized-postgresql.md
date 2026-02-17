@@ -7,6 +7,7 @@ Accepted
 ## Context
 
 Database setup varies across developer machines and deployment targets, leading to:
+
 - Environment-specific bugs ("Works on my machine")
 - Inconsistent testing environments  
 - Long onboarding time for new developers
@@ -44,4 +45,3 @@ Use **containerized PostgreSQL via Docker Compose** for all environments.
 **Docker:** Industry standard consistency (Netflix, Amazon, Google). Same image dev/test/prod. Simple lifecycle. Works offline.
 
 For production, consider managed PostgreSQL (AWS RDS) to avoid operational burden. Docker Compose excellent for development and can power CI/CD pipelines.
-
