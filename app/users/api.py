@@ -1,10 +1,15 @@
 from collections.abc import Callable
-from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.errors.builders import (
+    business_rule_violation_error,
+    internal_server_error,
+    validation_error,
+)
+from app.users.errors import ErrorCode
 from app.users.exceptions import (
     EmailAlreadyRegisteredException,
     PasswordNotComplexEnoughException,
@@ -49,49 +54,23 @@ async def create_user(
     try:
         new_user = user_service.create_user(create_data.model_dump(), db)
     except EmailAlreadyRegisteredException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "error": {
-                    "code": "EMAIL_ALREADY_REGISTERED",
-                    "message": str(exc),
-                    "details": {
-                        "email": create_data.email,
-                    },
-                }
-            },
+        raise business_rule_violation_error(
+            ErrorCode.EMAIL_ALREADY_REGISTERED,
+            str(exc),
+            {"email": exc.email},
         )
     except PasswordNotComplexEnoughException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": {
-                    "code": "PASSWORD_NOT_COMPLEX_ENOUGH",
-                    "message": "Validation failed for request body.",
-                    "details": {
-                        "violations": [
-                            {
-                                "field": "password",
-                                "reason": str(exc),
-                            },
-                        ]
-                    },
-                }
-            },
+        raise validation_error(
+            ErrorCode.PASSWORD_NOT_COMPLEX_ENOUGH,
+            "Password does not meet complexity requirements.",
+            [
+                {
+                    "field": "password",
+                    "reason": exc.reason,
+                },
+            ],
         )
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": {
-                    "code": "INTERNAL_SERVER_ERROR",
-                    "message": "An unexpected error occurred. Our team has been notified. Please retry later.",
-                    "details": {
-                        "request_id": "not available",
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                }
-            },
-        )
+        raise internal_server_error()
 
     return new_user
