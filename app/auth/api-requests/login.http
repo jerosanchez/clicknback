@@ -6,7 +6,7 @@ Content-Type: application/json
 
 {
   "email": "alice@example.com",
-  "password": "S3cureP@ss!"
+  "password": "Str0ng!Pass"
 }
 
 ### Sad path: non-existent user

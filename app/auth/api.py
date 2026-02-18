@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.auth.clients import UserClient
-from app.auth.exceptions import UserNotFoundException
+from app.auth.exceptions import PasswordVerificationException, UserNotFoundException
 from app.auth.models import Token
 from app.auth.providers import JwtOAuth2TokenProvider, OAuth2TokenProviderABC
 from app.auth.schemas import Login
@@ -38,7 +38,7 @@ async def login(
     try:
         return auth_service.login(login_data.model_dump(), db)
 
-    except UserNotFoundException:
+    except (UserNotFoundException, PasswordVerificationException):
         raise authentication_error("Invalid email or password.")
 
     except Exception:
