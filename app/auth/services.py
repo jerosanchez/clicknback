@@ -2,7 +2,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.auth.clients import UserClientABC
+from app.auth.clients import UsersClientABC
 from app.auth.exceptions import PasswordVerificationException, UserNotFoundException
 from app.auth.models import Token, TokenPayload
 from app.auth.password_utils import verify_password
@@ -12,7 +12,7 @@ from app.auth.providers import OAuth2TokenProviderABC
 class AuthService:
     def __init__(
         self,
-        users_client: UserClientABC,
+        users_client: UsersClientABC,
         token_provider: OAuth2TokenProviderABC,
     ):
         self.users_client = users_client

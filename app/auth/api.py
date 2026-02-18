@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.clients import UserClient
+from app.auth.clients import UsersClient
 from app.auth.exceptions import PasswordVerificationException, UserNotFoundException
 from app.auth.models import Token
 from app.auth.providers import JwtOAuth2TokenProvider, OAuth2TokenProviderABC
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1")
 
 
 def get_users_client(user_repository: UserRepository = Depends()):
-    return UserClient(user_repository)
+    return UsersClient(user_repository)
 
 
 def get_token_provider():
@@ -23,7 +23,7 @@ def get_token_provider():
 
 
 def get_auth_service(
-    users_client: UserClient = Depends(get_users_client),
+    users_client: UsersClient = Depends(get_users_client),
     token_provider: OAuth2TokenProviderABC = Depends(get_token_provider),
 ):
     return AuthService(users_client, token_provider)

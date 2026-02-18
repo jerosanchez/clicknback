@@ -7,13 +7,13 @@ from app.auth.models import User
 from app.users.repositories import UserRepository
 
 
-class UserClientABC(ABC):
+class UsersClientABC(ABC):
     @abstractmethod
     def get_user_by_email(self, db: Session, email: str) -> Optional[User]:
         pass
 
 
-class UserClient(UserClientABC):
+class UsersClient(UsersClientABC):
     def __init__(self, user_repository: UserRepository):
         self.user_repository = user_repository
 
