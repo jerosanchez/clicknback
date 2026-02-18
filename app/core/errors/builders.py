@@ -53,7 +53,7 @@ def unprocessable_entity_error(
 ) -> HTTPException:
     """Build a 422 Unprocessable Entity error."""
     return HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail=_error_response(code, message, details),
     )
 
