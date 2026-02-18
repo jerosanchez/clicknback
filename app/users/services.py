@@ -33,6 +33,4 @@ class UserService:
 
     def _enforce_email_uniqueness(self, email: str, db: Session) -> None:
         if self.user_repository.get_user_by_email(db, email):
-            raise EmailAlreadyRegisteredException(
-                f"Email '{email}' is already registered."
-            )
+            raise EmailAlreadyRegisteredException(email)
