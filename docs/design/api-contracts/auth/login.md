@@ -1,6 +1,6 @@
 # Authenticate user, return JWT
 
-**Endpoint:** `POST /users/login`
+**Endpoint:** `POST /auth/login`
 
 **Roles:** Anonymous
 
@@ -57,9 +57,21 @@
   "error": {
     "code": "UNAUTHORIZED",
     "message": "Email or password is incorrect. Please check your credentials and try again.",
+    "details": {}
+  }
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_SERVER_ERROR",
+    "message": "An unexpected error occurred. Our team has been notified. Please retry later.",
     "details": {
-      "issue": "Authentication failed",
-      "action": "Verify your email and password. If you forgot your password, use the password recovery option."
+      "request_id": "not available",
+      "timestamp": "2026-02-17T14:33:22Z"
     }
   }
 }

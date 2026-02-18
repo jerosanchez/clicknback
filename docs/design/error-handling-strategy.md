@@ -79,6 +79,7 @@ ClickNBack uses a focused set of HTTP status codes corresponding to error catego
 | **400** | `VALIDATION_ERROR` | Input validation failed (weak password, invalid email) | Correct input per error details and retry |
 | **401** | `UNAUTHORIZED` | Missing or invalid authentication token | Include valid token or re-authenticate |
 | **403** | `FORBIDDEN` | Authenticated but insufficient permissions (non-admin accessing admin endpoint) | Use authorized account |
+| **404** | `NOT_FOUND` | Resource not found (user, offer, merchant, etc. does not exist) | Check resource identifier or existence; may need to refresh or contact support |
 | **409** | `CONFLICT` | Business rule violation (email already exists, duplicate purchase) | Resolve conflict (use different email) or contact support |
 | **422** | `UNPROCESSABLE_ENTITY` | Request is syntactically valid but semantically invalid (offer inactive, user account disabled) | Verify resource state and retry or contact support |
 | **500** | `INTERNAL_SERVER_ERROR` | Unexpected error (database unavailable, code bug) | Retry with exponential backoff; contact support if persistent |
@@ -87,109 +88,6 @@ ClickNBack uses a focused set of HTTP status codes corresponding to error catego
 
 - **409 Conflict:** Resource state conflicts with request (e.g., email already registered, idempotency key already processed).
 - **422 Unprocessable Entity:** Request is invalid *for the current system state* but not due to resource duplication (e.g., offer not active, user not confirmed).
-
-### 3.3 Error Response Examples
-
-#### Validation Error (400)
-
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Validation failed for request body.",
-    "details": {
-      "violations": [
-        {
-          "field": "password",
-          "reason": "Password must be at least 12 characters."
-        },
-        {
-          "field": "email",
-          "reason": "Invalid email format."
-        }
-      ]
-    }
-  }
-}
-```
-
-#### Authentication Error (401)
-
-```json
-{
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Authentication token is missing or invalid.",
-    "details": {
-      "issue": "Token expired",
-      "action": "Re-authenticate to obtain a fresh token."
-    }
-  }
-}
-```
-
-#### Forbidden Error (403)
-
-```json
-{
-    "error": {
-        "code": "FORBIDDEN",
-        "message": "You do not have permission to access this resource.",
-        "details": {
-            "required_role": "admin",
-            "action": "Contact your administrator or use an authorized account."
-        }
-    }
-}
-```
-
-#### Business Rule Violation (409)
-
-```json
-{
-  "error": {
-    "code": "DUPLICATE_PURCHASE",
-    "message": "A purchase with external ID 'ext_order_123' has already been processed.",
-    "details": {
-      "external_id": "ext_order_123",
-      "previously_created_at": "2026-02-17T13:45:00Z",
-      "previously_processed_amount": "50.00",
-      "action": "This request is idempotent and safe to retry. You will receive the same result."
-    }
-  }
-}
-```
-
-#### Unprocessable Entity Error (422)
-
-```json
-{
-    "error": {
-        "code": "UNPROCESSABLE_ENTITY",
-        "message": "The offer is inactive and cannot be used.",
-        "details": {
-            "offer_id": "offer_456",
-            "status": "inactive",
-            "action": "Please select an active offer or contact support."
-        }
-    }
-}
-```
-
-#### Internal Error (500)
-
-```json
-{
-  "error": {
-    "code": "INTERNAL_SERVER_ERROR",
-    "message": "An unexpected error occurred. Our team has been notified. Please retry later.",
-    "details": {
-      "request_id": "req_a7f3d481e2",
-      "timestamp": "2026-02-17T14:33:22Z"
-    }
-  }
-}
-```
 
 **Note:** For 500 errors, we never expose implementation details (stack traces, database errors) to clients. Instead, we include a `request_id` for support teams to correlate logs.
 
