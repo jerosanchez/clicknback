@@ -30,7 +30,7 @@ class AuthService:
             raise PasswordVerificationException()
 
         access_token = self.token_provider.create_access_token(
-            payload=TokenPayload(user_id=str(user.id))
+            payload=TokenPayload(user_id=str(user.id), user_role=str(user.role))
         )
 
         return Token(access_token=access_token, token_type="bearer")

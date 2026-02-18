@@ -4,9 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 
+from app.auth.models import TokenPayload
 from app.core.config import settings
-
-from .models import TokenPayload
 
 
 class OAuth2TokenProviderABC(ABC):
@@ -16,6 +15,9 @@ class OAuth2TokenProviderABC(ABC):
         pass
 
 
+# A JWT version of the OAuth2TokenProvider. If we later decide to switch to a different token strategy
+# (e.g., opaque tokens with server-side storage), we can implement a new provider that adheres to the same interface
+# without affecting the rest of the codebase.
 class JwtOAuth2TokenProvider(OAuth2TokenProviderABC):
     @staticmethod
     def create_access_token(payload: TokenPayload) -> str:

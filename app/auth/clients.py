@@ -13,6 +13,9 @@ class UsersClientABC(ABC):
         pass
 
 
+# A modular monolith version of the UsersClient that directly interacts with the UserRepository.
+# Should `auth` become a separate microservice, this client can be
+# easily replaced with an API client that makes HTTP requests to the `users` service.
 class UsersClient(UsersClientABC):
     def __init__(self, user_repository: UserRepository):
         self.user_repository = user_repository
@@ -24,5 +27,6 @@ class UsersClient(UsersClientABC):
                 id=str(user.id),
                 email=str(user.email),
                 hashed_password=str(user.hashed_password),
+                role=str(user.role.value),
             )
         return None

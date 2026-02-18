@@ -6,6 +6,7 @@ class User:
     id: str
     email: str
     hashed_password: str
+    role: str
 
 
 @dataclass(frozen=True)
@@ -17,3 +18,4 @@ class Token:
 @dataclass(frozen=True)
 class TokenPayload:
     user_id: str | None = None
+    user_role: str | None = None
