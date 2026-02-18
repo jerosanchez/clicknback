@@ -1,9 +1,15 @@
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.errors.builders import (
+    business_rule_violation_error,
+    internal_server_error,
+    validation_error,
+)
+from app.users.errors import ErrorCode
 from app.users.exceptions import (
     EmailAlreadyRegisteredException,
     PasswordNotComplexEnoughException,
@@ -48,14 +54,23 @@ async def create_user(
     try:
         new_user = user_service.create_user(create_data.model_dump(), db)
     except EmailAlreadyRegisteredException as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        raise business_rule_violation_error(
+            ErrorCode.EMAIL_ALREADY_REGISTERED,
+            str(exc),
+            {"email": exc.email},
+        )
     except PasswordNotComplexEnoughException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        raise validation_error(
+            ErrorCode.PASSWORD_NOT_COMPLEX_ENOUGH,
+            "Password does not meet complexity requirements.",
+            [
+                {
+                    "field": "password",
+                    "reason": exc.reason,
+                },
+            ],
         )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
-        )
+    except Exception:
+        raise internal_server_error()
 
     return new_user

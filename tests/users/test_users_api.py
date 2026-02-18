@@ -52,27 +52,19 @@ def test_create_user_success(
 
 
 @pytest.mark.parametrize(
-    "exception,expected_status,expected_detail,password",
+    "exception,expected_status",
     [
         (
-            EmailAlreadyRegisteredException(
-                "Email 'fail@example.com' is already registered."
-            ),
-            status.HTTP_409_CONFLICT,
-            "Email 'fail@example.com' is already registered.",
-            "ValidPass1!",
+            PasswordNotComplexEnoughException("Some reason."),
+            status.HTTP_400_BAD_REQUEST,
         ),
         (
-            PasswordNotComplexEnoughException("Too weak"),
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "Too weak",
-            "weak",  # Intentionally weak password
+            EmailAlreadyRegisteredException("existing@example.com"),
+            status.HTTP_409_CONFLICT,
         ),
         (
             Exception("Something broke"),
             status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Something broke",
-            "ValidPass1!",
         ),
     ],
 )
@@ -81,19 +73,19 @@ def test_create_user_exceptions(
     user_service_mock: Mock,
     exception: Exception,
     expected_status: int,
-    expected_detail: str,
-    password: str,
 ) -> None:
     # Arrange
-    user_data = {"email": "fail@example.com", "password": password}
+    request_data = {"email": "fail@example.com", "password": "anything"}
     user_service_mock.create_user.side_effect = exception
 
     # Act
-    response = client.post("/api/v1/users", json=user_data)
+    response = client.post("/api/v1/users", json=request_data)
 
     # Assert
     assert response.status_code == expected_status
-    assert expected_detail in response.json()["detail"]
+    response_data = response.json()
+
+    _assert_error_payload(exception, response_data)
 
 
 def _assert_user_out_response(data: dict[str, Any], user: User) -> None:
@@ -101,5 +93,46 @@ def _assert_user_out_response(data: dict[str, Any], user: User) -> None:
     assert data["email"] == user.email
     assert data["role"] == user.role
     assert data["active"] == user.active
-    # created_at may be iso string, so compare date part
     assert data["created_at"] == user.created_at
+
+
+def _assert_error_payload(exception: Exception, data: dict[str, Any]) -> None:
+    assert "error" in data
+    error = data["error"]
+
+    if isinstance(exception, EmailAlreadyRegisteredException):
+        _assert_email_already_registered_error(exception, data)
+
+    elif isinstance(exception, PasswordNotComplexEnoughException):
+        _assert_password_not_complex_enough_error(exception, data)
+
+    else:
+        # For generic exceptions, expect a generic code
+        assert error.get("code") == "INTERNAL_SERVER_ERROR"
+
+
+def _assert_email_already_registered_error(
+    exception: EmailAlreadyRegisteredException, data: dict[str, Any]
+) -> None:
+    assert "error" in data
+    error = data["error"]
+    assert error.get("code") == "EMAIL_ALREADY_REGISTERED"
+    assert "details" in error
+    assert "email" in error["details"]
+    assert error["details"]["email"] == exception.email
+
+
+def _assert_password_not_complex_enough_error(
+    exception: PasswordNotComplexEnoughException, data: dict[str, Any]
+) -> None:
+    assert "error" in data
+    error = data["error"]
+    assert error.get("code") == "PASSWORD_NOT_COMPLEX_ENOUGH"
+    assert "details" in error
+    assert "violations" in error["details"]
+
+    violation_entry: dict[str, Any] = {
+        "field": "password",
+        "reason": exception.reason,
+    }
+    assert violation_entry in error["details"]["violations"]

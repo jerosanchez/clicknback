@@ -29,22 +29,18 @@
 
 ## Failure Responses
 
-### 400 Bad Request – Validation Error
+### 400 Bad Request – Password Not Complex Enough
 
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR",
+    "code": "PASSWORD_NOT_COMPLEX_ENOUGH",
     "message": "Validation failed for request body.",
     "details": {
       "violations": [
         {
-          "field": "email",
-          "reason": "Invalid email format."
-        },
-        {
           "field": "password",
-          "reason": "Password must be at least 12 characters."
+          "reason": "Password must be at least 8 characters long."
         }
       ]
     }
@@ -58,30 +54,24 @@
 {
   "error": {
     "code": "EMAIL_ALREADY_REGISTERED",
-    "message": "Email 'alice@example.com' is already registered. Use a different email or recover your account.",
+    "message": "Email 'alice@example.com' is already registered.",
     "details": {
-      "email": "alice@example.com",
-      "timestamp": "2026-02-17T14:33:22Z"
+      "email": "alice@example.com"
     }
   }
 }
 ```
 
-### 422 Unprocessable Entity – Password Not Complex Enough
+### 500 Internal Server Error
 
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Password does not meet complexity requirements.",
+    "code": "INTERNAL_SERVER_ERROR",
+    "message": "An unexpected error occurred. Our team has been notified. Please retry later.",
     "details": {
-      "field": "password",
-      "violations": [
-        "Password must be at least 12 characters.",
-        "Must contain at least one special character (e.g., !@#$%^&*).",
-        "Must contain at least one uppercase letter.",
-        "Must contain at least one digit."
-      ]
+      "request_id": "not available",
+      "timestamp": "2026-02-17T14:33:22Z"
     }
   }
 }
