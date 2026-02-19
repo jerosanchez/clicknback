@@ -1,5 +1,7 @@
+@baseUrl = http://localhost:8000/api/v1
+
 ### Happy path: create user
-POST http://localhost:8000/api/v1/users
+POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
@@ -8,7 +10,7 @@ Content-Type: application/json
 }
 
 ### Sad path: email already registered
-POST http://localhost:8000/api/v1/users
+POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
@@ -17,7 +19,7 @@ Content-Type: application/json
 }
 
 ### Sad path: password too short
-POST http://localhost:8000/api/v1/users
+POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
@@ -26,7 +28,7 @@ Content-Type: application/json
 }
 
 ### Sad path: missing uppercase letter
-POST http://localhost:8000/api/v1/users
+POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
@@ -35,7 +37,7 @@ Content-Type: application/json
 }
 
 ### Sad path: missing lowercase letter
-POST http://localhost:8000/api/v1/users
+POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
@@ -44,7 +46,7 @@ Content-Type: application/json
 }
 
 ### Sad path: missing digit
-POST http://localhost:8000/api/v1/users
+POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
@@ -53,7 +55,7 @@ Content-Type: application/json
 }
 
 ### Sad path: missing special character
-POST http://localhost:8000/api/v1/users
+POST {{baseUrl}}/users
 Content-Type: application/json
 
 {

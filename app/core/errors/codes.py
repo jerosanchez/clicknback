@@ -8,7 +8,7 @@ class ErrorCode(str, Enum):
     VALIDATION_ERROR = "VALIDATION_ERROR"
 
     # 401 - Unauthorized
-    UNAUTHORIZED = "UNAUTHORIZED"
+    INVALID_CREDENTIALS = "INVALID_CREDENTIALS"
 
     # 403 - Forbidden
     FORBIDDEN = "FORBIDDEN"

@@ -15,22 +15,21 @@ Together, these requirements ensure ClicknBack operates as a production-grade fi
 
 ---
 
-## Functional Requirements (FRs)
+## Functional Requirements
 
-FRs are organized into 6 domain areas covering merchants, offers, payouts, purchases, users, and wallets. Each FR includes clear user stories, constraints, acceptance criteria, and use cases. FRs are identified with a domain prefix (M, O, PA, PU, U, W) for easy reference.
+FRs are organized into domain areas covering authentication, merchants, offers, payouts, purchases, users, and wallets. Each FR includes clear user stories, constraints, acceptance criteria, and use cases. FRs are identified with a domain prefix (M, O, PA, PU, U, W) for easy reference.
 
-### User Management (2 FRs)
+### Authentication
 
-- **[U-01: User Registration](functional/users/U-01-user-registration.md)** — New users can create accounts with email and secure passwords meeting complexity requirements.
-- **[U-02: User Login](functional/users/U-02-user-authentication.md)** — Registered users can authenticate with credentials and receive JWT tokens for platform access.
+- **[A-01: User Login](functional/auth/A-01-login.md)** — Registered users authenticate and receive JWT tokens for platform access.
 
-### Merchant Management (3 FRs)
+### Merchant Management
 
 - **[M-01: Merchant Creation](functional/merchants/M-01-merchant-creation.md)** — Admin users can register new merchants and define their details in the system.
 - **[M-02: Merchant Activation](functional/merchants/M-02-merchant-activation.md)** — Admin users can toggle merchant availability status to control active promotions.
 - **[M-03: Merchants Listing](functional/merchants/M-03-merchants-listing.md)** — Admin users can view paginated lists of all merchants with filtering and sorting options.
 
-### Offer Management (5 FRs)
+### Offer Management
 
 - **[O-01: Offer Creation](functional/offers/O-01-offer-creation.md)** — Admin users can create cashback offers for active merchants with terms including amount, dates, and monthly caps.
 - **[O-02: Offer Activation](functional/offers/O-02-offer-activation.md)** — Admin users can toggle offer availability status without deletion.
@@ -38,7 +37,7 @@ FRs are organized into 6 domain areas covering merchants, offers, payouts, purch
 - **[O-04: Active Offers Listing](functional/offers/O-04-active-offers-listing.md)** — Authenticated users can discover available cashback offers currently active within valid time windows.
 - **[O-05: Offers Listing](functional/offers/O-05-offers-listing.md)** — Admin users can view paginated lists of all offers with status and management options.
 
-### Purchase Management (7 FRs)
+### Purchase Management
 
 - **[PU-01: Purchase Ingestion](functional/purchases/PU-01-purchase-ingestion.md)** — External systems can record user purchases via webhook with idempotent external IDs.
 - **[PU-02: Purchase Confirmation](functional/purchases/PU-02-purchase-confirmation.md)** — Admin users can confirm pending purchases and release cashback to available balances.
@@ -48,14 +47,18 @@ FRs are organized into 6 domain areas covering merchants, offers, payouts, purch
 - **[PU-06: List User Purchases](functional/purchases/PU-06-list-user-purchases.md)** — Users can view their purchase history with associated cashback information.
 - **[PU-07: Purchase Cancellation](functional/purchases/PU-07-reverse-purchase.md)** — Admin users can reverse/cancel purchases and adjust associated cashback allocations.
 
-### Payout Management (4 FRs)
+### Payout Management
 
 - **[PA-01: Payout Request](functional/payouts/PA-01-payout-request.md)** — Authenticated users can request withdrawals of available cashback subject to policy constraints.
 - **[PA-02: Payout Processing](functional/payouts/PA-02-payout-processing.md)** — Admin users can process payout requests by completing or failing them with appropriate wallet adjustments.
 - **[PA-03: Payouts Listing (Admin)](functional/payouts/PA-03-payouts-listing.md)** — Admin users can view paginated, filterable lists of all payouts across users.
 - **[PA-04: User Payouts Listing](functional/payouts/PA-04-user-payouts-listing.md)** — Users can audit their payout history with statuses and amounts.
 
-### Wallet Management (2 FRs)
+### User Management
+
+- **[U-01: User Registration](functional/users/U-01-user-registration.md)** — New users can create accounts with email and secure passwords meeting complexity requirements.
+
+### Wallet Management
 
 - **[W-01: Wallet Summary View](functional/wallets/W-01-wallet-summary-view.md)** — Users can view their wallet balances: pending, available, and paid amounts.
 - **[W-02: Wallet Transactions Listing](functional/wallets/W-02-wallet-transactions-listing.md)** — Users can audit paginated wallet transaction history including credits, reversals, and payouts.

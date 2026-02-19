@@ -24,7 +24,7 @@ def authentication_error(
     """Build a 401 Unauthorized error."""
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=_error_response(ErrorCode.UNAUTHORIZED, message, details),
+        detail=_error_response(ErrorCode.INVALID_CREDENTIALS, message, details),
     )
 
 

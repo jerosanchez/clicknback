@@ -1,4 +1,4 @@
-# U-02: User Login
+# A-01: User Login
 
 IMPORTANT: This is a living document, specs are subject to change.
 
@@ -12,34 +12,29 @@ _As a registered user, I want to authenticate using my email and password so tha
 
 ### Authentication Constraints
 
-- User account must exist and be active
-- Credentials must be validated against stored hash
-- JWT token must be issued with appropriate expiration
-- Password must match the stored hash exactly
-
----
+> **Note:** This functional requirement does not currently include scenarios for account lockout (e.g., too many failed attempts, 423 Locked) or rate limiting (429 Too Many Requests) to keep the implementation simple. These may be added in the future as security requirements evolve.
 
 ## BDD Acceptance Criteria
 
 **Scenario:** Successful authentication with valid credentials
-**Given** I send a `POST /api/v1/users/authenticate` request with correct email and password
+**Given** I send a login request with correct email and password
 **When** the user account exists and credentials are valid
-**Then** the API responds with `HTTP 200 OK` and returns a valid JWT token
+**Then** the API responds successfully and returns a valid JWT token
 
 **Scenario:** Authentication with non-existent user
-**Given** I send a `POST /api/v1/users/authenticate` request with an email that is not registered
+**Given** I send a login request with an email that is not registered
 **When** the system attempts to validate credentials
-**Then** the API responds with `HTTP 401 Unauthorized` and an error message
+**Then** the API responds with an error code and returns a message
 
 **Scenario:** Authentication with incorrect password
-**Given** I send a `POST /api/v1/users/authenticate` request with correct email but wrong password
+**Given** I send a login request with correct email but wrong password
 **When** the system validates the password
-**Then** the API responds with `HTTP 401 Unauthorized` and an error message
+**Then** the API responds with an error code an returns a message
 
 **Scenario:** Authentication with invalid email format
-**Given** I send a `POST /api/v1/users/authenticate` request with an invalid email format
+**Given** I send a login request with an invalid email format
 **When** the API validates the input
-**Then** the API responds with `HTTP 400 Bad Request` and an error message
+**Then** the API responds with an error code and returns a message
 
 ---
 
@@ -47,16 +42,23 @@ _As a registered user, I want to authenticate using my email and password so tha
 
 ### Happy Path
 
-A registered user successfully authenticates with valid credentials
+A registered user successfully authenticates with valid credentials via the auth module:
 
 1. User submits email and password.
 2. System validates email format.
 3. System retrieves user by email.
 4. System validates credentials against stored hash.
-5. System issues JWT token.
+5. System issues access token.
 6. System returns `HTTP 200 OK` with access token.
 
 ### Sad Paths
+
+#### Invalid Email Format
+
+1. User submits invalid email and password.
+2. System validates email format.
+3. System detects invalid email format.
+4. System returns `HTTP 400 Bad Request` with validation error.
 
 #### Non-Existent User
 
@@ -75,14 +77,6 @@ A registered user successfully authenticates with valid credentials
 5. System finds password does not match.
 6. System returns `HTTP 401 Unauthorized` with error message.
 
-#### Invalid Email Format
+## API Contract
 
-1. User submits invalid email and password.
-2. System validates email format.
-3. System detects invalid email format.
-4. System returns `HTTP 400 Bad Request` with validation error.
-
-## API Contracts
-
-- [Authenticate user, return JWT](../../design/api-contracts/users/authenticate-user.md) for login specifications
-- [Get current authenticated user info](../../design/api-contracts/users/get-current-user.md) for retrieving user details
+- [Authenticate user, return JWT](../../../design/api-contracts/auth/login.md)

@@ -87,14 +87,23 @@ Wallet integrity is critical and must remain consistent under concurrent operati
 
 ## 4. Main System Flows
 
-### 4.1 User Registration & Authentication
+### 4.1 User Registration
+
+#### Registration
 
 1. User registers with email/password.
 2. Password is securely hashed.
-3. User receives JWT for authenticated requests.
-4. Role-based access control distinguishes:
-   - Regular users
-   - Admin users
+
+#### Authentication (Login)
+
+1. User authenticates with email/password.
+2. System validates credentials and issues JWT for authenticated requests.
+3. JWT includes expiration and role claims.
+
+#### Role-based Access Control
+
+- Regular users
+- Admin users
 
 Security considerations:
 

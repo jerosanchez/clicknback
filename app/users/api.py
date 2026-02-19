@@ -1,5 +1,3 @@
-from collections.abc import Callable
-
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
@@ -9,40 +7,18 @@ from app.core.errors.builders import (
     internal_server_error,
     validation_error,
 )
+from app.users.composition import get_user_service
 from app.users.errors import ErrorCode
 from app.users.exceptions import (
     EmailAlreadyRegisteredException,
     PasswordNotComplexEnoughException,
 )
-from app.users.password_utils import hash_password
-from app.users.policies import enforce_password_complexity
-from app.users.repositories import UserRepository
 from app.users.schemas import UserCreate, UserOut
 from app.users.services import (
     UserService,
 )
 
 router = APIRouter(prefix="/api/v1")
-
-
-def get_enforce_password_complexity() -> Callable[[str], None]:
-    return lambda password: enforce_password_complexity(password)
-
-
-def get_password_hasher():
-    return hash_password
-
-
-def get_user_repository():
-    return UserRepository()
-
-
-def get_user_service():
-    return UserService(
-        get_enforce_password_complexity(),
-        get_password_hasher(),
-        get_user_repository(),
-    )
 
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)

@@ -24,8 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
     env:
-      # Set a placeholder DATABASE_URL for testing purposes
+      # For testing purposes only
       DATABASE_URL: "postgresql://user:password@localhost:5432/db"
+      OAUTH_HASH_KEY: "7bdb4bcf0b01f00ca206693965b29145611d9419563630525dc848024c38fc08"
+      OAUTH_ALGORITHM: "HS256"
+      OAUTH_TOKEN_TTL: "30"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
