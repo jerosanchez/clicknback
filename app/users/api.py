@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, status
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -14,7 +15,6 @@ from app.users.exceptions import (
     EmailAlreadyRegisteredException,
     PasswordNotComplexEnoughException,
 )
-from app.users.password_utils import hash_password
 from app.users.policies import enforce_password_complexity
 from app.users.repositories import UserRepository
 from app.users.schemas import UserCreate, UserOut
@@ -24,13 +24,15 @@ from app.users.services import (
 
 router = APIRouter(prefix="/api/v1")
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 def get_enforce_password_complexity() -> Callable[[str], None]:
     return lambda password: enforce_password_complexity(password)
 
 
-def get_password_hasher():
-    return hash_password
+def get_password_hasher() -> Callable[[str], str]:
+    return pwd_context.hash
 
 
 def get_user_repository():

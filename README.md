@@ -58,9 +58,8 @@ alembic/                # Database migrations
 
 | Feature | Domain | Status |
 | --------- | -------- | -------- |
-| **👤 User Management** | | |
-| User Registration | Users | 🟢 ready |
-| User Login & Authentication | Users | 🟡 ongoing |
+| **🔑 Authentication** | | |
+| User Authentication (Login) | Auth | 🟡 ongoing |
 | **🏪 Merchant Management** | | |
 | Merchant Creation | Merchants | ⚪ defined |
 | Merchants Listing | Merchants | ⚪ defined |
@@ -71,6 +70,11 @@ alembic/                # Database migrations
 | Active Offers Listing | Offers | ⚪ defined |
 | Offer Activation | Offers | ⚪ defined |
 | Offer Details View | Offers | ⚪ defined |
+| **💵 Payouts** | | |
+| Payout Request (Withdrawal) | Payouts | ⚪ defined |
+| Payout Processing | Payouts | ⚪ defined |
+| Payouts Listing | Payouts | ⚪ defined |
+| User Payouts Listing | Payouts | ⚪ defined |
 | **💸 Purchase & Cashback Flow** | | |
 | Purchase Ingestion (Webhook) | Purchases | ⚪ defined |
 | Purchase Confirmation | Purchases | ⚪ defined |
@@ -79,14 +83,11 @@ alembic/                # Database migrations
 | User Purchases Listing | Purchases | ⚪ defined |
 | Cashback Calculation Engine | Purchases | ⚪ defined |
 | Purchase Reversal | Purchases | ⚪ defined |
+| **👤 User Management** | | |
+| User Registration | Users | 🟢 ready |
 | **👛 Wallet Management** | | |
 | Wallet Summary View | Wallets | ⚪ defined |
 | Wallet Transactions Listing | Wallets | ⚪ defined |
-| **💵 Payouts** | | |
-| Payout Request (Withdrawal) | Payouts | ⚪ defined |
-| Payout Processing | Payouts | ⚪ defined |
-| Payouts Listing | Payouts | ⚪ defined |
-| User Payouts Listing | Payouts | ⚪ defined |
 
 ---
 
