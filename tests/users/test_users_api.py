@@ -97,9 +97,6 @@ def _assert_user_out_response(data: dict[str, Any], user: User) -> None:
 
 
 def _assert_error_payload(exception: Exception, data: dict[str, Any]) -> None:
-    assert "error" in data
-    error = data["error"]
-
     if isinstance(exception, EmailAlreadyRegisteredException):
         _assert_email_already_registered_error(exception, data)
 
@@ -108,6 +105,8 @@ def _assert_error_payload(exception: Exception, data: dict[str, Any]) -> None:
 
     else:
         # For generic exceptions, expect a generic code
+        assert "error" in data
+        error = data["error"]
         assert error.get("code") == "INTERNAL_SERVER_ERROR"
 
 

@@ -40,7 +40,7 @@ def test_authentication_error():
     assert isinstance(exc, HTTPException)
     assert exc.status_code == status.HTTP_401_UNAUTHORIZED
     detail = exc.detail  # type: ignore[attr-defined]
-    assert detail["error"]["code"] == ErrorCode.UNAUTHORIZED  # type: ignore[index]
+    assert detail["error"]["code"] == ErrorCode.INVALID_CREDENTIALS  # type: ignore[index]
     assert detail["error"]["message"] == message  # type: ignore[index]
     assert detail["error"]["details"] == details  # type: ignore[index]
 
