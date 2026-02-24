@@ -27,28 +27,24 @@ _As an admin, I want to confirm pending purchases so that I can release cashback
 **Scenario:** Admin successfully confirms a pending purchase
 **Given** I am an authenticated admin user
 **And** the purchase exists with status `pending`
-**And** I send a `PATCH /api/v1/purchases/{id}/confirm` request
 **When** the authorization is verified
-**Then** the API responds with `HTTP 200 OK`, purchase status changes to `confirmed`, cashback status changes to `available`, and wallet balance is updated
+**Then** purchase status changes to `confirmed`, cashback status changes to `available`, and wallet balance is updated
 
 **Scenario:** Non-admin user attempts to confirm a purchase
 **Given** I am an authenticated non-admin user
-**And** I send a `PATCH /api/v1/purchases/{id}/confirm` request
 **When** the system checks authorization
-**Then** the API responds with `HTTP 403 Forbidden`
+**Then** access is denied
 
 **Scenario:** Admin attempts to confirm non-existent purchase
 **Given** I am an authenticated admin user
-**And** I send a `PATCH /api/v1/purchases/{999}/confirm` request for a non-existent purchase
 **When** the system attempts to find the purchase
-**Then** the API responds with `HTTP 404 Not Found`
+**Then** a not found error is returned
 
 **Scenario:** Admin attempts to confirm already confirmed purchase
 **Given** I am an authenticated admin user
 **And** the purchase already has status `confirmed`
-**And** I send a `PATCH /api/v1/purchases/{id}/confirm` request
 **When** the system checks purchase status
-**Then** the API responds with `HTTP 400 Bad Request` or `HTTP 409 Conflict`
+**Then** an error is returned indicating invalid operation
 
 ---
 
@@ -65,7 +61,7 @@ Admin successfully confirms a pending purchase
 5. System transitions purchase to `confirmed`.
 6. System transitions associated cashback to `available`.
 7. System moves wallet balance from pending to available.
-8. System returns `HTTP 200 OK` with updated purchase info.
+8. System returns updated purchase info.
 
 ### Sad Paths
 
@@ -83,7 +79,7 @@ Admin successfully confirms a pending purchase
 2. System verifies admin role.
 3. System attempts to retrieve purchase.
 4. System finds purchase does not exist.
-5. System returns `HTTP 404 Not Found`.
+5. System returns not found error.
 
 #### Purchase Already Confirmed
 
@@ -92,14 +88,14 @@ Admin successfully confirms a pending purchase
 3. System retrieves purchase record.
 4. System checks purchase status.
 5. System finds purchase is already confirmed.
-6. System returns `HTTP 400 Bad Request` or `HTTP 409 Conflict`.
+6. System returns error indicating invalid operation.
 
 #### Unauthenticated Request
 
 1. Anonymous user sends confirmation request.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 ## API Contract
 

@@ -28,28 +28,24 @@ _As an authenticated user, I want to view detailed information about a specific 
 **Scenario:** User successfully views offer details
 **Given** I am an authenticated user
 **And** the offer exists and is active
-**And** I send a `GET /api/v1/offers/{id}` request
 **When** the authorization is verified and offer exists
-**Then** the API responds with `HTTP 200 OK` and returns the complete offer information
+**Then** the complete offer information is returned
 
 **Scenario:** Unauthenticated user attempts to view offer details
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/offers/{id}` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** User attempts to view non-existent offer
 **Given** I am an authenticated user
-**And** I send a `GET /api/v1/offers/{999}` request for a non-existent offer
 **When** the system attempts to find the offer
-**Then** the API responds with `HTTP 404 Not Found`
+**Then** a not found error is returned
 
 **Scenario:** User attempts to view inactive offer
 **Given** I am an authenticated user
 **And** the offer is inactive
-**And** I send a `GET /api/v1/offers/{id}` request
 **When** the system checks offer status
-**Then** the API responds with `HTTP 404 Not Found` or `HTTP 403 Forbidden`
+**Then** access is denied or a not found error is returned
 
 ---
 
@@ -64,7 +60,7 @@ An authenticated user successfully views offer details
 3. System retrieves offer record.
 4. System verifies offer is active.
 5. System verifies merchant is active.
-6. System returns `HTTP 200 OK` with full offer information.
+6. System returns full offer information.
 
 ### Sad Paths
 
@@ -73,7 +69,7 @@ Unauthenticated Request
 1. Anonymous user requests offer details.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 #### Offer Not Found
 
@@ -81,7 +77,7 @@ Unauthenticated Request
 2. System verifies user authentication.
 3. System attempts to retrieve offer.
 4. System finds offer does not exist.
-5. System returns `HTTP 404 Not Found`.
+5. System returns not found error.
 
 #### Inactive Offer
 
@@ -90,7 +86,7 @@ Unauthenticated Request
 3. System retrieves offer record.
 4. System checks offer active status.
 5. System finds offer is inactive.
-6. System returns `HTTP 404 Not Found` or `HTTP 403 Forbidden`.
+6. System denies access or returns not found error.
 
 #### Inactive Merchant
 
@@ -99,7 +95,7 @@ Unauthenticated Request
 3. System retrieves offer record.
 4. System checks associated merchant status.
 5. System finds merchant is inactive.
-6. System returns `HTTP 404 Not Found` or `HTTP 403 Forbidden`.
+6. System denies access or returns not found error.
 
 ## API Contract
 

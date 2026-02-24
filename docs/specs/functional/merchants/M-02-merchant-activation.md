@@ -27,28 +27,24 @@ _As an admin, I want to change merchant availability status so that I can contro
 **Scenario:** Admin successfully activates a merchant
 **Given** I am an authenticated admin user
 **And** the merchant exists with inactive status
-**And** I send a `PATCH /api/v1/merchants/{id}/status` request to activate
 **When** the activation request is processed
-**Then** the API responds with `HTTP 200 OK` and the merchant status is updated to active
+**Then** the merchant status is updated to active
 
 **Scenario:** Admin successfully deactivates a merchant
 **Given** I am an authenticated admin user
 **And** the merchant exists with active status
-**And** I send a `PATCH /api/v1/merchants/{id}/status` request to deactivate
 **When** the deactivation request is processed
-**Then** the API responds with `HTTP 200 OK` and the merchant status is updated to inactive
+**Then** the merchant status is updated to inactive
 
 **Scenario:** Non-admin user attempts to modify merchant status
 **Given** I am an authenticated non-admin user
-**And** I send a `PATCH /api/v1/merchants/{id}/status` request
 **When** the system checks authorization
-**Then** the API responds with `HTTP 403 Forbidden`
+**Then** access is denied
 
 **Scenario:** Admin attempts to modify non-existent merchant
 **Given** I am an authenticated admin user
-**And** I send a `PATCH /api/v1/merchants/{999}/status` request for a non-existent merchant
 **When** the system attempts to find the merchant
-**Then** the API responds with `HTTP 404 Not Found`
+**Then** a not found error is returned
 
 ---
 
@@ -63,7 +59,7 @@ An admin successfully changes merchant availability status
 3. System retrieves merchant record.
 4. System updates merchant status.
 5. System persists status change.
-6. System returns `HTTP 200 OK` with updated merchant info.
+6. System returns updated merchant info.
 
 ### Sad Paths
 
@@ -73,7 +69,7 @@ An admin successfully changes merchant availability status
 2. System verifies authentication.
 3. System checks admin role.
 4. System finds user does not have admin role.
-5. System returns `HTTP 403 Forbidden`.
+5. System denies access.
 
 #### Merchant Not Found
 
@@ -81,14 +77,14 @@ An admin successfully changes merchant availability status
 2. System verifies admin role.
 3. System attempts to retrieve merchant.
 4. System finds merchant does not exist.
-5. System returns `HTTP 404 Not Found`.
+5. System returns not found error.
 
 #### Unauthenticated Request
 
 1. Anonymous user sends status update request.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 ## API Contract
 

@@ -27,21 +27,18 @@ _As an authenticated user, I want to see my wallet balances so that I can unders
 
 **Scenario:** User successfully views wallet summary
 **Given** I am an authenticated user
-**And** I send a `GET /api/v1/wallet/summary` request
 **When** the authorization is verified
-**Then** the API responds with `HTTP 200 OK` and returns my pending balance, available balance, and paid balance
+**Then** my pending balance, available balance, and paid balance are returned
 
 **Scenario:** Unauthenticated user attempts to view wallet
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/wallet/summary` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** New user with no balance activity
 **Given** I am an authenticated user with no previous cashback activity
-**And** I send a `GET /api/v1/wallet/summary` request
 **When** the system retrieves wallet information
-**Then** the API responds with `HTTP 200 OK` with all balances set to zero
+**Then** wallet balances are returned with all values set to zero
 
 ---
 
@@ -55,7 +52,7 @@ Authenticated user successfully views wallet summary
 2. System verifies user authentication.
 3. System retrieves wallet record for user.
 4. System returns pending, available, and paid balances.
-5. System returns `HTTP 200 OK` with accurate financial overview.
+5. System returns accurate financial overview.
 
 ### Sad Paths
 
@@ -64,7 +61,7 @@ Authenticated user successfully views wallet summary
 1. Anonymous user requests wallet summary.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 #### New User with Zero Balance
 

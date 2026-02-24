@@ -26,27 +26,27 @@ _As an admin, I want to register a new merchant in the system so that I can mana
 
 **Scenario:** Admin successfully creates a new merchant
 **Given** I am an authenticated admin user
-**And** I send a `POST /api/v1/merchants` request with valid merchant details
+**And** I create a merchant with valid details
 **When** the merchant details are validated
-**Then** the API responds with `HTTP 201 Created` and returns the new merchant information
+**Then** the merchant is successfully created and returned
 
 **Scenario:** Non-admin user attempts to create a merchant
 **Given** I am an authenticated non-admin user
-**And** I send a `POST /api/v1/merchants` request with merchant details
+**And** I attempt to create a merchant with merchant details
 **When** the system checks authorization
-**Then** the API responds with `HTTP 403 Forbidden` and denies access
+**Then** access is denied
 
 **Scenario:** Unauthenticated user attempts to create a merchant
 **Given** I am not authenticated
-**And** I send a `POST /api/v1/merchants` request with merchant details
+**And** I attempt to create a merchant with merchant details
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** Admin creates merchant with invalid data
 **Given** I am an authenticated admin user
-**And** I send a `POST /api/v1/merchants` request with incomplete or invalid merchant details
+**And** I attempt to create a merchant with incomplete or invalid details
 **When** the API validates the input
-**Then** the API responds with `HTTP 400 Bad Request` and an error message describing the validation issue
+**Then** the request is rejected with a validation error message
 
 ---
 
@@ -60,7 +60,7 @@ An authenticated admin successfully creates a new merchant
 2. System verifies admin authentication and role.
 3. System validates merchant input.
 4. System stores merchant record.
-5. System returns `HTTP 201 Created` with new merchant info.
+5. System returns the new merchant information.
 
 ### Sad Paths
 
@@ -70,14 +70,14 @@ An authenticated admin successfully creates a new merchant
 2. System verifies authentication.
 3. System checks admin role.
 4. System finds user does not have admin role.
-5. System returns `HTTP 403 Forbidden`.
+5. System denies access.
 
 #### Unauthenticated Request
 
 1. Anonymous user submits merchant details.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 #### Invalid Merchant Data
 
@@ -85,7 +85,7 @@ An authenticated admin successfully creates a new merchant
 2. System verifies admin role.
 3. System validates merchant input.
 4. System detects validation errors.
-5. System returns `HTTP 400 Bad Request` with error details.
+5. System rejects the request with validation error details.
 
 ## API Contract
 

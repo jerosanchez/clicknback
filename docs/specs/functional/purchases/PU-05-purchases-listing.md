@@ -28,27 +28,23 @@ _As an admin, I want to monitor purchase activity across all users so that I can
 **Scenario:** Admin successfully retrieves all purchases
 **Given** I am an authenticated admin user
 **And** purchases exist in the system
-**And** I send a `GET /api/v1/admin/purchases` request
 **When** the authorization is verified
-**Then** the API responds with `HTTP 200 OK` and returns a paginated and filterable list of all purchases
+**Then** a paginated and filterable list of all purchases is returned
 
 **Scenario:** Non-admin user attempts to list all purchases
 **Given** I am an authenticated non-admin user
-**And** I send a `GET /api/v1/admin/purchases` request
 **When** the system checks authorization
-**Then** the API responds with `HTTP 403 Forbidden`
+**Then** access is denied
 
 **Scenario:** Unauthenticated user attempts to list purchases
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/admin/purchases` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** Admin filters purchases by status
 **Given** I am an authenticated admin user
-**And** I send a `GET /api/v1/admin/purchases?status=pending` request
 **When** the system applies filters
-**Then** the API responds with `HTTP 200 OK` and returns only purchases with the requested status
+**Then** only purchases with the requested status are returned
 
 ---
 
@@ -62,7 +58,7 @@ Admin successfully retrieves purchase activity
 2. System verifies admin authentication and role.
 3. System retrieves paginated purchase records.
 4. System applies filters if provided.
-5. System returns `HTTP 200 OK` with purchase list.
+5. System returns purchase list.
 
 ### Sad Paths
 
@@ -87,4 +83,4 @@ Admin successfully retrieves purchase activity
 2. System verifies admin role.
 3. System retrieves purchases matching filters.
 4. System finds no purchases match criteria.
-5. System returns `HTTP 200 OK` with empty paginated list.
+5. System returns empty paginated list.

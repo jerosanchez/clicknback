@@ -27,27 +27,24 @@ _As an authenticated user, I want to view my withdrawal history so that I can au
 **Scenario:** User successfully retrieves their payout history
 **Given** I am an authenticated user
 **And** I have payouts in the system
-**And** I send a `GET /api/v1/payouts` request
 **When** the authorization is verified
-**Then** the API responds with `HTTP 200 OK` and returns a paginated list of my payouts with status and amount information
+**Then** a paginated list of my payouts with status and amount information is returned
 
 **Scenario:** Unauthenticated user attempts to view payouts
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/payouts` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** User with no payouts retrieves empty list
 **Given** I am an authenticated user with no payout requests
-**And** I send a `GET /api/v1/payouts` request
 **When** the system retrieves payouts
-**Then** the API responds with `HTTP 200 OK` and returns an empty paginated list
+**Then** an empty paginated list is returned
 
 **Scenario:** User requests payouts with invalid pagination
 **Given** I am an authenticated user
-**And** I send a `GET /api/v1/payouts?page=abc` request with invalid parameters
+**And** I send a request with invalid parameters
 **When** the API validates the input
-**Then** the API responds with `HTTP 400 Bad Request` and an error message
+**Then** the request is rejected with a validation error
 
 ---
 
@@ -61,7 +58,7 @@ Authenticated user successfully retrieves payout history
 2. System verifies user authentication.
 3. System retrieves paginated payouts for the user.
 4. System includes amount, status, and date information.
-5. System returns `HTTP 200 OK` with payout list.
+5. System returns payout list.
 
 ### Sad Paths
 
@@ -70,7 +67,7 @@ Authenticated user successfully retrieves payout history
 1. Anonymous user requests payout history.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 #### Empty Results
 
@@ -78,7 +75,7 @@ Authenticated user successfully retrieves payout history
 2. System verifies user authentication.
 3. System retrieves payouts for the user.
 4. System finds user has no payouts.
-5. System returns `HTTP 200 OK` with empty paginated list.
+5. System returns empty paginated list.
 
 #### Invalid Pagination Parameters
 
@@ -86,7 +83,7 @@ Authenticated user successfully retrieves payout history
 2. System verifies user authentication.
 3. System validates pagination parameters.
 4. System detects invalid parameters.
-5. System returns `HTTP 400 Bad Request` with validation error.
+5. System rejects the request with validation error.
 
 ## API Contract
 

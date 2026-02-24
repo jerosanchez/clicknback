@@ -28,27 +28,23 @@ _As an admin, I want to view all payout operations so that I can monitor and man
 **Scenario:** Admin successfully retrieves all payouts
 **Given** I am an authenticated admin user
 **And** payouts exist in the system
-**And** I send a `GET /api/v1/admin/payouts` request
 **When** the authorization is verified
-**Then** the API responds with `HTTP 200 OK` and returns a paginated and filterable list of all payouts
+**Then** a paginated and filterable list of all payouts is returned
 
 **Scenario:** Non-admin user attempts to list all payouts
 **Given** I am an authenticated non-admin user
-**And** I send a `GET /api/v1/admin/payouts` request
 **When** the system checks authorization
-**Then** the API responds with `HTTP 403 Forbidden`
+**Then** access is denied
 
 **Scenario:** Unauthenticated user attempts to list payouts
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/admin/payouts` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** Admin filters payouts by status
 **Given** I am an authenticated admin user
-**And** I send a `GET /api/v1/admin/payouts?status=completed` request
 **When** the system applies filters
-**Then** the API responds with `HTTP 200 OK` and returns only payouts with the requested status
+**Then** only payouts with the requested status are returned
 
 ---
 
@@ -62,7 +58,7 @@ Admin successfully retrieves all payouts
 2. System verifies admin authentication and role.
 3. System retrieves paginated payout records.
 4. System applies filters if provided.
-5. System returns `HTTP 200 OK` with payout list.
+5. System returns payout list.
 
 ### Sad Paths
 
@@ -87,7 +83,7 @@ Admin successfully retrieves all payouts
 2. System verifies admin role.
 3. System retrieves payouts matching filters.
 4. System finds no payouts match criteria.
-5. System returns `HTTP 200 OK` with empty paginated list.
+5. System returns empty paginated list.
 
 ## API Contract
 

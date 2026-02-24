@@ -27,28 +27,24 @@ _As an admin, I want to control offer availability so that I can enable or disab
 **Scenario:** Admin successfully activates an offer
 **Given** I am an authenticated admin user
 **And** the offer exists with inactive status
-**And** I send a `PATCH /api/v1/offers/{id}/status` request to activate
 **When** the activation request is processed
-**Then** the API responds with `HTTP 200 OK` and the offer status is updated to active
+**Then** the offer status is updated to active
 
 **Scenario:** Admin successfully deactivates an offer
 **Given** I am an authenticated admin user
 **And** the offer exists with active status
-**And** I send a `PATCH /api/v1/offers/{id}/status` request to deactivate
 **When** the deactivation request is processed
-**Then** the API responds with `HTTP 200 OK` and the offer status is updated to inactive
+**Then** the offer status is updated to inactive
 
 **Scenario:** Non-admin user attempts to modify offer status
 **Given** I am an authenticated non-admin user
-**And** I send a `PATCH /api/v1/offers/{id}/status` request
 **When** the system checks authorization
-**Then** the API responds with `HTTP 403 Forbidden`
+**Then** access is denied
 
 **Scenario:** Admin attempts to modify non-existent offer
 **Given** I am an authenticated admin user
-**And** I send a `PATCH /api/v1/offers/{999}/status` request for a non-existent offer
 **When** the system attempts to find the offer
-**Then** the API responds with `HTTP 404 Not Found`
+**Then** a not found error is returned
 
 ---
 
@@ -63,7 +59,7 @@ An admin successfully changes offer availability status
 3. System retrieves offer record.
 4. System updates offer status.
 5. System persists change.
-6. System returns `HTTP 200 OK` with updated offer info.
+6. System returns updated offer info.
 
 ### Sad Paths
 
@@ -81,14 +77,14 @@ An admin successfully changes offer availability status
 2. System verifies admin role.
 3. System attempts to retrieve offer.
 4. System finds offer does not exist.
-5. System returns `HTTP 404 Not Found`.
+5. System returns not found error.
 
 #### Unauthenticated Request
 
 1. Anonymous user sends status update request.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 ## API Contract
 
