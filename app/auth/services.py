@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth.clients import UsersClientABC
 from app.auth.exceptions import PasswordVerificationException, UserNotFoundException
 from app.auth.models import Token, TokenPayload
-from app.auth.providers import OAuth2TokenProviderABC
+from app.auth.token_provider import OAuth2TokenProviderABC
 
 
 class AuthService:

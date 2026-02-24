@@ -10,7 +10,7 @@ default_user_factory_defaults: dict[str, Any] = {
     "hashed_password": "hashed_pw",
     "role": "admin",
     "active": True,
-    "created_at": "2026-02-15 18:42:18.340977+00",
+    "created_at": "2026-02-15T18:42:18.340977",
 }
 
 

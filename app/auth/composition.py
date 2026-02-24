@@ -4,8 +4,9 @@ from fastapi import Depends
 from passlib.context import CryptContext
 
 from app.auth.clients import UsersClient
-from app.auth.providers import JwtOAuth2TokenProvider, OAuth2TokenProviderABC
 from app.auth.services import AuthService
+from app.auth.token_provider import JwtOAuth2TokenProvider, OAuth2TokenProviderABC
+from app.core.config import settings
 from app.users.repositories import UserRepository
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -16,7 +17,7 @@ def get_users_client(user_repository: UserRepository = Depends()):
 
 
 def get_token_provider():
-    return JwtOAuth2TokenProvider()
+    return JwtOAuth2TokenProvider(settings.oauth_token_ttl)
 
 
 def get_password_verifier() -> Callable[[str, str], bool]:

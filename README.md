@@ -29,6 +29,7 @@ app/                    # Application code
 ├── core/               # Shared infra (config, database, etc.)
 ├── users/              # User domain module (blueprint)
 │   ├── api.py          # API endpoints
+│   ├── composition.py  # Dependency injection (DI)
 │   ├── models.py       # Database models
 │   ├── schemas.py      # Request/response schemas
 │   ├── services.py     # Business logic
