@@ -29,3 +29,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["app"]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"

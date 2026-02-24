@@ -1,5 +1,5 @@
 VENV_ACTIVATE = source .venv/bin/activate &&
-MAX_LINE_LENGTH = 90
+MAX_LINE_LENGTH = 88
 
 # CI/CD tasks:
 
