@@ -23,9 +23,9 @@ class UserService:
         email = create_data["email"]
         password = create_data["password"]
 
-        self._enforce_email_uniqueness(email, db)
-
         self.enforce_password_complexity(password)
+
+        self._enforce_email_uniqueness(email, db)
 
         hashed_password = self.hash_password(password)
         new_user = User(email=email, hashed_password=hashed_password, active=True)
