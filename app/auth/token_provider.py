@@ -8,6 +8,7 @@ from jose.exceptions import ExpiredSignatureError
 from app.auth.exceptions import InternalJwtErrorException, InvalidTokenException
 from app.auth.models import TokenPayload
 from app.core.config import settings
+from app.core.logging import logger
 
 
 class OAuth2TokenProviderABC(ABC):
@@ -50,6 +51,10 @@ class JwtOAuth2TokenProvider(OAuth2TokenProviderABC):
             user_id = payload.get("user_id")
             user_role = payload.get("user_role")
             if user_id is None or user_role is None:
+                logger.warning(
+                    "Token payload missing required fields.",
+                    extra={"user_id": user_id or "-", "user_role": user_role or "-"},
+                )
                 raise InvalidTokenException()
 
             return TokenPayload(user_id=user_id, user_role=user_role)
@@ -57,5 +62,6 @@ class JwtOAuth2TokenProvider(OAuth2TokenProviderABC):
         except ExpiredSignatureError:
             raise InvalidTokenException()
 
-        except JWTError:
+        except JWTError as e:
+            logger.error("JWT processing error occurred.", extra={"error": str(e)})
             raise InternalJwtErrorException()
