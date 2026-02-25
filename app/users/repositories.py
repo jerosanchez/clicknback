@@ -11,6 +11,10 @@ class UserRepositoryABC(ABC):
         pass
 
     @abstractmethod
+    def get_user_by_id(self, db: Session, user_id: str) -> User | None:
+        pass
+
+    @abstractmethod
     def add_user(self, db: Session, user: User) -> User:
         pass
 
@@ -18,6 +22,9 @@ class UserRepositoryABC(ABC):
 class UserRepository(UserRepositoryABC):
     def get_user_by_email(self, db: Session, email: str) -> User | None:
         return db.query(User).filter(User.email == email).first()
+
+    def get_user_by_id(self, db: Session, user_id: str) -> User | None:
+        return db.query(User).filter(User.id == user_id).first()
 
     def add_user(self, db: Session, user: User) -> User:
         db.add(user)

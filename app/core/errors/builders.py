@@ -12,7 +12,7 @@ def validation_error(
     """Build a 400 Validation Error."""
     return HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail=_error_response(
+        detail=error_response(
             code, message, {"violations": details} if details else None
         ),
     )
@@ -24,7 +24,8 @@ def authentication_error(
     """Build a 401 Unauthorized error."""
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=_error_response(ErrorCode.INVALID_CREDENTIALS, message, details),
+        detail=error_response(ErrorCode.INVALID_CREDENTIALS, message, details),
+        headers={"WWW-Authenticate": "Bearer"},
     )
 
 
@@ -34,7 +35,7 @@ def forbidden_error(
     """Build a 403 Forbidden error."""
     return HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail=_error_response(ErrorCode.FORBIDDEN, message, details),
+        detail=error_response(ErrorCode.FORBIDDEN, message, details),
     )
 
 
@@ -44,7 +45,7 @@ def business_rule_violation_error(
     """Build a 409 Conflict error for business rule violations."""
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
-        detail=_error_response(code, message, details),
+        detail=error_response(code, message, details),
     )
 
 
@@ -54,7 +55,7 @@ def unprocessable_entity_error(
     """Build a 422 Unprocessable Entity error."""
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-        detail=_error_response(code, message, details),
+        detail=error_response(code, message, details),
     )
 
 
@@ -70,11 +71,11 @@ def internal_server_error(
         }
     return HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=_error_response(ErrorCode.INTERNAL_SERVER_ERROR, message, details),
+        detail=error_response(ErrorCode.INTERNAL_SERVER_ERROR, message, details),
     )
 
 
-def _error_response(
+def error_response(
     code: str,
     message: str,
     details: Optional[dict[str, Any]] = None,
