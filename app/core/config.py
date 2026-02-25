@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     oauth_algorithm: str
     oauth_token_ttl: int
 
+    # --- logging
+    log_level: str = "INFO"
+
     model_config = {
         "env_file": ".env" if os.path.exists(".env") else None,
         "extra": "ignore",
