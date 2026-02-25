@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # --- logging
     log_level: str = "INFO"
 
+    # --- cashback policy
+    max_cashback_percentage: float = 20.0
+
     model_config = {
         "env_file": ".env" if os.path.exists(".env") else None,
         "extra": "ignore",

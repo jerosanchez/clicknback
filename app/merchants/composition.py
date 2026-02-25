@@ -1,5 +1,10 @@
-from .repository import MerchantRepository
-from .services import MerchantService
+from app.merchants.policies import enforce_cashback_percentage_validity
+from app.merchants.repository import MerchantRepository
+from app.merchants.services import MerchantService
+
+
+def get_enforce_cashback_percentage_validity():
+    return enforce_cashback_percentage_validity
 
 
 def get_merchant_repository():
@@ -7,4 +12,6 @@ def get_merchant_repository():
 
 
 def get_merchant_service():
-    return MerchantService(get_merchant_repository())
+    return MerchantService(
+        get_enforce_cashback_percentage_validity(), get_merchant_repository()
+    )

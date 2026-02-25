@@ -11,6 +11,6 @@ class MerchantRepositoryABC(ABC):
         pass
 
 
-class MerchantRepository:
+class MerchantRepository(MerchantRepositoryABC):
     def add_merchant(self, db: Session, merchant: Merchant) -> Merchant:
         return merchant
