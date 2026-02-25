@@ -113,6 +113,8 @@ Helpers fall into three categories:
 
 #### 1. Input data builders — construct service/API input dicts from model objects
 
+If an input data builder is used in **only one test module**, define it as a module-level helper:
+
 ```python
 def _merchant_input_data(merchant: Merchant) -> dict[str, Any]:
     return {
@@ -125,7 +127,33 @@ def _merchant_input_data(merchant: Merchant) -> dict[str, Any]:
 data = _merchant_input_data(new_merchant)
 ```
 
+If the **same builder is needed across multiple test modules** (e.g., both the service test and the API test for the same model), promote it to a fixture in `tests/conftest.py` returning a `Callable`:
+
+```python
+# In tests/conftest.py
+@pytest.fixture
+def merchant_input_data() -> Callable[[Merchant], dict[str, Any]]:
+    def _build(merchant: Merchant) -> dict[str, Any]:
+        return {
+            "name": merchant.name,
+            "default_cashback_percentage": merchant.default_cashback_percentage,
+            "active": merchant.active,
+        }
+    return _build
+
+# Usage in any test
+def test_something(
+    merchant_factory: Callable[..., Merchant],
+    merchant_input_data: Callable[[Merchant], dict[str, Any]],
+) -> None:
+    data = merchant_input_data(merchant_factory())
+```
+
+**When adding a new input data builder, check `conftest.py` first** — if a builder for the same model already exists there, reuse it rather than defining a local one.
+
 #### 2. Assertion helpers — encapsulate multi-field or structural assertions
+
+Extract **any assertion that spans more than one field or accesses nested structure** into a named helper. Reading the test body should communicate *what* is verified, not *how* to navigate the response structure.
 
 ```python
 def _assert_user_out_response(body: dict[str, Any], user: User) -> None:
@@ -135,10 +163,21 @@ def _assert_user_out_response(body: dict[str, Any], user: User) -> None:
 def _assert_error_payload(body: dict[str, Any], expected_code: str) -> None:
     assert body["error"]["code"] == expected_code
 
+# For deeper/domain-specific error shapes, always extract — never inline:
+def _assert_cashback_percentage_error_response(
+    data: dict[str, Any], exc: CashbackPercentageNotValidException
+) -> None:
+    assert data["error"]["code"] == ErrorCode.VALIDATION_ERROR
+    assert data["error"]["details"]["field"] == "default_cashback_percentage"
+    assert data["error"]["details"]["reason"] == str(exc)
+
 # Usage
 _assert_user_out_response(response.json(), user)
 _assert_error_payload(response.json(), "EMAIL_ALREADY_REGISTERED")
+_assert_cashback_percentage_error_response(response.json(), exc)
 ```
+
+**Rule of thumb:** if the Assert block contains intermediate variables (e.g. `error = response.json()["error"]`) or more than two `assert` statements, extract it into a helper.
 
 #### 3. Arrangement helpers — set up recurring mock states
 
@@ -156,6 +195,7 @@ _mock_authenticated_user(service_mock, user)
 - Use `_` prefix to signal they are internal to the test module.
 - Name them `_{subject}_{role}`: `_merchant_input_data`, `_assert_user_out_response`, `_mock_authenticated_user`.
 - Helpers must have full type annotations; their return types eliminate the need to annotate call-site variables.
+- **Before writing a new helper**, scan `tests/conftest.py` for an existing shared fixture that does the same job.
 
 ## 8. Type Hints (CRITICAL)
 

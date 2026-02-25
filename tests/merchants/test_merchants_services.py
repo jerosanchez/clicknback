@@ -14,21 +14,6 @@ from app.merchants.services import MerchantService
 
 
 @pytest.fixture
-def merchant_factory() -> Callable[..., Merchant]:
-    def _make_merchant(**kwargs: Any) -> Merchant:
-        defaults: dict[str, Any] = {
-            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-            "name": "Acme Corp",
-            "default_cashback_percentage": 5.0,
-            "active": True,
-        }
-        defaults.update(kwargs)
-        return Merchant(**defaults)
-
-    return _make_merchant
-
-
-@pytest.fixture
 def enforce_cashback_percentage_validity() -> Callable[[float], None]:
     return Mock()
 
@@ -49,25 +34,18 @@ def merchant_service(
     )
 
 
-def _merchant_input_data(merchant: Merchant) -> dict[str, Any]:
-    return {
-        "name": merchant.name,
-        "default_cashback_percentage": merchant.default_cashback_percentage,
-        "active": merchant.active,
-    }
-
-
 def test_create_merchant_success(
     merchant_service: MerchantService,
     merchant_repository: Mock,
     merchant_factory: Callable[..., Merchant],
+    merchant_input_data: Callable[[Merchant], dict[str, Any]],
 ) -> None:
     # Arrange
     db = Mock(spec=Session)
     new_merchant = merchant_factory()
     merchant_repository.get_merchant_by_name.return_value = None
     merchant_repository.add_merchant.return_value = new_merchant
-    data = _merchant_input_data(new_merchant)
+    data = merchant_input_data(new_merchant)
 
     # Act
     returned_merchant = merchant_service.create_merchant(data, db)
@@ -80,12 +58,13 @@ def test_create_merchant_raises_exception_on_name_already_exists(
     merchant_service: MerchantService,
     merchant_repository: Mock,
     merchant_factory: Callable[..., Merchant],
+    merchant_input_data: Callable[[Merchant], dict[str, Any]],
 ) -> None:
     # Arrange
     db = Mock(spec=Session)
     existing_merchant = merchant_factory()
     merchant_repository.get_merchant_by_name.return_value = existing_merchant
-    data = _merchant_input_data(existing_merchant)
+    data = merchant_input_data(existing_merchant)
 
     # Act & Assert
     with pytest.raises(MerchantNameAlreadyExistsException):
@@ -97,6 +76,7 @@ def test_create_merchant_propagates_exception_on_invalid_cashback_percentage(
     enforce_cashback_percentage_validity: Mock,
     merchant_repository: Mock,
     merchant_factory: Callable[..., Merchant],
+    merchant_input_data: Callable[[Merchant], dict[str, Any]],
 ) -> None:
     # Arrange
     db = Mock(spec=Session)
@@ -105,7 +85,7 @@ def test_create_merchant_propagates_exception_on_invalid_cashback_percentage(
     enforce_cashback_percentage_validity.side_effect = (
         CashbackPercentageNotValidException("must be between 0 and 20.")
     )
-    data = _merchant_input_data(merchant)
+    data = merchant_input_data(merchant)
 
     # Act & Assert
     with pytest.raises(CashbackPercentageNotValidException):

@@ -2,6 +2,7 @@ from typing import Any, Callable
 
 import pytest
 
+from app.merchants.models import Merchant
 from app.users.models import User
 
 
@@ -20,3 +21,30 @@ def user_factory() -> Callable[..., User]:
         return User(**defaults)
 
     return _make_user
+
+
+@pytest.fixture
+def merchant_factory() -> Callable[..., Merchant]:
+    def _make_merchant(**kwargs: Any) -> Merchant:
+        defaults: dict[str, Any] = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "name": "Acme Corp",
+            "default_cashback_percentage": 5.0,
+            "active": True,
+        }
+        defaults.update(kwargs)
+        return Merchant(**defaults)
+
+    return _make_merchant
+
+
+@pytest.fixture
+def merchant_input_data() -> Callable[[Merchant], dict[str, Any]]:
+    def _build(merchant: Merchant) -> dict[str, Any]:
+        return {
+            "name": merchant.name,
+            "default_cashback_percentage": merchant.default_cashback_percentage,
+            "active": merchant.active,
+        }
+
+    return _build
