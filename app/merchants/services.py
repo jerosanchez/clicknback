@@ -1,5 +1,4 @@
 # merchants service stub
-import uuid
 from typing import Any, Callable
 
 from sqlalchemy.orm import Session
@@ -29,7 +28,6 @@ class MerchantService:
         self._enforce_merchant_name_uniqueness(name, db)
 
         new_merchant = Merchant(
-            id=uuid.uuid4(),
             name=name,
             default_cashback_percentage=default_cashback_percentage,
             active=active,

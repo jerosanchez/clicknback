@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.create_table(
         "merchants",
         sa.Column("id", sa.String(), primary_key=True, nullable=False, index=True),
-        sa.Column("name", sa.String(), nullable=False),
+        sa.Column("name", sa.String(), nullable=False, index=True),
         sa.Column("default_cashback_percentage", sa.Float(), nullable=False),
         sa.Column(
             "active", sa.Boolean(), nullable=False, server_default=sa.text("true")

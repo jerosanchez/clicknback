@@ -20,4 +20,7 @@ class MerchantRepository(MerchantRepositoryABC):
         return db.query(Merchant).filter(Merchant.name == name).first()
 
     def add_merchant(self, db: Session, merchant: Merchant) -> Merchant:
+        db.add(merchant)
+        db.commit()
+        db.refresh(merchant)
         return merchant
