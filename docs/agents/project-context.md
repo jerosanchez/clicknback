@@ -1,0 +1,650 @@
+# ClickNBack – AI Agent Context Document
+
+This document provides a self-contained reference for AI agents (and human developers) to understand the ClickNBack project: its purpose, architecture, conventions, and how to extend it correctly. Reference this document at the start of any conversation to ensure accurate, consistent assistance.
+
+---
+
+## 1. Project Purpose
+
+**ClickNBack** is a production-grade cashback platform backend that models how modern cashback applications operate. It is intentionally small in surface area but deep in engineering rigor.
+
+The system enables:
+
+- Users to earn cashback on purchases made at partner merchants.
+- Merchants to be registered with cashback offer configurations.
+- The platform to track purchases, calculate rewards, manage pending/confirmed balances, and process withdrawals.
+- Administrators to manage the platform and enforce business rules.
+
+### Domain Concepts
+
+| Concept | Description |
+| --- | --- |
+| **User** | Registers in the system, earns cashback. Roles: `user`, `admin`. |
+| **Merchant** | A partner business with a configured cashback percentage. |
+| **Offer** | Time-bound reward rules (percentage or fixed), with optional per-user monthly caps. |
+| **Purchase** | An external transaction event ingested into the system. Starts as `pending`. |
+| **Cashback Transaction** | Internal reward record tied to a purchase. Follows its own state machine (`pending → available` or `pending → reversed`). |
+| **Wallet** | Tracks `pending`, `available`, and `paid` balances per user. Consistency is critical. |
+| **Withdrawal** | User request to move `available` balance to `paid`. Requires row-level locking. |
+
+### Core Engineering Concerns
+
+- **Idempotency**: purchases keyed by external purchase ID.
+- **Financial precision**: `Decimal` for all monetary values.
+- **Concurrency**: row-level locking (`SELECT FOR UPDATE`) for wallet updates.
+- **State machines**: explicit purchase and cashback transaction state transitions.
+- **Auditability**: every financial change is logged and explainable.
+- **Fraud prevention**: duplicate detection, monthly caps, rate limiting.
+
+---
+
+## 2. Tech Stack
+
+| Component | Library/Tool |
+| --- | --- |
+| Web framework | FastAPI 0.127 |
+| ORM | SQLAlchemy (sync, `sessionmaker`) |
+| Database | PostgreSQL (via `psycopg2-binary`) |
+| Migrations | Alembic |
+| Password hashing | `passlib` + `bcrypt` |
+| JWT | `python-jose` |
+| Settings | `pydantic-settings` |
+| Testing | `pytest`, `pytest-cov` |
+| Linting/formatting | `ruff`, `black`, `flake8`, `pylint` |
+| Python | ≥ 3.13 |
+
+---
+
+## 3. Project Structure
+
+```text
+app/
+  main.py              ← FastAPI app factory + router registration
+  models.py            ← Central Alembic model discovery import
+  core/                ← Cross-cutting infrastructure (see §5)
+  auth/                ← Authentication feature module
+  users/               ← Users feature module
+  merchants/           ← Merchants feature module
+tests/
+  conftest.py          ← Shared pytest fixtures (factories)
+  auth/
+  users/
+  merchants/
+  core/
+alembic/               ← DB migration scripts
+docs/
+seeds/                 ← SQL seed data
+pyproject.toml
+```
+
+---
+
+## 4. Module Anatomy
+
+Every feature lives in its own package under `app/`. Each module follows a consistent layered structure:
+
+```text
+app/<feature>/
+  __init__.py          ← Empty; marks the package
+  models.py            ← SQLAlchemy ORM models (DB tables)
+  schemas.py           ← Pydantic schemas (API input/output)
+  repositories.py      ← DB access layer (ABC + concrete impl)
+  services.py          ← Business logic orchestration
+  policies.py          ← Pure business rule enforcement functions
+  exceptions.py        ← Domain-specific exceptions (no HTTP knowledge)
+  errors.py            ← Module-specific ErrorCode enum (HTTP error codes)
+  composition.py       ← Dependency wiring (FastAPI Depends factories)
+  api.py               ← FastAPI router (HTTP layer only)
+```
+
+Not every module needs all files (e.g., `auth` has no `repositories.py` — it delegates to `users` via a client).
+
+### Layer Responsibilities
+
+#### `models.py` – ORM Models
+
+SQLAlchemy `Base` subclasses. UUIDs as string PKs, `server_default` for DB-side defaults.
+
+```python
+class Merchant(Base):
+    __tablename__ = "merchants"
+    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column()
+    default_cashback_percentage: Mapped[float] = mapped_column()
+    active: Mapped[bool] = mapped_column(server_default=text("true"))
+```
+
+All models must be imported in `app/models.py` so Alembic can detect them.
+
+#### `schemas.py` – Pydantic Schemas
+
+Three typical schema classes per entity:
+
+- `<Entity>SchemaBase` – shared fields.
+- `<Entity>Create` – for `POST` request body (extends base, adds write-only fields like `password`).
+- `<Entity>Out` – for response bodies (extends base, adds `id`, `created_at`, excludes secrets). Always sets `model_config = {"from_attributes": True}` to allow ORM model → schema conversion.
+
+#### `repositories.py` – Repository Layer
+
+Two classes per repository:
+
+- `<Entity>RepositoryABC` – abstract class defining the interface (enables mocking in tests).
+- `<Entity>Repository` – concrete SQLAlchemy implementation.
+
+The repository only performs DB queries. No business logic here.
+
+```python
+class UserRepositoryABC(ABC):
+    @abstractmethod
+    def get_user_by_email(self, db: Session, email: str) -> User | None: ...
+
+class UserRepository(UserRepositoryABC):
+    def get_user_by_email(self, db: Session, email: str) -> User | None:
+        return db.query(User).filter(User.email == email).first()
+```
+
+#### `services.py` – Service Layer
+
+Contains the `<Entity>Service` class. Dependencies (repository, policy callables, etc.) are injected via `__init__()` (the constructor) — never instantiated directly inside the service. This makes services fully unit-testable without touching the DB.
+
+```python
+class UserService:
+    def __init__(
+        self,
+        enforce_password_complexity: Callable[[str], None],
+        hash_password: Callable[[str], str],
+        user_repository: UserRepositoryABC,
+    ): ...
+```
+
+Services raise **domain exceptions** (from `exceptions.py`). They have no knowledge of HTTP status codes.
+
+#### `policies.py` – Business Rule Functions
+
+Pure functions that enforce a single business rule. They raise domain exceptions on violation. They do not return a value on success (implicit `None`).
+
+```python
+def enforce_cashback_percentage_validity(percentage: float) -> None:
+    if not (0 <= percentage <= settings.max_cashback_percentage):
+        raise CashbackPercentageNotValidException(...)
+```
+
+Policy functions are injected into services via `composition.py`, making them independently testable.
+
+#### `exceptions.py` – Domain Exceptions
+
+Plain Python exceptions. No FastAPI or HTTP knowledge. They carry context as attributes for use by the API layer.
+
+```python
+class EmailAlreadyRegisteredException(Exception):
+    def __init__(self, email: str):
+        super().__init__(f"Email '{email}' is already registered.")
+        self.email = email  # <- carries context for the API layer
+```
+
+#### `errors.py` – Module Error Codes
+
+A `str, Enum` class defining semantic error codes specific to the module's HTTP responses. These are separate from `core/errors/codes.py` which holds global codes.
+
+```python
+class ErrorCode(str, Enum):
+    PASSWORD_NOT_COMPLEX_ENOUGH = "PASSWORD_NOT_COMPLEX_ENOUGH"
+    EMAIL_ALREADY_REGISTERED = "EMAIL_ALREADY_REGISTERED"
+```
+
+#### `composition.py` – Dependency Wiring
+
+Factory functions used with FastAPI's `Depends()` system. This is where concrete implementations are assembled and injected. Keeps `api.py` clean. This is also the seam for overriding dependencies in tests.
+
+```python
+def get_user_service():
+    return UserService(
+        get_enforce_password_complexity(),
+        get_password_hasher(),
+        get_user_repository(),
+    )
+```
+
+#### `api.py` – HTTP Router
+
+FastAPI `APIRouter`. Responsibilities:
+
+1. Declare routes with request/response schemas.
+2. Resolve dependencies via `Depends()`.
+3. Call the service.
+4. Catch domain exceptions and convert them to `HTTPException` using `core/errors/builders.py`.
+5. Log unexpected errors and raise `internal_server_error()`.
+
+```python
+@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    create_data: UserCreate,
+    user_service: UserService = Depends(get_user_service),
+    db: Session = Depends(get_db),
+) -> UserOut:
+    try:
+        return user_service.create_user(create_data.model_dump(), db)
+    except EmailAlreadyRegisteredException as exc:
+        raise business_rule_violation_error(ErrorCode.EMAIL_ALREADY_REGISTERED, str(exc), {"email": exc.email})
+    except Exception as e:
+        logging.error("Unexpected error", extra={"error": str(e)})
+        raise internal_server_error()
+```
+
+**The API layer never contains business logic.** It only translates between HTTP and the service layer.
+
+---
+
+## 5. The `core` Module – Cross-Cutting Concerns
+
+`app/core/` provides shared infrastructure used across all feature modules.
+
+### `core/config.py`
+
+`pydantic-settings` `Settings` class loaded from environment variables (or `.env`). All configuration lives here. Other modules import `settings` from this module.
+
+```python
+class Settings(BaseSettings):
+    database_url: str
+    oauth_hash_key: str
+    oauth_algorithm: str
+    oauth_token_ttl: int
+    log_level: str = "INFO"
+    max_cashback_percentage: float = 20.0
+```
+
+### `core/database.py`
+
+SQLAlchemy engine, `SessionLocal`, and the ORM `Base`. The `get_db()` generator is a FastAPI dependency that yields a DB session and ensures it is closed after the request.
+
+```python
+Base = declarative_base()  # imported by all ORM models
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+### `core/logging.py`
+
+Configures the root Python logger with a custom `ExtraDictFormatter` that appends structured `extra=` keyword arguments to log messages. All modules import `logger` (or `logging`) from here.
+
+```python
+logger = logging.getLogger(__name__)
+# Usage:
+logger.info("Login successful.", extra={"email": email})
+```
+
+### `core/current_user.py`
+
+Provides two FastAPI dependency functions:
+
+- `get_current_user(token, db, token_provider, user_repository) -> User`: validates the Bearer token and returns the active user.
+- `get_current_admin_user(current_user) -> User`: wraps `get_current_user` and additionally asserts `role == admin`.
+
+Used in protected routes to implement Role-Based Access Control (RBAC):
+
+```python
+_current_user: User = Depends(get_current_admin_user)  # admin-only endpoint
+```
+
+Any route that needs authentication injects one of these dependencies. Routes that don't include them are public.
+
+### `core/errors/codes.py`
+
+Global `ErrorCode` enum for codes shared across modules (e.g., `INVALID_CREDENTIALS`, `INVALID_TOKEN`, `FORBIDDEN`, `INTERNAL_SERVER_ERROR`).
+
+### `core/errors/builders.py`
+
+Factory functions that build `HTTPException` objects with a consistent JSON error shape:
+
+```json
+{
+  "error": {
+    "code": "EMAIL_ALREADY_REGISTERED",
+    "message": "Email 'x@y.com' is already registered.",
+    "details": { "email": "x@y.com" }
+  }
+}
+```
+
+Available builders:
+
+| Function | HTTP Status |
+| --- | --- |
+| `validation_error(code, message, details)` | 400 |
+| `authentication_error(message, details)` | 401 |
+| `forbidden_error(message, details)` | 403 |
+| `business_rule_violation_error(code, message, details)` | 409 |
+| `unprocessable_entity_error(code, message, details)` | 422 |
+| `internal_server_error(message, details)` | 500 |
+
+### `core/errors/handlers.py`
+
+Registers global FastAPI exception handlers via `register_error_handlers(app)`. This ensures:
+
+- `InvalidTokenException` → 401 JSON response.
+- All `HTTPException`s → normalized JSON `{ "error": { ... } }` shape.
+
+This is called once in `main.py`.
+
+---
+
+## 6. The `auth` Module
+
+Authentication is a standalone module. It does **not** have its own ORM model or repository — instead, it accesses user data through a `UsersClient` abstraction. This might change in the future if needed, encapsulating auth-related information in its own DB table, and keeping the `users` table clean from this concern.
+
+### Key Design: `clients.py`
+
+For example, `UsersClient` wraps `UserRepository` and exposes a minimal `get_user_by_email()` interface that returns an `auth.models.User` dataclass (not the ORM model). This is a **modular monolith boundary**: if `auth` were split into a microservice, only this client would need to change.
+
+```python
+class UsersClientABC(ABC):
+    @abstractmethod
+    def get_user_by_email(self, db: Session, email: str) -> Optional[User]: ...
+```
+
+### `auth/models.py`
+
+Pure Python dataclasses (no ORM):
+
+- `User(id, email, hashed_password, role)` – internal auth representation.
+- `Token(access_token, token_type)` – login response model.
+- `TokenPayload(user_id, user_role)` – decoded JWT payload.
+
+### `auth/token_provider.py`
+
+`OAuth2TokenProviderABC` interface with `create_access_token` and `verify_access_token`. The concrete `JwtOAuth2TokenProvider` uses `python-jose`. Switching token strategies only requires a new provider implementation.
+
+### Login Flow
+
+1. `POST /api/v1/login` → `auth/api.py`
+2. Calls `AuthService.login(data, db)`
+3. Service uses `UsersClient.get_user_by_email()` → raises `UserNotFoundException` if not found
+4. Verifies password with injected `verify_password` callable → raises `PasswordVerificationException`
+5. Creates JWT via `token_provider.create_access_token(TokenPayload(...))`
+6. Returns `Token(access_token, token_type="bearer")`
+
+---
+
+## 7. Application Wiring – `main.py`
+
+```python
+app = FastAPI()
+register_error_handlers(app)    # global error handlers from core
+app.include_router(users_api.router)
+app.include_router(auth_api.router)
+app.include_router(merchants_api.router)
+```
+
+All routers use the prefix `/api/v1`. When adding a new feature module, its router must be included here.
+
+### `app/models.py` – Alembic Discovery
+
+```python
+from app.merchants.models import Merchant
+from app.users.models import User
+```
+
+Every new ORM model must be imported here so Alembic's `env.py` can detect schema changes.
+
+---
+
+## 8. Error Handling Convention
+
+The full error handling chain:
+
+```text
+Domain Exception (exceptions.py)
+  → caught in api.py
+  → converted to HTTPException via core/errors/builders.py
+  → normalized by core/errors/handlers.py
+  → consistent JSON response: { "error": { "code", "message", "details" } }
+```
+
+Never raise `HTTPException` directly in a service or repository. Never let domain exceptions escape the API layer unhandled.
+
+---
+
+## 9. Testing Structure and Conventions
+
+```text
+tests/
+  conftest.py          ← Shared fixtures (factories for User, Merchant, etc.)
+  auth/
+    test_auth_api.py          ← API-level (integration-style, HTTP)
+    test_auth_services.py     ← Unit tests for AuthService
+    test_token_providers.py   ← Unit tests for JwtOAuth2TokenProvider
+  core/
+    test_current_user.py      ← Unit tests for get_current_user / get_current_admin_user
+    errors/
+      test_builders.py        ← Unit tests for error builder functions
+  merchants/
+    test_merchants_api.py     ← API-level tests
+    test_merchants_policies.py ← Unit tests for policy functions
+    test_merchants_services.py ← Unit tests for MerchantService
+  users/
+    test_users_api.py         ← API-level tests
+    test_users_policies.py    ← Unit tests for policy functions
+    test_users_services.py    ← Unit tests for UserService
+```
+
+### Test Levels
+
+| Level | What it tests | DB required | Mocking strategy |
+| --- | --- | --- | --- |
+| **Unit** (services, policies) | Pure business logic | No | Mock repositories/callables via `create_autospec` |
+| **API-level** (api.py) | HTTP routing, error mapping, response shape | No | Override `get_db` and service dependencies via `app.dependency_overrides` |
+| **Integration / E2E** | Full stack including DB | Yes | Real DB (test DB), minimal mocking |
+
+### Key Patterns
+
+**API tests** use `TestClient` with `app.dependency_overrides`:
+
+```python
+@pytest.fixture
+def client(service_mock):
+    app.dependency_overrides[get_db] = lambda: (yield Mock())
+    app.dependency_overrides[get_user_service] = lambda: service_mock
+    app.dependency_overrides[get_current_admin_user] = lambda: Mock()  # bypass auth
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+```
+
+**Service tests** inject mocked dependencies directly into the service constructor:
+
+```python
+@pytest.fixture
+def user_service(enforce_password_complexity, hash_password, user_repository):
+    return UserService(enforce_password_complexity, hash_password, user_repository)
+```
+
+**Shared fixtures** in `tests/conftest.py` provide factory callables:
+
+```python
+@pytest.fixture
+def user_factory() -> Callable[..., User]:
+    def _make_user(**kwargs) -> User:
+        defaults = { "id": "...", "email": "alice@example.com", ... }
+        defaults.update(kwargs)
+        return User(**defaults)
+    return _make_user
+```
+
+Factories accept `**kwargs` to allow per-test customization without defining many fixtures.
+
+---
+
+## 10. How to Scaffold a New Feature Module
+
+When adding a new feature (e.g., `purchases`), follow this checklist:
+
+### 1. Create the module directory
+
+```text
+app/purchases/
+  __init__.py
+  models.py
+  schemas.py
+  repositories.py
+  services.py
+  policies.py       (if business rules apply)
+  exceptions.py
+  errors.py
+  composition.py
+  api.py
+```
+
+### 2. `models.py` – ORM model
+
+```python
+import uuid
+from sqlalchemy import text
+from sqlalchemy.orm import Mapped, mapped_column
+from app.core.database import Base
+
+class Purchase(Base):
+    __tablename__ = "purchases"
+    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid.uuid4()))
+    # ... fields
+```
+
+Register in `app/models.py`:
+
+```python
+from app.purchases.models import Purchase
+```
+
+### 3. `schemas.py` – Pydantic schemas
+
+```python
+class PurchaseCreate(PurchaseSchemaBase):
+    ...
+
+class PurchaseOut(PurchaseSchemaBase):
+    id: UUID
+    model_config = {"from_attributes": True}
+```
+
+### 4. `repositories.py` – Repository
+
+```python
+class PurchaseRepositoryABC(ABC):
+    @abstractmethod
+    def add_purchase(self, db: Session, purchase: Purchase) -> Purchase: ...
+
+class PurchaseRepository(PurchaseRepositoryABC):
+    def add_purchase(self, db: Session, purchase: Purchase) -> Purchase:
+        db.add(purchase)
+        db.commit()
+        db.refresh(purchase)
+        return purchase
+```
+
+### 5. `exceptions.py` and `errors.py`
+
+```python
+# exceptions.py
+class PurchaseAlreadyExistsException(Exception):
+    def __init__(self, external_id: str):
+        super().__init__(f"Purchase '{external_id}' already exists.")
+        self.external_id = external_id
+
+# errors.py
+class ErrorCode(str, Enum):
+    DUPLICATE_PURCHASE = "DUPLICATE_PURCHASE"
+```
+
+### 6. `policies.py` – Business rules
+
+```python
+def enforce_some_rule(value: ...) -> None:
+    if not valid:
+        raise SomeDomainException(...)
+```
+
+### 7. `services.py` – Service
+
+```python
+class PurchaseService:
+    def __init__(self, some_policy: Callable, repository: PurchaseRepositoryABC):
+        self.some_policy = some_policy
+        self.repository = repository
+
+    def create_purchase(self, data: dict, db: Session) -> Purchase:
+        self.some_policy(data["value"])
+        # ... business logic
+        return self.repository.add_purchase(db, Purchase(...))
+```
+
+### 8. `composition.py` – Wiring
+
+```python
+def get_purchase_service():
+    return PurchaseService(
+        some_policy,
+        PurchaseRepository(),
+    )
+```
+
+### 9. `api.py` – Router
+
+```python
+router = APIRouter(prefix="/api/v1")
+
+@router.post("/purchases", response_model=PurchaseOut, status_code=201)
+def create_purchase(
+    data: PurchaseCreate,
+    service: PurchaseService = Depends(get_purchase_service),
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),  # or get_current_admin_user
+) -> PurchaseOut:
+    try:
+        return service.create_purchase(data.model_dump(), db)
+    except PurchaseAlreadyExistsException as exc:
+        raise business_rule_violation_error(ErrorCode.DUPLICATE_PURCHASE, str(exc), {...})
+    except Exception as e:
+        logging.error("Unexpected error", extra={"error": str(e)})
+        raise internal_server_error()
+```
+
+### 10. Register in `main.py`
+
+```python
+from app.purchases import api as purchases_api
+app.include_router(purchases_api.router)
+```
+
+### 11. Create an Alembic migration
+
+```bash
+alembic revision --autogenerate -m "add purchases table"
+alembic upgrade head
+```
+
+### 12. Tests
+
+```text
+tests/purchases/
+  test_purchases_api.py
+  test_purchases_policies.py   (if applicable)
+  test_purchases_services.py
+```
+
+Follow the same patterns: mock repository in service tests, override `app.dependency_overrides` in API tests, add factories to `conftest.py`.
+
+---
+
+## 11. Design Principles Summary
+
+1. **Layered architecture**: API → Service → Repository → DB. Each layer only knows about the layer directly below it.
+2. **Business logic is isolated**: services and policies never import FastAPI or HTTP concepts.
+3. **Dependencies are injected**: services receive callables and repository abstractions via `__init__()` (the constructor). Concrete wiring happens in `composition.py`.
+4. **Testability by design**: ABCs enable `create_autospec` mocking. `dependency_overrides` enables HTTP-layer testing without a real DB.
+5. **Consistent error shape**: all error responses follow `{ "error": { "code", "message", "details" } }`.
+6. **DB is the source of truth**: all constraints enforced at both the application and DB level (unique indexes, NOT NULL, etc.).
+7. **Explicit over implicit**: error codes are enums, not magic strings. State transitions are explicit. No surprise side-effects.
+8. **Financial correctness first**: use `Decimal` for monetary values, wrap balance-changing operations in DB transactions with row-level locking.
