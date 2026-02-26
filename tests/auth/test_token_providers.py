@@ -12,7 +12,7 @@ def token_provider() -> JwtOAuth2TokenProvider:
 
 
 @pytest.fixture
-def token_payload():
+def token_payload() -> TokenPayload:
     return TokenPayload(
         user_id="fec7f1a1-eb68-4d6f-8ba4-47920cea39cb",
         user_role="user",
@@ -21,7 +21,7 @@ def token_payload():
 
 def test_token_provider_creates_and_verifies_token(
     token_provider: JwtOAuth2TokenProvider, token_payload: TokenPayload
-):
+) -> None:
     # Arrange
 
     # Act
@@ -35,7 +35,7 @@ def test_token_provider_creates_and_verifies_token(
 
 def test_token_provider_raises_invalid_token_on_expired_token(
     token_provider: JwtOAuth2TokenProvider, token_payload: TokenPayload
-):
+) -> None:
     # Arrange
     expired_ttl = -10
     token_provider.ttl_in_minutes = expired_ttl
@@ -48,7 +48,7 @@ def test_token_provider_raises_invalid_token_on_expired_token(
 
 def test_token_provider_raises_internal_error_on_invalid_token(
     token_provider: JwtOAuth2TokenProvider,
-):
+) -> None:
     # Arrange
     invalid_token = "not.a.valid.token"
 

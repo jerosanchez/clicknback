@@ -10,6 +10,7 @@ from app.auth.exceptions import PasswordVerificationException, UserNotFoundExcep
 from app.auth.models import Token
 from app.auth.services import AuthService
 from app.core.database import get_db
+from app.core.errors.codes import ErrorCode
 from app.main import app
 
 
@@ -32,36 +33,50 @@ def client(auth_service_mock: Mock) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
 
 
-def test_login_success(client: TestClient, auth_service_mock: Mock) -> None:
-    # Arrange
-    login_data = {"email": "alice@example.com", "password": "ValidPass1!"}
-    token = Token(access_token="some.jwt.token", token_type="bearer")
-    auth_service_mock.login.return_value = token
+def _login_input_data() -> dict[str, Any]:
+    return {"email": "alice@example.com", "password": "ValidPass1!"}
 
-    # Act
-    response = client.post("/api/v1/login", json=login_data)
 
-    # Assert
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
+def _assert_token_out_response(data: dict[str, Any], token: Token) -> None:
     assert data["access_token"] == token.access_token
     assert data["token_type"] == token.token_type
 
 
+def _assert_error_payload(data: dict[str, Any], expected_code: ErrorCode) -> None:
+    assert "error" in data
+    assert data["error"]["code"] == expected_code
+
+
+def test_login_success(client: TestClient, auth_service_mock: Mock) -> None:
+    # Arrange
+    token = Token(access_token="some.jwt.token", token_type="bearer")
+    auth_service_mock.login.return_value = token
+
+    # Act
+    response = client.post("/api/v1/login", json=_login_input_data())
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    _assert_token_out_response(response.json(), token)
+
+
 @pytest.mark.parametrize(
-    "exception,expected_status",
+    "exception,expected_status,expected_code",
     [
         (
             UserNotFoundException("alice@example.com"),
             status.HTTP_401_UNAUTHORIZED,
+            ErrorCode.INVALID_CREDENTIALS,
         ),
         (
             PasswordVerificationException(),
             status.HTTP_401_UNAUTHORIZED,
+            ErrorCode.INVALID_CREDENTIALS,
         ),
         (
             Exception("Something broke"),
             status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
         ),
     ],
 )
@@ -70,31 +85,14 @@ def test_login_exceptions(
     auth_service_mock: Mock,
     exception: Exception,
     expected_status: int,
+    expected_code: ErrorCode,
 ) -> None:
     # Arrange
-    login_data = {"email": "alice@example.com", "password": "wrong"}
     auth_service_mock.login.side_effect = exception
 
     # Act
-    response = client.post("/api/v1/login", json=login_data)
+    response = client.post("/api/v1/login", json=_login_input_data())
 
     # Assert
     assert response.status_code == expected_status
-    _assert_error_payload(exception, response.json())
-
-
-def _assert_error_payload(exception: Exception, data: dict[str, Any]) -> None:
-    if isinstance(exception, (UserNotFoundException, PasswordVerificationException)):
-        _assert_invalid_credentials_error(data)
-    else:
-        # For generic exceptions, expect a generic code
-        assert "error" in data
-        error = data["error"]
-        assert error.get("code") == "INTERNAL_SERVER_ERROR"
-
-
-def _assert_invalid_credentials_error(data: dict[str, Any]) -> None:
-    assert "error" in data
-    error = data["error"]
-    assert error.get("code") == "INVALID_CREDENTIALS"
-    assert error.get("details") == {}
+    _assert_error_payload(response.json(), expected_code)

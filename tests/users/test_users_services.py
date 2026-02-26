@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Any, Callable
 from unittest.mock import Mock, create_autospec
 
 import pytest
@@ -24,7 +24,7 @@ def hash_password() -> Callable[[str], str]:
 
 
 @pytest.fixture
-def user_repository():
+def user_repository() -> Mock:
     return create_autospec(UserRepositoryABC)
 
 
@@ -33,7 +33,7 @@ def user_service(
     enforce_password_complexity: Callable[[str], None],
     hash_password: Callable[[str], str],
     user_repository: Mock,
-):
+) -> UserService:
     return UserService(
         enforce_password_complexity=enforce_password_complexity,
         hash_password=hash_password,
@@ -42,14 +42,17 @@ def user_service(
 
 
 def test_create_user_success(
-    user_service: UserService, user_repository: Mock, user_factory: Callable[..., User]
-):
+    user_service: UserService,
+    user_repository: Mock,
+    user_factory: Callable[..., User],
+    user_input_data: Callable[[User], dict[str, Any]],
+) -> None:
     # Arrange
     db = Mock(spec=Session)
-    user_repository.get_user_by_email.return_value = None
     new_user = user_factory()
+    user_repository.get_user_by_email.return_value = None
     user_repository.add_user.return_value = new_user
-    data = {"email": "alice@example.com", "password": "secret"}
+    data = user_input_data(new_user)
 
     # Act
     returned_user = user_service.create_user(data, db)
@@ -59,12 +62,16 @@ def test_create_user_success(
 
 
 def test_create_user_raises_exception_on_email_already_registered(
-    user_service: UserService, user_repository: Mock, user_factory: Callable[..., User]
-):
+    user_service: UserService,
+    user_repository: Mock,
+    user_factory: Callable[..., User],
+    user_input_data: Callable[[User], dict[str, Any]],
+) -> None:
     # Arrange
     db = Mock(spec=Session)
-    user_repository.get_user_by_email.return_value = user_factory()
-    data = {"email": "alice@example.com", "password": "secret"}
+    existing_user = user_factory()
+    user_repository.get_user_by_email.return_value = existing_user
+    data = user_input_data(existing_user)
 
     # Act & Assert
     with pytest.raises(EmailAlreadyRegisteredException):
@@ -72,15 +79,19 @@ def test_create_user_raises_exception_on_email_already_registered(
 
 
 def test_create_user_propagates_exception_on_password_not_enough_complex(
-    user_service: UserService, enforce_password_complexity: Mock, user_repository: Mock
-):
+    user_service: UserService,
+    enforce_password_complexity: Mock,
+    user_repository: Mock,
+    user_factory: Callable[..., User],
+    user_input_data: Callable[[User], dict[str, Any]],
+) -> None:
     # Arrange
     db = Mock(spec=Session)
     user_repository.get_user_by_email.return_value = None
     enforce_password_complexity.side_effect = PasswordNotComplexEnoughException(
         "Password not enough complex"
     )
-    data = {"email": "alice@example.com", "password": "weak"}
+    data = user_input_data(user_factory())
 
     # Act & Assert
     with pytest.raises(PasswordNotComplexEnoughException):

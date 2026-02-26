@@ -24,6 +24,17 @@ def user_factory() -> Callable[..., User]:
 
 
 @pytest.fixture
+def user_input_data() -> Callable[[User], dict[str, Any]]:
+    def _build(user: User) -> dict[str, Any]:
+        return {
+            "email": user.email,
+            "password": "PlaceholderPass1!",
+        }
+
+    return _build
+
+
+@pytest.fixture
 def merchant_factory() -> Callable[..., Merchant]:
     def _make_merchant(**kwargs: Any) -> Merchant:
         defaults: dict[str, Any] = {
