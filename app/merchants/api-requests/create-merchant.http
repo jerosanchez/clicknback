@@ -1,0 +1,85 @@
+@baseUrl = http://localhost:8000/api/v1
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzIwMzQ3NjB9.CZIPcxbVnzjpfRSLQ6ROEp9Rty4-mcN7dyKqeBwwXwo
+@userToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MjAyNjIwNH0.wIoDDU_Y-VWzifgAtT66EylA8dmad4etL1K-DF_J_co
+
+### Get a token for testing (user)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### Get a token for testing (admin)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "carol@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### Happy path: create merchant (admin only)
+POST {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "CoolShop",
+  "default_cashback_percentage": 5.0,
+  "active": true
+}
+
+### Sad path: missing authentication
+POST {{baseUrl}}/merchants
+Content-Type: application/json
+
+{
+  "name": "NoAuthShop",
+  "default_cashback_percentage": 5.0,
+  "active": true
+}
+
+### Sad path: non-admin user
+POST {{baseUrl}}/merchants
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "name": "UserShop",
+  "default_cashback_percentage": 5.0,
+  "active": true
+}
+
+### Sad path: missing field (name)
+POST {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "default_cashback_percentage": 5.0,
+  "active": true
+}
+
+### Sad path: cashback percentage too high 💔
+POST {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "HighCashback",
+  "default_cashback_percentage": 150.0,
+  "active": true
+}
+
+### Sad path: cashback percentage negative 💔
+POST {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "NegativeCashback",
+  "default_cashback_percentage": -5.0,
+  "active": true
+}

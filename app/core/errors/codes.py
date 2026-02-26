@@ -9,6 +9,7 @@ class ErrorCode(str, Enum):
 
     # 401 - Unauthorized
     INVALID_CREDENTIALS = "INVALID_CREDENTIALS"
+    INVALID_TOKEN = "INVALID_TOKEN"
 
     # 403 - Forbidden
     FORBIDDEN = "FORBIDDEN"

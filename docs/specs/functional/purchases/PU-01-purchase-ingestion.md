@@ -26,24 +26,24 @@ _As an external system, I want to record user purchases through a webhook so tha
 ## BDD Acceptance Criteria
 
 **Scenario:** External system successfully ingests a new purchase
-**Given** I send a `POST /api/v1/purchases/ingest` request with valid user, merchant, and unique external_id
+**Given** I send a purchase ingestion request with valid user, merchant, and unique external_id
 **When** the external_id is not already in system
-**Then** the API responds with `HTTP 201 Created` and returns the new purchase with status `pending`
+**Then** the new purchase is successfully created with status `pending`
 
 **Scenario:** External system submits duplicate purchase (idempotent)
-**Given** I send a `POST /api/v1/purchases/ingest` request with same external_id as previous request
+**Given** I send a purchase ingestion request with same external_id as previous request
 **When** the system checks for existing purchase
-**Then** the API responds with `HTTP 200 OK` and returns the existing purchase without creating a duplicate
+**Then** the existing purchase is returned without creating a duplicate
 
 **Scenario:** External system attempts to ingest for non-existent user
-**Given** I send a `POST /api/v1/purchases/ingest` request with non-existent user ID
+**Given** I send a purchase ingestion request with non-existent user ID
 **When** the system validates user existence
-**Then** the API responds with `HTTP 400 Bad Request` or `HTTP 404 Not Found`
+**Then** an error is returned indicating user not found
 
 **Scenario:** External system attempts to ingest for non-existent merchant
-**Given** I send a `POST /api/v1/purchases/ingest` request with non-existent merchant ID
+**Given** I send a purchase ingestion request with non-existent merchant ID
 **When** the system validates merchant existence
-**Then** the API responds with `HTTP 400 Bad Request` or `HTTP 404 Not Found`
+**Then** an error is returned indicating merchant not found
 
 ---
 
@@ -58,7 +58,7 @@ External system successfully ingests a new purchase
 3. System validates user exists.
 4. System validates merchant exists.
 5. System creates purchase with status `pending`.
-6. System returns `HTTP 201 Created` with new purchase info.
+6. System returns new purchase info.
 
 ### Sad Paths
 
@@ -67,7 +67,7 @@ External system successfully ingests a new purchase
 1. System receives purchase with external_id.
 2. System checks uniqueness constraint.
 3. System finds existing purchase with same external_id.
-4. System returns `HTTP 200 OK` with existing purchase without creating duplicate.
+4. System returns existing purchase without creating duplicate.
 
 #### Non-Existent User
 
@@ -75,7 +75,7 @@ External system successfully ingests a new purchase
 2. System checks uniqueness constraint.
 3. System validates user exists.
 4. System finds user does not exist.
-5. System returns `HTTP 400 Bad Request` or `HTTP 404 Not Found`.
+5. System returns error indicating user not found.
 
 #### Non-Existent Merchant
 
@@ -83,7 +83,7 @@ External system successfully ingests a new purchase
 2. System checks uniqueness constraint.
 3. System validates merchant exists.
 4. System finds merchant does not exist.
-5. System returns `HTTP 400 Bad Request` or `HTTP 404 Not Found`.
+5. System returns error indicating merchant not found.
 
 #### Invalid Purchase Data
 
@@ -91,7 +91,7 @@ External system successfully ingests a new purchase
 2. System checks uniqueness constraint.
 3. System validates purchase data.
 4. System detects invalid data.
-5. System returns `HTTP 400 Bad Request` with validation error.
+5. System rejects the request with validation error.
 
 ## API Contract
 

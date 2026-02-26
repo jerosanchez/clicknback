@@ -28,28 +28,24 @@ _As an admin, I want to view a list of all merchants so that I can monitor and m
 **Scenario:** Admin successfully retrieves merchant list
 **Given** I am an authenticated admin user
 **And** merchants exist in the system
-**And** I send a `GET /api/v1/merchants` request
 **When** the authorization is verified
-**Then** the API responds with `HTTP 200 OK` and returns a paginated list of merchants
+**Then** a paginated list of merchants is returned
 
 **Scenario:** Non-admin user attempts to list merchants
 **Given** I am an authenticated non-admin user
-**And** I send a `GET /api/v1/merchants` request
 **When** the system checks authorization
-**Then** the API responds with `HTTP 403 Forbidden`
+**Then** access is denied
 
 **Scenario:** Unauthenticated user attempts to list merchants
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/merchants` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** Admin retrieves empty merchant list
 **Given** I am an authenticated admin user
 **And** no merchants exist in the system
-**And** I send a `GET /api/v1/merchants` request
 **When** the system processes the request
-**Then** the API responds with `HTTP 200 OK` and returns an empty paginated list
+**Then** an empty paginated list is returned
 
 ---
 
@@ -62,7 +58,7 @@ An authenticated admin successfully retrieves merchant list
 1. Admin requests merchant list.
 2. System verifies admin authentication and role.
 3. System retrieves paginated merchant records.
-4. System returns `HTTP 200 OK` with merchant list.
+4. System returns merchant list.
 
 ### Sad Paths
 
@@ -79,7 +75,7 @@ An authenticated admin successfully retrieves merchant list
 1. Anonymous user requests merchant list.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 #### Empty ResultsS
 
@@ -87,7 +83,7 @@ An authenticated admin successfully retrieves merchant list
 2. System verifies admin role.
 3. System retrieves merchant records from database.
 4. System finds no merchants exist.
-5. System returns `HTTP 200 OK` with empty paginated list.
+5. System returns empty paginated list.
 
 ## API Contract
 

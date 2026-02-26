@@ -51,7 +51,7 @@ db-reset: ## Reset the database
 	alembic downgrade base
 	alembic upgrade head
 	docker exec -i clicknback-clicknback-db-1 \
-		psql -U user -d db < seeds/users.sql
+		psql -U user -d db < seeds/all.sql
 
 run: ## Run the application (non-docker)
 	@bash -c "$(VENV_ACTIVATE) uvicorn app.main:app --reload"

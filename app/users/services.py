@@ -2,6 +2,7 @@ from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
+from app.core.logging import logger
 from app.users.exceptions import EmailAlreadyRegisteredException
 from app.users.models import User
 from app.users.repositories import UserRepositoryABC
@@ -22,9 +23,9 @@ class UserService:
         email = create_data["email"]
         password = create_data["password"]
 
-        self._enforce_email_uniqueness(email, db)
-
         self.enforce_password_complexity(password)
+
+        self._enforce_email_uniqueness(email, db)
 
         hashed_password = self.hash_password(password)
         new_user = User(email=email, hashed_password=hashed_password, active=True)
@@ -33,4 +34,8 @@ class UserService:
 
     def _enforce_email_uniqueness(self, email: str, db: Session) -> None:
         if self.user_repository.get_user_by_email(db, email):
+            logger.info(
+                "Attempt to register a user with an existing email.",
+                extra={"email": email},
+            )
             raise EmailAlreadyRegisteredException(email)

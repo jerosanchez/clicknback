@@ -44,6 +44,10 @@ def auth_service(
     )
 
 
+def _login_input_data() -> dict[str, Any]:
+    return {"email": "alice@example.com", "password": "ValidPass1!"}
+
+
 def test_login_success(
     auth_service: AuthService,
     db: Mock,
@@ -54,13 +58,11 @@ def test_login_success(
 ) -> None:
     # Arrange
     verify_password.return_value = True
-    user = user_factory(id="1", role="user", hashed_password="hashed_pw")
-    users_client.get_user_by_email.return_value = user
+    users_client.get_user_by_email.return_value = user_factory()
     token_provider.create_access_token.return_value = "access_token"
-    data = {"email": "alice@example.com", "password": "secret"}
 
     # Act
-    token = auth_service.login(data, db)
+    token = auth_service.login(_login_input_data(), db)
 
     # Assert
     assert isinstance(token, Token)
@@ -75,11 +77,10 @@ def test_login_raises_exception_on_user_not_found(
 ) -> None:
     # Arrange
     users_client.get_user_by_email.return_value = None
-    data = {"email": "alice@example.com", "password": "secret"}
 
     # Act & Assert
     with pytest.raises(UserNotFoundException):
-        auth_service.login(data, db)
+        auth_service.login(_login_input_data(), db)
 
 
 def test_login_raises_exception_on_password_verification(
@@ -91,10 +92,8 @@ def test_login_raises_exception_on_password_verification(
 ) -> None:
     # Arrange
     verify_password.return_value = False
-    user = user_factory(id="1", role="user", hashed_password="hashed_pw")
-    users_client.get_user_by_email.return_value = user
-    data = {"email": "alice@example.com", "password": "wrong"}
+    users_client.get_user_by_email.return_value = user_factory()
 
     # Act & Assert
     with pytest.raises(PasswordVerificationException):
-        auth_service.login(data, db)
+        auth_service.login(_login_input_data(), db)

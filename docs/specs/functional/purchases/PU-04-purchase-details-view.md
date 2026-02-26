@@ -27,28 +27,24 @@ _As an authenticated user, I want to view detailed information about a specific 
 **Scenario:** User successfully views their purchase details
 **Given** I am an authenticated user
 **And** the purchase exists and belongs to me
-**And** I send a `GET /api/v1/purchases/{id}` request
 **When** the authorization is verified and ownership is confirmed
-**Then** the API responds with `HTTP 200 OK` and returns the complete purchase and cashback details
+**Then** the complete purchase and cashback details are returned
 
 **Scenario:** Unauthenticated user attempts to view purchase details
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/purchases/{id}` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** User attempts to view another user's purchase
 **Given** I am an authenticated user
 **And** the purchase exists but belongs to another user
-**And** I send a `GET /api/v1/purchases/{id}` request
 **When** the system verifies ownership
-**Then** the API responds with `HTTP 403 Forbidden` or `HTTP 404 Not Found`
+**Then** access is denied or a not found error is returned
 
 **Scenario:** User attempts to view non-existent purchase
 **Given** I am an authenticated user
-**And** I send a `GET /api/v1/purchases/{999}` request for a non-existent purchase
 **When** the system attempts to find the purchase
-**Then** the API responds with `HTTP 404 Not Found`
+**Then** a not found error is returned
 
 ---
 
@@ -63,7 +59,7 @@ Authenticated user successfully views purchase details
 3. System retrieves purchase record.
 4. System verifies purchase belongs to user.
 5. System retrieves associated cashback details.
-6. System returns `HTTP 200 OK` with detailed purchase information.
+6. System returns detailed purchase information.
 
 ### Sad Paths
 
@@ -72,7 +68,7 @@ Authenticated user successfully views purchase details
 1. Anonymous user requests purchase details.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 #### Ownership Violation
 
@@ -81,7 +77,7 @@ Authenticated user successfully views purchase details
 3. System retrieves purchase record.
 4. System verifies ownership.
 5. System finds purchase does not belong to user A.
-6. System returns `HTTP 403 Forbidden` or `HTTP 404 Not Found`.
+6. System denies access or returns not found error.
 
 #### Purchase Not Found
 
@@ -89,7 +85,7 @@ Authenticated user successfully views purchase details
 2. System verifies user authentication.
 3. System attempts to retrieve purchase.
 4. System finds purchase does not exist.
-5. System returns `HTTP 404 Not Found`.
+5. System returns not found error.
 
 ## API Contract
 

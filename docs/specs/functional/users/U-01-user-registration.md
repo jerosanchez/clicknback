@@ -28,24 +28,24 @@ _As a new user, I want to register so that I can create an account and access th
 ## BDD Acceptance Criteria
 
 **Scenario:** Successful registration with valid credentials
-**Given** I send user registration request with a valid email and password
+**Given** I submit a user registration request with a valid email and password
 **When** the email is not already registered and password meets complexity requirements
-**Then** the API responds with a success code and returns the new user information
+**Then** the new user is successfully created and returned
 
 **Scenario:** Registration with already registered email
-**Given** I send a user registration request with an email that is already registered
+**Given** I submit a user registration request with an email that is already registered
 **When** the API processes the request
-**Then** the API responds with an error message
+**Then** an error is returned indicating the email is already registered
 
 **Scenario:** Registration with invalid email format
-**Given** I send a user registration request with an invalid email format
+**Given** I submit a user registration request with an invalid email format
 **When** the API validates the input
-**Then** the API responds with an error message
+**Then** a validation error is returned
 
 **Scenario:** Registration with password not meeting complexity requirements
-**Given** I send a user registration request with a password that does not meet security requirements
+**Given** I submit a user registration request with a password that does not meet security requirements
 **When** the API validates the password
-**Then** the API responds with an error message
+**Then** a password validation error is returned
 
 ---
 
@@ -61,7 +61,7 @@ A new user successfully registers with valid email and password
 4. System enforces unique email constraint.
 5. System hashes password.
 6. System creates user record.
-7. System returns `HTTP 201 Created` with new user info.
+7. System returns new user info.
 
 ### Sad Paths
 
@@ -70,7 +70,7 @@ A new user successfully registers with valid email and password
 1. User submits invalid email and password.
 2. System validates email format.
 3. System detects invalid email format.
-4. System returns `HTTP 400 Bad Request` with validation error.
+4. System rejects the request with validation error.
 
 #### Weak Password
 
@@ -78,7 +78,7 @@ A new user successfully registers with valid email and password
 2. System validates email format.
 3. System enforces password complexity.
 4. System detects password does not meet requirements.
-5. System returns `HTTP 422 Unprocessable Content` with password requirements error.
+5. System rejects the request with password requirements error.
 
 #### Duplicate Email Registration
 
@@ -86,7 +86,7 @@ A new user successfully registers with valid email and password
 2. System validates email format.
 3. System checks if email already exists.
 4. System finds email is already registered.
-5. System returns `HTTP 409 Conflict` with error message.
+5. System rejects the request with error message.
 
 ## API Contract
 

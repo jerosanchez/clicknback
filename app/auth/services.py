@@ -6,6 +6,7 @@ from app.auth.clients import UsersClientABC
 from app.auth.exceptions import PasswordVerificationException, UserNotFoundException
 from app.auth.models import Token, TokenPayload
 from app.auth.token_provider import OAuth2TokenProviderABC
+from app.core.logging import logger
 
 
 class AuthService:
@@ -27,13 +28,20 @@ class AuthService:
         user = self.users_client.get_user_by_email(db, email)
 
         if not user:
+            logger.debug(
+                "Login attempt with non-existent email.", extra={"email": email}
+            )
             raise UserNotFoundException(email)
 
         if not self.verify_password(password, str(user.hashed_password)):
+            logger.debug(
+                "Login attempt with incorrect password.", extra={"email": email}
+            )
             raise PasswordVerificationException()
 
         access_token = self.token_provider.create_access_token(
             payload=TokenPayload(user_id=str(user.id), user_role=str(user.role))
         )
 
+        logger.info("Login attempt successful.", extra={"email": email})
         return Token(access_token=access_token, token_type="bearer")

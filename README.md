@@ -60,9 +60,9 @@ alembic/                # Database migrations
 | Feature | Domain | Status |
 | --------- | -------- | -------- |
 | **🔑 Authentication** | | |
-| User Authentication (Login) | Auth | 🟡 ongoing |
+| User Authentication (Login) | Auth | 🟢 ongoing |
 | **🏪 Merchant Management** | | |
-| Merchant Creation | Merchants | ⚪ defined |
+| Merchant Creation | Merchants | 🟢 defined |
 | Merchants Listing | Merchants | ⚪ defined |
 | Merchant Activation | Merchants | ⚪ defined |
 | **🎁 Offer Management** | | |

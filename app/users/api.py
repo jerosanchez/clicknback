@@ -7,6 +7,7 @@ from app.core.errors.builders import (
     internal_server_error,
     validation_error,
 )
+from app.core.logging import logging
 from app.users.composition import get_user_service
 from app.users.errors import ErrorCode
 from app.users.exceptions import (
@@ -46,7 +47,11 @@ async def create_user(
                 },
             ],
         )
-    except Exception:
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred during user creation.",
+            extra={"error": str(e)},
+        )
         raise internal_server_error()
 
     return new_user

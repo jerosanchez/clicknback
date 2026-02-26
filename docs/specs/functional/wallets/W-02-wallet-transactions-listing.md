@@ -28,27 +28,24 @@ _As an authenticated user, I want to audit my wallet transaction history so that
 **Scenario:** User successfully retrieves wallet transaction history
 **Given** I am an authenticated user
 **And** I have wallet transactions in the system
-**And** I send a `GET /api/v1/wallet/transactions` request
 **When** the authorization is verified
-**Then** the API responds with `HTTP 200 OK` and returns a paginated list of my wallet transactions including cashback credits, reversals, and payout deductions
+**Then** a paginated list of my wallet transactions including cashback credits, reversals, and payout deductions is returned
 
 **Scenario:** Unauthenticated user attempts to view transactions
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/wallet/transactions` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** User with no transactions retrieves empty list
 **Given** I am an authenticated user with no wallet transactions
-**And** I send a `GET /api/v1/wallet/transactions` request
 **When** the system retrieves transactions
-**Then** the API responds with `HTTP 200 OK` and returns an empty paginated list
+**Then** an empty paginated list is returned
 
 **Scenario:** User requests transactions with invalid pagination
 **Given** I am an authenticated user
-**And** I send a `GET /api/v1/wallet/transactions?page=abc` request with invalid parameters
+**And** I send a request with invalid parameters
 **When** the API validates the input
-**Then** the API responds with `HTTP 400 Bad Request` and an error message
+**Then** the request is rejected with a validation error
 
 ---
 
@@ -62,7 +59,7 @@ Authenticated user successfully retrieves transaction history
 2. System verifies user authentication.
 3. System retrieves paginated transactions for the user.
 4. System includes transaction type, amount, and timestamp.
-5. System returns `HTTP 200 OK` with transaction list.
+5. System returns transaction list.
 
 ### Sad Paths
 
@@ -71,7 +68,7 @@ Authenticated user successfully retrieves transaction history
 1. Anonymous user requests transaction history.
 2. System verifies authentication.
 3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
+4. System rejects the request as unauthorized.
 
 #### Empty Results
 
@@ -79,7 +76,7 @@ Authenticated user successfully retrieves transaction history
 2. System verifies user authentication.
 3. System retrieves transactions for the user.
 4. System finds user has no transactions.
-5. System returns `HTTP 200 OK` with empty paginated list.
+5. System returns empty paginated list.
 
 #### Invalid Pagination Parameters
 
@@ -87,7 +84,7 @@ Authenticated user successfully retrieves transaction history
 2. System verifies user authentication.
 3. System validates pagination parameters.
 4. System detects invalid parameters.
-5. System returns `HTTP 400 Bad Request` with validation error.
+5. System rejects the request with validation error.
 
 ## API Contract
 

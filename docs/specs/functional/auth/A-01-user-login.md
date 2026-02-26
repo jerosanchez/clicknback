@@ -17,24 +17,24 @@ _As a registered user, I want to authenticate using my email and password so tha
 ## BDD Acceptance Criteria
 
 **Scenario:** Successful authentication with valid credentials
-**Given** I send a login request with correct email and password
+**Given** I have correct email and password
 **When** the user account exists and credentials are valid
-**Then** the API responds successfully and returns a valid JWT token
+**Then** a valid JWT token is issued
 
 **Scenario:** Authentication with non-existent user
-**Given** I send a login request with an email that is not registered
+**Given** I attempt to login with an email that is not registered
 **When** the system attempts to validate credentials
-**Then** the API responds with an error code and returns a message
+**Then** an authentication error is returned
 
 **Scenario:** Authentication with incorrect password
-**Given** I send a login request with correct email but wrong password
+**Given** I attempt to login with correct email but wrong password
 **When** the system validates the password
-**Then** the API responds with an error code an returns a message
+**Then** an authentication error is returned
 
 **Scenario:** Authentication with invalid email format
-**Given** I send a login request with an invalid email format
+**Given** I attempt to login with an invalid email format
 **When** the API validates the input
-**Then** the API responds with an error code and returns a message
+**Then** a validation error is returned
 
 ---
 
@@ -49,7 +49,7 @@ A registered user successfully authenticates with valid credentials via the auth
 3. System retrieves user by email.
 4. System validates credentials against stored hash.
 5. System issues access token.
-6. System returns `HTTP 200 OK` with access token.
+6. System returns the access token.
 
 ### Sad Paths
 
@@ -58,7 +58,7 @@ A registered user successfully authenticates with valid credentials via the auth
 1. User submits invalid email and password.
 2. System validates email format.
 3. System detects invalid email format.
-4. System returns `HTTP 400 Bad Request` with validation error.
+4. System rejects the request with validation error.
 
 #### Non-Existent User
 
@@ -66,7 +66,7 @@ A registered user successfully authenticates with valid credentials via the auth
 2. System validates email format.
 3. System attempts to retrieve user by email.
 4. System finds user does not exist.
-5. System returns `HTTP 401 Unauthorized` with error message.
+5. System rejects the request with authentication error.
 
 #### Incorrect Password
 
@@ -75,7 +75,7 @@ A registered user successfully authenticates with valid credentials via the auth
 3. System retrieves user by email.
 4. System validates password against stored hash.
 5. System finds password does not match.
-6. System returns `HTTP 401 Unauthorized` with error message.
+6. System rejects the request with authentication error.
 
 ## API Contract
 

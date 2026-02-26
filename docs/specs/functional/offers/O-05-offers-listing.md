@@ -29,28 +29,24 @@ _As an admin, I want to view a list of all offers with their status so that I ca
 **Scenario:** Admin successfully retrieves offer list with status
 **Given** I am an authenticated admin user
 **And** offers exist in the system
-**And** I send a `GET /api/v1/offers` request
 **When** the authorization is verified
-**Then** the API responds with `HTTP 200 OK` and returns a paginated list of offers with status information
+**Then** a paginated list of offers with status information is returned
 
 **Scenario:** Non-admin user attempts to list offers
 **Given** I am an authenticated non-admin user
-**And** I send a `GET /api/v1/offers` request
 **When** the system checks authorization
-**Then** the API responds with `HTTP 403 Forbidden`
+**Then** access is denied
 
 **Scenario:** Unauthenticated user attempts to list offers
 **Given** I am not authenticated
-**And** I send a `GET /api/v1/offers` request
 **When** the system checks authentication
-**Then** the API responds with `HTTP 401 Unauthorized`
+**Then** the request is rejected as unauthorized
 
 **Scenario:** Admin retrieves empty offer list
 **Given** I am an authenticated admin user
 **And** no offers exist in the system
-**And** I send a `GET /api/v1/offers` request
 **When** the system processes the request
-**Then** the API responds with `HTTP 200 OK` and returns an empty paginated list
+**Then** an empty paginated list is returned
 
 ---
 
@@ -63,7 +59,7 @@ An authenticated admin successfully retrieves offer list
 1. Admin requests offer list.
 2. System verifies admin authentication and role.
 3. System retrieves paginated offer records with status.
-4. System returns `HTTP 200 OK` with offer list.
+4. System returns offer list.
 
 ### Sad Paths
 
@@ -88,7 +84,7 @@ An authenticated admin successfully retrieves offer list
 2. System verifies admin role.
 3. System retrieves offer records from database.
 4. System finds no offers exist.
-5. System returns `HTTP 200 OK` with empty paginated list.
+5. System returns empty paginated list.
 
 ## API Contract
 
