@@ -104,6 +104,22 @@ For a detailed walkthrough of each layer, its responsibilities, and the architec
 
 ---
 
+## Architecture Decisions
+
+Significant design choices are documented as Architecture Decision Records (ADRs) under [`docs/design/adr/`](docs/design/adr/). Each record captures the context, the options considered, and the reasoning behind the decision taken — including what was explicitly rejected and why.
+
+Topics covered include:
+
+- [Technology stack selection](docs/design/adr/000-technology-stack-selection.md) — why FastAPI, SQLAlchemy, and PostgreSQL
+- [Modular monolith approach](docs/design/adr/001-adopt-modular-monolith-approach.md) — explicit module boundaries designed for future extraction
+- [API module as composition root](docs/design/adr/003-api-module-as-composition-root.md) — where and how dependencies are wired
+- [JWT stateless authentication](docs/design/adr/008-jwt-stateless-authentication.md) — token strategy and tradeoffs
+- [Layered testing strategy](docs/design/adr/007-layered-testing-strategy.md) — unit, API-level, and integration test boundaries
+
+The full index is at [`docs/design/adr-index.md`](docs/design/adr-index.md).
+
+---
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, development workflow, and code quality requirements.

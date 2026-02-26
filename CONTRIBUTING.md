@@ -228,6 +228,6 @@ uvicorn app.main:app --reload --port 8001
 ## Questions or Issues?
 
 - Check the documentation in [`docs/`](docs/)
-- Review relevant ADRs in [`docs/adr/`](docs/adr/)
+- Review relevant ADRs in [`docs/adr/`](docs/design/adr/)
 - Check existing GitHub issues
 - Open an issue with details about the problem and your environment
