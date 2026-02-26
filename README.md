@@ -4,134 +4,106 @@
 ![status: early development](https://img.shields.io/badge/status-early%20development-orange)
 <!-- markdownlint-enable MD041 -->
 
-# ClicknBack – Backend Engineering Demo
+# ClickNBack – Backend Engineering Demo
 
-**A production-grade cashback backend system showcasing senior-level engineering practices.**
+**A production-grade cashback platform backend built to demonstrate senior-level Python engineering.**
 
-Built with **Python** | **FastAPI** | **PostgreSQL** and related technologies.
-
-This repository demonstrates designing and building a real-world system with proper architecture, comprehensive documentation, rigorous testing, and thoughtful API design. It models a complete cashback product: users, merchants, offers, purchases, wallet management, and payouts.
+Built with **Python 3.13** | **FastAPI** | **PostgreSQL** | **SQLAlchemy** | **Alembic** | **pytest**
 
 ---
 
-## Quick Start for Reviewers
+## What This Project Is
 
-```bash
-make dev
-```
+ClickNBack models how a real cashback application works: users earn rewards on purchases at partner merchants. The platform ingests purchase events, calculates cashback, manages user wallets (pending, available, and paid balances), and processes withdrawals.
 
-Server runs at `http://localhost:8000`
-
-## Project Structure
-
-```text
-app/                    # Application code
-├── core/               # Shared infra (config, database, etc.)
-├── users/              # User domain module (blueprint)
-│   ├── api.py          # API endpoints
-│   ├── composition.py  # Dependency injection (DI)
-│   ├── models.py       # Database models
-│   ├── schemas.py      # Request/response schemas
-│   ├── services.py     # Business logic
-│   ├── repositories.py # Data access layer
-│   └── exceptions.py   # Domain exceptions
-├── ...
-└── main.py             # Application factory
-
-tests/                  # Test suite (unit, integration, E2E)
-├── conftest.py         # Pytest configuration & fixtures
-├── users/
-└── ...
-
-docs/                   # Comprehensive documentation
-├── design/             # Architecture, ADRs, API contracts, etc.
-├── specs/              # Product overview, requirements, etc.
-└── agents/             # Coding guidelines (for humans & AIs)
-
-seeds/                  # SQL scrips to populate local DB
-
-alembic/                # Database migrations
-```
+The system is intentionally small in surface area but deep in engineering rigor. It is not a tutorial or scaffold — it is a working backend demonstrating the kind of decisions, tradeoffs, and discipline expected in a production codebase.
 
 ---
 
-## Feature List
+## What This Showcases
+
+- **Layered architecture** — strict separation between HTTP routing, business logic, and data access, with each layer only knowing about the layer directly below it
+- **Dependency injection** — services receive all dependencies (repositories, policy callables, token providers) via constructors; FastAPI `Depends()` handles wiring at the boundary
+- **Repository pattern with ABCs** — data access sits behind abstract interfaces, enabling full unit testing without touching the database
+- **Business rule isolation** — policies are pure functions that raise domain exceptions; services orchestrate them; the API layer translates to HTTP
+- **Consistent error handling** — a layered pipeline from domain exception → `HTTPException` → normalized JSON response `{ "error": { "code", "message", "details" } }`
+- **Financial precision** — `Decimal` for all monetary values; row-level locking (`SELECT FOR UPDATE`) for wallet updates
+- **Idempotency** — purchases keyed by external ID to prevent double-crediting
+- **Test discipline** — unit tests (mocked dependencies via `create_autospec`), API-level tests (HTTP via `TestClient` + `dependency_overrides`), and integration tests; full coverage reporting
+- **Modular monolith** — module boundaries are explicit and ready for extraction into separate services if the system grows
+
+---
+
+## Feature Progress
 
 | Feature | Domain | Status |
-| --------- | -------- | -------- |
-| **🔑 Authentication** | | |
-| User Authentication (Login) | Auth | 🟢 ongoing |
-| **🏪 Merchant Management** | | |
-| Merchant Creation | Merchants | 🟢 defined |
-| Merchants Listing | Merchants | ⚪ defined |
-| Merchant Activation | Merchants | ⚪ defined |
-| **🎁 Offer Management** | | |
-| Offer Creation | Offers | ⚪ defined |
-| Offers Listing | Offers | ⚪ defined |
-| Active Offers Listing | Offers | ⚪ defined |
-| Offer Activation | Offers | ⚪ defined |
-| Offer Details View | Offers | ⚪ defined |
-| **💵 Payouts** | | |
-| Payout Request (Withdrawal) | Payouts | ⚪ defined |
-| Payout Processing | Payouts | ⚪ defined |
-| Payouts Listing | Payouts | ⚪ defined |
-| User Payouts Listing | Payouts | ⚪ defined |
-| **💸 Purchase & Cashback Flow** | | |
-| Purchase Ingestion (Webhook) | Purchases | ⚪ defined |
-| Purchase Confirmation | Purchases | ⚪ defined |
-| Purchase Details View | Purchases | ⚪ defined |
-| Purchases Listing | Purchases | ⚪ defined |
-| User Purchases Listing | Purchases | ⚪ defined |
-| Cashback Calculation Engine | Purchases | ⚪ defined |
-| Purchase Reversal | Purchases | ⚪ defined |
-| **👤 User Management** | | |
-| User Registration | Users | 🟢 ready |
-| **👛 Wallet Management** | | |
-| Wallet Summary View | Wallets | ⚪ defined |
-| Wallet Transactions Listing | Wallets | ⚪ defined |
+| --- | --- | --- |
+| **Authentication** | | |
+| User Login | Auth | 🟢 done |
+| **User Management** | | |
+| User Registration | Users | 🟢 done |
+| **Merchant Management** | | |
+| Merchant Creation | Merchants | 🟢 done |
+| Merchants Listing | Merchants | ⚪ planned |
+| Merchant Activation | Merchants | ⚪ planned |
+| **Offer Management** | | |
+| Offer Creation | Offers | ⚪ planned |
+| Offers Listing | Offers | ⚪ planned |
+| Active Offers Listing | Offers | ⚪ planned |
+| Offer Activation | Offers | ⚪ planned |
+| Offer Details | Offers | ⚪ planned |
+| **Purchase & Cashback** | | |
+| Purchase Ingestion (Webhook) | Purchases | ⚪ planned |
+| Purchase Confirmation | Purchases | ⚪ planned |
+| Purchase Details | Purchases | ⚪ planned |
+| Purchases Listing | Purchases | ⚪ planned |
+| Cashback Calculation Engine | Purchases | ⚪ planned |
+| Purchase Reversal | Purchases | ⚪ planned |
+| **Wallet Management** | | |
+| Wallet Summary | Wallets | ⚪ planned |
+| Wallet Transactions Listing | Wallets | ⚪ planned |
+| **Payouts** | | |
+| Payout Request (Withdrawal) | Payouts | ⚪ planned |
+| Payout Processing | Payouts | ⚪ planned |
+| Payouts Listing | Payouts | ⚪ planned |
 
 ---
 
-## System Documentation
+## Quick Start
 
-> ⚠️ **Living Documentation Notice**
->
-> This system is in **early development**. The documentation is a living entity and can get out of sync with the implementation. Some inconsistencies between docs and code are expected as the project evolves.
->
-> **In case of conflicts:**
->
-> - For feature maturity status, trust the [Feature List](#feature-list) table in this README
-> - For implemented behavior, trust the **code and tests** as the source of truth
-> - Documentation serves as design intent and architectural guidance
->
-> Contributions should keep docs and code aligned where possible.
+```bash
+# Install dependencies and start the database
+make install
+make up
 
-### Specifications & Requirements
+# Run the test suite
+make test
+```
 
-Start here to understand what the system does and what's required:
+The API is available at `http://localhost:8000`. Interactive docs (Swagger UI) are at `http://localhost:8000/docs`.
 
-- [Product Overview](docs/specs/product-overview.md) — High-level overview of the ClicknBack cashback system
-- [System Requirements](docs/specs/system-requirements.md) — Functional and non-functional requirements
-  - [Functional Specifications](docs/specs/functional/) — Detailed workflows for each domain (users, merchants, offers, purchases, wallets, payouts)
-  - [Non-Functional Requirements](docs/specs/non-functional/) — Data integrity, idempotency, financial precision, concurrency, performance, etc.
-- [Domain Glossary](docs/specs/domain-glossary.md) — Key domain concepts and terminology
+---
 
-### Design & Architecture
+## Navigating the Code
 
-Understand how the system is built and the decisions made:
+The application lives under `app/`. Every domain is a self-contained module (e.g., `app/users/`, `app/merchants/`) that follows the same layered structure:
 
-- [Architecture Overview](docs/design/architecture-overview.md) — High-level system architecture
-- [Architecture Decision Records (ADRs)](docs/design/adr-index.md) — Key design decisions and rationale
-- [Data Model](docs/design/data-model.md) — Entity relationships and database schema
-- [API Contracts](docs/design/api-contracts-index.md) — Detailed API specifications for all endpoints
-- [Security Strategy](docs/design/security-strategy.md) — Authentication, authorization, and data consistency and protection
-- [Error Handling Strategy](docs/design/error-handling-strategy.md) — Error classification and handling patterns
-- [Testing Strategy](docs/design/testing-strategy.md) — Testing approach and coverage requirements
-- [Deployment Plan](docs/design/deployment-plan.md) — Deployment procedures and environment configuration
-- [Operation Plan](docs/design/operation-plan.md) — Operational guidelines and monitoring
+- `api.py` — HTTP routing only: receives requests, calls the service, maps exceptions to responses
+- `services.py` — business logic orchestration; no HTTP knowledge; fully injectable and unit-testable
+- `policies.py` — pure functions enforcing individual business rules; raise domain exceptions on violation
+- `repositories.py` — data access behind an ABC; the concrete implementation uses SQLAlchemy
+- `models.py`, `schemas.py` — ORM models and Pydantic request/response schemas respectively
+- `exceptions.py`, `errors.py` — domain exceptions and module-level HTTP error codes
+- `composition.py` — wires concrete implementations together for FastAPI `Depends()`
+
+Cross-cutting infrastructure (config, DB session factory, JWT, logging, error builders) lives in `app/core/`.
+
+Tests mirror the module structure under `tests/`. The `conftest.py` at the root provides factory fixtures used across all test suites.
+
+For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/project-context.md](docs/agents/project-context.md).
+
+---
 
 ## Contributing
 
-For guidelines on setting up your environment, development workflow, and code quality requirements, see the [CONTRIBUTING.md](CONTRIBUTING.md) file.
-
-Coding and text writing guidelines for both human developers and AI agents are available in the [docs/agents/](docs/agents/) directory.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, development workflow, and code quality requirements.
