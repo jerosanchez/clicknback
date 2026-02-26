@@ -6,22 +6,36 @@ Accepted
 
 ## Context
 
-In FastAPI projects, dependencies (services, policies, repositories) must be composed and injected. Where should this wiring happen?
+ClickNBack uses FastAPI's dependency injection system (`Depends()`) to wire services, repositories, and policies together. Each service constructor requires its collaborators to be created and passed in at request time. The question is: where should this construction and wiring logic live?
 
-### Option 1: Centralized Container
+### Option 1: Centralised Application-Level Container
+
+A single module builds and exposes all dependencies for the entire application. All feature modules import their wired objects from this central location.
 
 ```python
-# composition_root.py
-@contextmanager
-def create_user_service():
-    repo = UserRepository(db)
-    policy = PasswordPolicy()
-    yield UserService(repo, policy)
+# app/composition_root.py — builds everything in one place
+from app.core.database import get_db
+from app.users.repositories import UserRepository
+from app.users.services import UserService
+from app.users.policies import enforce_password_complexity
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"])
+
+def get_user_service(db: Session = Depends(get_db)) -> UserService:
+    return UserService(
+        user_repository=UserRepository(),
+        enforce_password_complexity=enforce_password_complexity,
+        hash_password=lambda pw: pwd_context.hash(pw),
+    )
+
+# app/merchants/composition_root.py would also live here, coupling all features
 ```
 
-- ✅ Single place to understand wiring
-- ❌ Couples features together
-- ❌ Hard to extend per-feature logic
+- ✅ Single file to inspect all application wiring
+- ❌ All domain imports converge in one module — a change in any domain forces a review of the global container
+- ❌ Adding a new dependency to `MerchantService` requires editing the shared container, not the merchant module
+- ❌ Test overrides must target a central location rather than the module under test
 
 ### Option 2: Feature-Level Composition (per API module)
 
@@ -159,17 +173,13 @@ def test_create_user_returns_409_on_duplicate(client):
 
 ## Rationale
 
-FastAPI's dependency injection system is designed to work exactly like this approach. The framework provides:
+FastAPI's dependency injection system is explicitly designed for this pattern. `Depends()` is composable — a provider function can itself declare dependencies, which FastAPI resolves recursively. `dependency_overrides` replaces any provider by its function reference, which is locally defined in the feature module. Lazy evaluation means nothing is constructed until a request arrives at an endpoint that requires it.
 
-- `Depends()` - Mark dependencies
-- `dependency_overrides` - Test-time replacement
-- Composability - Dependencies can reference other dependencies
-- Lazy evaluation - Only construct when needed
+The per-feature composition root aligns directly with ADR 001's modular monolith structure: each domain package is self-contained. Its `api.py` is the only file that needs to know how to construct the domain's service, because `api.py` is the only consumer of that service. A new developer working on the `users` domain reads `app/users/api.py` and immediately sees what collaborators `UserService` requires — no global container to trace.
 
-This approach balances **clarity** (explicit wiring), **maintainability** (per-feature composition), and **testability** (easy overrides) without requiring external frameworks or complex configuration.
+For ClickNBack specifically, this approach keeps testing lightweight: each endpoint's provider function can be replaced with a `Mock` via `dependency_overrides` in a single line, allowing unit tests to run against the full routing layer without any database or infrastructure (see ADR 007).
 
 **When to reconsider:**
 
-- Project has 50+ features and composition becomes unwieldy (migrate to centralized container)
-- Multiple teams own different features and need guaranteed composition consistency
-- Deployment configuration needs to vary per environment (add configuration layer)
+- The project has many domains (50+) and a cross-cutting concern (e.g., audit logging, rate limiting) must be injected into every service — at that point a partial central registry for shared infrastructure makes sense alongside per-feature wiring.
+- Multiple teams own different domains and need a guaranteed-consistent construction policy enforced by CI — a validation layer over the existing providers can achieve this without abandoning the per-feature structure.

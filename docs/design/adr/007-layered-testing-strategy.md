@@ -6,11 +6,11 @@ Accepted
 
 ## Context
 
-Testing is crucial for maintaining code quality and preventing regressions. However, not all code requires the same testing approach. Different layers of the application have varying levels of complexity, brittleness, and value from unit testing.
+ClickNBack's modular monolith has three clearly separated layers per domain: API handlers, service classes, and repository classes. The question is: which layers should be covered by unit tests, which require a real database (integration tests), and which should be validated through full HTTP request cycles (end-to-end tests)?
 
-When testing a modular monolith architecture with clear separation of concerns (APIs, services, repositories), the question arises: what should be tested at the unit level, what requires integration testing, and what benefits from end-to-end testing?
+This matters because test code has a maintenance cost. A unit test that verifies a repository method that does nothing but wrap an ORM query provides low signal — the query implementation is an internal detail, and any bug in it is caught by higher-level tests. Conversely, a service method that contains branching logic and raises domain-specific exceptions is exactly the code that benefits from fast, isolated unit test coverage.
 
-Additionally, test code itself is code that requires maintenance. Testing thin layers that are just direct forwarders (e.g., ORM query wrappers) introduces maintenance burden without proportional value, especially when bugs in those layers are caught by higher-level tests.
+Additionally, the API layer has its own testable contract: HTTP status codes, error response shapes, and exception-to-response mappings. These should be verified without involving a real database or the full server stack.
 
 ## Decision
 
@@ -173,32 +173,31 @@ def find_eligible_cashback_users(self, db, min_transactions, min_amount):
 
 ## Alternatives Considered
 
-1. **Unit test everything** (services, repositories, utils)
-   - Rejected: Too much maintenance burden, requires test DB for repository tests, doesn't scale
-2. **Only E2E tests**
-   - Rejected: Slow feedback loop, hard to debug business logic issues, expensive to run
-3. **Test repositories with fixtures/test records**
-   - Rejected: Same maintenance cost, but without the integration test benefits
+### Unit Test Every Layer (Including Repositories)
+
+- **Pros:** 100% unit test coverage of all code paths, including repository queries.
+- **Cons:** Repository unit tests require a test database or complex mocking of SQLAlchemy internals. A unit test that mocks `db.query(User).filter(...).first()` is testing mock behaviour, not real behaviour. Any refactoring of the query implementation breaks the test without any actual bug being introduced. The maintenance cost is high with minimal added confidence.
+- **Rejected:** Thin ORM wrappers are better covered by integration tests that exercise real database behaviour. Unit-testing them creates a false sense of coverage while adding maintenance burden.
+
+### End-to-End Tests Only
+
+- **Pros:** Maximum realism — tests exercise the full stack on every run.
+- **Cons:** E2E tests are slow (every test starts with an HTTP request and a database operation), making tight feedback loops impossible. A business logic bug in a service requires running the full stack to surface it. Debugging failures is harder because the test exercises many layers simultaneously.
+- **Rejected:** The feedback loop is too slow for iterative development. Unit tests on the service layer surface business logic bugs in milliseconds; E2E tests are the final confidence check, not the primary feedback mechanism.
+
+### Integration Tests for Repositories (Instead of Deferring Them)
+
+- **Pros:** Repository correctness is verified earlier, before E2E tests are added.
+- **Cons:** Integration tests require a live test database, which adds setup complexity and slows the CI pipeline. For simple ORM wrappers, the integration test adds cost without proportional value — the same bug would be surfaced by service integration tests or E2E tests anyway.
+- **Rejected:** Repository integration tests are deferred until the application has complex repository logic (joins, aggregations, CTEs) where the test ROI is meaningful. Simple `filter().first()` wrappers do not meet that threshold.
 
 ## Rationale
 
-This approach balances several competing concerns:
+The layered testing strategy maps each test type to a clear responsibility:
 
-- **Developer velocity:** Fast unit test feedback on business logic and HTTP contracts
-- **Maintainability:** Avoid testing thin wrapper code that will change; focus on behavior
-- **Confidence:**
-  - Service tests catch business logic bugs
-  - API tests catch HTTP contract violations (wrong status codes, bad error messages)
-  - Integration tests verify real DB interactions
-  - E2E tests verify complete user workflows
-- **Cost:** High ROI on testing effort
-  - API layer tests are cheap (mocked services)
-  - Repository tests would be expensive (require test DB) with minimal value
+- **Service unit tests** verify that business logic branches, validation rules, and exception-raising behaviour work correctly in isolation. Repositories are replaced by `create_autospec()` mocks, so tests run in milliseconds with no database.
+- **API unit tests** verify that the HTTP contract is correct: a `EmailAlreadyRegisteredException` maps to a `409`, a `PasswordNotComplexEnoughException` maps to a `422`, and response fields serialise correctly. The service is replaced by a `Mock` — the test focuses on routing and error-mapping code only.
+- **Integration tests** (added as the application grows) verify that services and repositories work correctly against a real PostgreSQL instance. These tests are slower and require the database to be running, so they are kept separate from the unit suite.
+- **E2E tests** verify complete user workflows through the full HTTP stack. They are the fewest in number and the slowest to run; they act as a final sanity check, not a debugging tool.
 
-### Layered Testing Pyramid
-
-- **Many:** Fast unit tests (services + APIs with error scenarios)
-- **Some:** Integration tests (services + repositories + real DB)
-- **Few:** E2E tests (complete workflows)
-
-This provides quick feedback (unit tests), real-world confidence (integration tests), and workflow validation (E2E tests) without over-testing implementation details like thin query wrappers.
+This partitioning gives the fastest possible feedback on the most common class of bug (business logic errors in services) while avoiding the maintenance overhead of testing implementation details (ORM query internals) or duplicating coverage at multiple layers.
