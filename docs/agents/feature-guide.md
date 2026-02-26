@@ -20,6 +20,8 @@ app/<feature>/
   errors.py            ← Module-specific ErrorCode enum (HTTP error codes)
   composition.py       ← Dependency wiring (FastAPI Depends factories)
   api.py               ← FastAPI router (HTTP layer only)
+  api-requests/        ← Manual HTTP test files (VS Code REST Client)
+    <verb>-<resource>.http   ← One file per route; all typical responses covered
 ```
 
 Not every module needs all files (e.g., `auth` has no `repositories.py` — it delegates to `users` via a client).
@@ -490,6 +492,8 @@ app/purchases/
   errors.py
   composition.py
   api.py
+  api-requests/
+    create-purchase.http     ← one file per route, named <verb>-<resource>.http
 ```
 
 ### Step 2 – `models.py` – ORM model
@@ -605,21 +609,107 @@ def create_purchase(
         raise internal_server_error()
 ```
 
-### Step 10 – Register in `main.py`
+### Step 10 – `api-requests/` – Manual HTTP test files
+
+Create one `.http` file per route inside `app/<module>/api-requests/`. Name each file after the operation it exercises, using an infinitive verb first: `create-purchase.http`, `list-purchases.http`, `get-purchase.http`, `delete-purchase.http`, etc.
+
+Each file must contain sample requests that collectively cover every distinct HTTP response the endpoint can produce: a successful response, any validation errors (missing or malformed fields), and every domain/policy exception caught in `api.py`. The goal is to be able to smoke-test the full response surface of a single route without leaving the editor.
+
+Extract repeating values into variables whenever possible (see example below).
+
+These files are intended for use with the [VS Code REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension.
+
+Example:
+
+```http
+@baseUrl = http://localhost:8000/api/v1
+# For authenticated endpoints, obtain a token via the login endpoint first
+# and paste it below (short-lived, from local seed data only).
+# @adminToken = Bearer <paste token here>
+# @userToken  = Bearer <paste token here>
+
+### Get a token for testing (admin)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "carol@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### 201 – Happy path: purchase created
+POST {{baseUrl}}/purchases
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "merchant_id": "some-uuid",
+  "amount": 50.0
+}
+
+### 401 – Missing authentication token
+POST {{baseUrl}}/purchases
+Content-Type: application/json
+
+{
+  "merchant_id": "some-uuid",
+  "amount": 50.0
+}
+
+### 403 – Non-admin user
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "merchant_id": "some-uuid",
+  "amount": 50.0
+}
+
+### 409 – Duplicate purchase (policy exception)
+POST {{baseUrl}}/purchases
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "merchant_id": "some-uuid",
+  "amount": 50.0
+}
+
+### 422 – Validation error: negative amount
+POST {{baseUrl}}/purchases
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "merchant_id": "some-uuid",
+  "amount": -10.0
+}
+```
+
+Guidelines:
+
+- **One file per route.** `create-purchase.http` covers `POST /purchases`; `list-purchases.http` covers `GET /purchases`; and so on. Do not mix multiple routes in one file.
+- **File naming:** infinitive verb first, then the resource, kebab-cased — `create-purchase.http`, `list-merchants.http`, `get-user.http`.
+- **Coverage:** include one request per distinct HTTP response code the endpoint can return. Every `except` clause in `api.py` should have a corresponding request in the file.
+- **Request comments:** prefix each request with `### <STATUS_CODE> – <description>` so the intent is visible in the REST Client sidebar.
+- **Tokens:** always define `@baseUrl` at the top. Include a login request when auth is required so a token can be obtained without leaving the file. Never commit real long-lived tokens — use short-lived tokens from local seed data only.
+
+### Step 11 – Register in `main.py`
 
 ```python
 from app.purchases import api as purchases_api
 app.include_router(purchases_api.router)
 ```
 
-### Step 11 – Create an Alembic migration
+### Step 12 – Create an Alembic migration
 
 ```bash
 alembic revision --autogenerate -m "add purchases table"
 alembic upgrade head
 ```
 
-### Step 12 – Tests
+### Step 13 – Tests
 
 ```text
 tests/purchases/
@@ -630,7 +720,7 @@ tests/purchases/
 
 Follow the same patterns: mock repository in service tests, override `app.dependency_overrides` in API tests, add factories to `conftest.py`.
 
-### Step 13 – Verify quality gates
+### Step 14 – Verify quality gates
 
 After completing all the steps above, run the full quality gate suite and fix every reported issue before considering the task done:
 
