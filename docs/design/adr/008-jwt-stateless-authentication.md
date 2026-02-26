@@ -6,11 +6,9 @@ Accepted
 
 ## Context
 
-ClickNBack is an API-first backend serving multiple clients (web, mobile, third-party integrations). All require scalable, stateless authentication.
+ClickNBack is an API-first backend serving multiple clients: a web frontend, mobile applications, and third-party merchant integrations. All of these require a mechanism for the server to verify the identity of the requester on every request. The question is: should that mechanism be stateful (sessions stored in the database) or stateless (self-contained signed tokens), and which token format should be used?
 
-### Authentication Approaches
-
-#### Option 1: Session-Based (Traditional)
+### Option 1: Session-Based Authentication (Stateful)
 
 ```python
 # User logs in → Server creates session → Session ID in cookie
@@ -34,7 +32,7 @@ def get_dashboard(session_id: str, db: Session):
 - ❌ Mobile clients struggle with cookies
 - ❌ Third-party integrations need token-based auth anyway
 
-#### Option 2: JWT (JSON Web Tokens)
+### Option 2: JWT (JSON Web Tokens)
 
 ```python
 # User logs in → Server returns signed JWT
@@ -60,7 +58,7 @@ def get_dashboard(token: str):
 - ❌ Revocation delayed until expiration
 - ❌ Token size larger than session ID
 
-#### Option 3: PASETO (Platform-Agnostic Security Tokens)
+### Option 3: PASETO (Platform-Agnostic Security Tokens)
 
 ```python
 # Similar to JWT but with different design
@@ -88,21 +86,19 @@ payload = paseto.parse(token, key=secret_key)
 
 Use **JWT-based stateless authentication** for ClickNBack.
 
-### Why JWT
+1. Tokens are signed with HS256 (HMAC-SHA256) using a secret key read from `settings.secret_key`. RS256 (RSA) is reserved for a future multi-auth-server configuration.
+2. Each access token includes `user_id`, `role`, `exp` (expiration, 15–30 minutes from issue), and `iat` (issued-at timestamp).
+3. Password changes invalidate prior tokens by comparing `iat` against the user's stored `password_changed_at` — tokens issued before the last password change are rejected without any database revocation store.
+4. Token validation (signature + expiration + iat check) is performed in a FastAPI `Depends()` function; all protected endpoints declare this dependency and receive the decoded claims as a typed object.
+5. Authorisation checks (role comparisons) run at the HTTP handler layer using the claims from the validated token, before the service method is invoked.
 
-1. **Scalability:** Stateless tokens mean horizontal scaling is trivial; any server validates any token
-2. **API-native:** JWT is the standard for REST APIs, especially with third-party integrations and webhooks
-3. **Mobile-friendly:** Clients store tokens locally; no cookie infrastructure needed
-4. **Industry standard:** JWT is widely understood by engineers, employers, and partners
-5. **Mature ecosystem:** Extensive libraries, tools, and best practices across all languages
-6. **No DB overhead:** Token validation is O(1)—cryptographic check, not database query
+### Why JWT Over the Alternatives
 
-Compared to alternatives:
-
-- **Sessions:** Require shared state (hard to scale), don't work well for mobile/third-party
-- **PASETO:** Newer, safer design but less adoption; JWT risk mitigated by architecture choices
-
-### Token Design
+- **Scalability:** Stateless tokens mean horizontal scaling is trivial; any server validates any token without shared storage.
+- **API-native:** JWT is the industry standard for REST APIs and is expected by third-party merchant integrations and webhooks.
+- **Mobile-friendly:** Clients store the bearer token locally; no cookie infrastructure or browser session management needed.
+- **Mature ecosystem:** Extensive libraries across all languages; the format and validation rules are well-understood by engineers and auditors.
+- **No DB overhead:** Token validation is O(1) — a cryptographic signature check, not a database query on every request.
 
 **Lifetime and Revocation:**
 
@@ -146,8 +142,17 @@ Compared to alternatives:
 
 ## Alternatives Considered
 
-- **Session-based auth:** Immediate revocation but requires session storage and database lookups; doesn't scale well; poor mobile support
-- **PASETO:** Slightly safer token format but immature ecosystem and poor adoption; JWT risks are mitigated by design choices (short lifetime, issued-at revocation)
+### Session-Based Authentication
+
+- **Pros:** Immediate token revocation — deleting a session row from the database invalidates it instantly; simpler mental model for developers familiar with server-side sessions.
+- **Cons:** Every authenticated request requires a database lookup to verify the session; the session store becomes a shared, stateful dependency that must be synchronised across all server instances; mobile clients have no natural cookie mechanism; third-party integrations expect bearer tokens in the `Authorization` header, not cookies.
+- **Rejected:** The database lookup on every request contradicts ClickNBack's horizontal scaling goal. Managing a session store across server instances requires additional infrastructure (Redis, sticky sessions, or database replication). The revocation advantage is partially offset by the issued-at strategy used in the JWT implementation.
+
+### PASETO (Platform-Agnostic Security Tokens)
+
+- **Pros:** Addresses several known JWT foot-guns: no `alg: none` attack, no algorithm confusion between HS256 and RS256, version-tagged tokens with opinionated security defaults.
+- **Cons:** Smaller ecosystem — fewer libraries (especially for mobile SDKs), less documentation, less tooling (e.g., jwt.io has no PASETO equivalent). The attack surface that PASETO addresses is largely mitigated by the strict validation implemented in ClickNBack's token middleware.
+- **Rejected:** The security improvements of PASETO are real but marginal given that ClickNBack's JWT implementation explicitly pins the algorithm (`HS256`) and always validates signature and expiration. The ecosystem immaturity adds operational and hiring risk that is not justified at the current scale.
 
 ## Rationale
 

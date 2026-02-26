@@ -6,124 +6,166 @@ Accepted
 
 ## Context
 
-When designing architecture, two main patterns emerge:
+ClickNBack needs an application architecture that can grow with the product — starting lean while keeping the codebase honest about domain boundaries. The question is: what top-level structure should the codebase follow, and how tightly or loosely should its domains be coupled?
 
-**Microservices from Day 1:**
+### Option 1: Microservices from Day One
 
-- ✅ Strong domain isolation
-- ❌ Distributed systems complexity (eventual consistency, service discovery, deployment infrastructure)
-- ❌ Higher operational burden (container orchestration, inter-service communication, debugging)
+Each domain (users, merchants, cashback) runs as an independent deployable process communicating over HTTP or a message broker.
 
-**Monolith:**
+```text
+# Separate deployable units
+users-service/          # Own DB, own deployment
+merchants-service/      # Own DB, own deployment
+cashback-service/       # Depends on users + merchants via HTTP calls
+api-gateway/            # Routes requests to services
+```
 
-- ✅ Simple operations
-- ❌ All features tightly coupled
+```python
+# cashback-service must call users-service over the network
+import httpx
 
-**Modular Monolith (Hybrid):**
+async def get_user(user_id: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"http://users-service/users/{user_id}")
+        response.raise_for_status()
+        return response.json()
+```
 
-- ✅ Single deployable unit with independent domains
-- ✅ Can extract services later without major refactoring
-- ✅ Fast development + good maintainability
-- ✅ Well-established in Python community
+- ✅ Strong domain isolation; each service can be deployed and scaled independently
+- ✅ Technology heterogeneity possible per service
+- ❌ Distributed systems complexity: network failures, eventual consistency, distributed tracing
+- ❌ Significant operational burden from day one: container orchestration, service discovery, inter-service auth
+- ❌ Cross-domain transactions need sagas or two-phase commits — expensive to implement correctly for financial data
+- ❌ Local development requires spinning up multiple services simultaneously
 
-## Decision
+### Option 2: Traditional Layered Monolith
 
-Use **modular monolith** with domain-driven directory structure:
+A single process organised by technical concern rather than business domain.
 
 ```text
 app/
-├── core/             # Shared infrastructure
-│   ├── database.py
-│   ├── config.py
-│   └── security.py
-├── users/            # Feature domain: self-contained
-│   ├── api.py        # HTTP handlers
-│   ├── services.py   # Business logic
-│   ├── repositories.py  # Data access
-│   ├── models.py     # SQLAlchemy models
-│   ├── schemas.py    # Pydantic schemas
-│   └── exceptions.py
-└── merchants/        # Another feature domain
+├── models/          # All ORM models together
+├── services/        # All business logic together
+├── api/             # All routes together
+└── schemas/         # All Pydantic schemas together
+```
+
+```python
+# app/services/user_service.py — tightly coupled with merchant logic
+from app.models import User, Merchant, Transaction  # Everything imported from one place
+
+class UserService:
+    def create_user_with_default_merchant(self, data: dict) -> User:
+        merchant = Merchant(...)  # User service reaches into merchant domain
+        user = User(...)
+        ...
+```
+
+- ✅ Simple to set up initially
+- ✅ Single deployment, one database
+- ❌ Technical coupling: features share the same import scope, leading to entangled logic
+- ❌ Hard to onboard: understanding one feature requires reading across all layers
+- ❌ Tests become integration-heavy because dependencies are implicit, not injected
+
+### Option 3: Modular Monolith
+
+A single deployable unit internally structured by business domain. Each domain is a self-contained package with its own API, service, repository, models, and exceptions.
+
+```text
+app/
+├── core/               # Shared infrastructure (DB, config, security)
+├── users/              # Fully self-contained domain
+│   ├── api.py          # HTTP handlers — wires and exposes the domain
+│   ├── services.py     # Business logic
+│   ├── repositories.py # Data access
+│   ├── models.py       # SQLAlchemy models
+│   ├── schemas.py      # Pydantic request/response schemas
+│   └── exceptions.py   # Domain-specific exceptions
+└── merchants/          # Another self-contained domain
     ├── api.py
     ├── services.py
     └── ...
 ```
 
-### Layered Architecture Within Each Domain
+- ✅ Single deployable unit with independent, explicit domain boundaries
+- ✅ Cross-domain calls are in-process function calls — no network overhead or partial failure
+- ✅ Domains can be extracted to services later with minimal refactoring (interface already defined)
+- ✅ Fast to iterate: one database, one deployment pipeline, one set of logs
+- ⚠️ All domains share one database — schema migrations must be coordinated
+- ⚠️ Cannot scale individual domains independently without extracting them
 
-Services orchestrate business logic, not expose it to API:
+## Decision
+
+Use a **modular monolith** with domain-driven directory structure as described in Option 3.
+
+Within each domain, layers are strictly separated and interact only through public interfaces:
 
 ```python
-# app/users/services.py - Business logic isolated
+# app/users/services.py — Business logic isolated from HTTP concerns
 class UserService:
-    def create_user(self, data: dict, repository: UserRepository) -> User:
-        if repository.get_by_email(data["email"]):
-            raise EmailAlreadyRegisteredException()
-        user = User(**data)
-        return repository.add(user)
+    def __init__(
+        self,
+        user_repository: UserRepository,
+        enforce_password_complexity: Callable[[str], None],
+        hash_password: Callable[[str], str],
+    ):
+        self.user_repository = user_repository
+        self.enforce_password_complexity = enforce_password_complexity
+        self.hash_password = hash_password
 
-# app/users/api.py - HTTP handlers delegate to services
-@router.post("/", response_model=UserResponse)
-async def create_user(data: CreateUserRequest, service: UserService = Depends()):
-    return service.create_user(data.model_dump())
+    def create_user(self, data: dict, db: Session) -> User:
+        if self.user_repository.get_by_email(db, data["email"]):
+            raise EmailAlreadyRegisteredException(data["email"])
+        self.enforce_password_complexity(data["password"])
+        hashed_pw = self.hash_password(data["password"])
+        user = User(email=data["email"], hashed_password=hashed_pw)
+        return self.user_repository.add(db, user)
+
+# app/users/api.py — HTTP handlers delegate entirely to the service
+@router.post("/", response_model=UserResponse, status_code=201)
+async def create_user(
+    data: CreateUserRequest,
+    service: UserService = Depends(get_user_service),
+):
+    return service.create_user(data.model_dump(), db)
 ```
 
-### Domain Boundaries
+Domain boundaries are enforced by convention:
 
-- Each domain owns its models, schemas, and exceptions
-- Domains communicate through services, never directly accessing repos
-- No circular dependencies between domains
+- Each domain owns its own models, schemas, repositories, and exceptions.
+- Domains communicate through their service layer, never by importing another domain's repository directly.
+- No circular imports between domains.
+- `app/core/` holds only shared infrastructure (database session, configuration, security utilities).
 
 ## Consequences
 
-- ✅ Clear separation of concerns (API/Service/Repository per domain)
-- ✅ Easy onboarding—each feature self-contained
-- ✅ Testable—layers independently testable with mocks (ADR 007)
-- ✅ Future-proof—extract service with minimal refactoring
-- ✅ Simple operations—single deployment, database, monitoring
-- ⚠️ Shared database means coordinated schema migrations
-- ⚠️ Cannot scale individual features independently
-- ⚠️ Large codebases need discipline on domain boundaries
+- ✅ Clear separation of concerns within each domain — a new developer can understand `users/` in isolation.
+- ✅ Each layer is independently testable via dependency injection (see ADR 007): business logic in `services.py` can be unit-tested with mocked repositories, no database required.
+- ✅ Extraction path: if a domain needs independent scaling, its service interface is already defined. Replacing in-process calls with HTTP calls is a localised change.
+- ✅ Simple operations: one deployment, one database, one set of logs and metrics to monitor.
+- ✅ Fast iteration: cross-domain calls are plain function calls — no serialisation, no network timeouts, no service discovery.
+- ⚠️ Shared database means migrations must account for all domains simultaneously; a breaking schema change in one domain affects deployments of all others.
+- ⚠️ Scaling the entire application is the only option until a domain is extracted; individual domain traffic spikes cannot be addressed independently.
+- ⚠️ Without active discipline on domain boundaries, cross-domain imports can creep in and erode the modularity over time.
 
-## What NOT to Do
+## Alternatives Considered
 
-### Anti-Pattern: Organize by Technical Layer
+### Microservices from Day One
 
-```text
-app/
-├── models/       # All ORM together (BAD)
-├── services/     # All logic together (BAD)
-├── api/          # All handlers together (BAD)
-└── schemas/
-```
+- **Pros:** Strong domain isolation; independent deployability and scalability per domain; technology choice per service.
+- **Cons:** Distributed systems complexity (eventual consistency, distributed transactions, network partitions) is expensive to manage correctly — particularly for financial data where ACID guarantees matter. Operational burden (container orchestration, service discovery, inter-service auth, distributed tracing) is disproportionate at the project's current scale. Local development setup is significantly more complex.
+- **Rejected:** The operational and architectural complexity of microservices is only justified when a domain's scaling needs or team-ownership boundaries require it. Those triggers do not yet exist. The modular monolith explicitly preserves the extraction path for when they do.
 
-**Problem:** Hard to find related code. Scattered across folders. Features blur together.
+### Traditional Layered Monolith (Technical Layers)
 
-### Anti-Pattern: Flat Structure
-
-```text
-app/
-├── user_api.py
-├── user_service.py
-├── merchant_api.py
-├── merchant_service.py
-...
-```
-
-**Problem:** No clear boundaries. Implicit coupling.
+- **Pros:** Simple to structure initially; no convention required beyond layer names.
+- **Cons:** Organising by technical layer (`models/`, `services/`, `api/`) encourages implicit cross-domain coupling. Understanding or modifying a single feature requires jumping across multiple top-level packages. Tests become harder to scope because dependencies are not collocated with the code they support.
+- **Rejected:** The modular-by-domain structure is strictly more maintainable. The cost — agreeing on a directory convention — is paid once and then enforced by linting and code review.
 
 ## Rationale
 
-**Pragmatic middle ground for early-stage projects:**
+ClickNBack's immediate priorities are correctness of financial logic and velocity of feature delivery. Both are best served by keeping the system simple to run (one process, one database) while preventing the accumulation of implicit coupling that makes monoliths hard to maintain.
 
-- **Time to market:** Single process + shared DB = faster iteration
-- **Maintainability:** Clear boundaries prevent spaghetti code
-- **Growth path:** Extract service later if needed, no major refactoring
-- **Industry standard:** Netflix, Airbnb before moving to microservices
+The modular monolith is the pragmatic middle ground: it provides the same domain isolation that microservices aspire to, without requiring network infrastructure, distributed transaction coordination, or a multi-service local development setup until those investments are justified.
 
-**When to extract to microservices:**
-
-- A feature needs independent scaling
-- Languages/frameworks diverge per feature
-- Team grows large enough for service ownership
-- Operational infrastructure (Kubernetes, service mesh) is manageable
+The extraction trigger is explicit: if a domain needs independent deployment, or if team ownership diverges to the point where shared deployments become a coordination burden, the domain's service interface already defines the boundary — replacing in-process calls with HTTP calls requires changes in one place only.
