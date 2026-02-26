@@ -1,6 +1,6 @@
 # ClickNBack – Feature Development Guide
 
-This document is the authoritative reference for adding new feature modules to ClickNBack. It covers module anatomy, layer responsibilities, application wiring, error handling, and testing conventions.
+This document is the authoritative reference for adding new feature modules to ClickNBack. It covers module anatomy, layer responsibilities, application wiring, error handling, logging, and testing conventions.
 
 ---
 
@@ -629,3 +629,13 @@ tests/purchases/
 ```
 
 Follow the same patterns: mock repository in service tests, override `app.dependency_overrides` in API tests, add factories to `conftest.py`.
+
+### Step 13 – Verify quality gates
+
+After completing all the steps above, run the full quality gate suite and fix every reported issue before considering the task done:
+
+```bash
+make lint && make format && make test
+```
+
+All three commands must exit with code 0. Do **not** mark the feature as finished until they do. For a full breakdown of what each gate checks, how to diagnose failures, and the mandatory workflow, see `docs/agents/quality-gates.md`.

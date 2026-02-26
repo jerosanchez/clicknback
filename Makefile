@@ -15,6 +15,10 @@ lint: ## Run linting
 	@bash -c "$(VENV_ACTIVATE) isort --check-only app/ --profile=black --line-length=$(MAX_LINE_LENGTH)"
 	@bash -c "$(VENV_ACTIVATE) black --check app/ --line-length=$(MAX_LINE_LENGTH)"
 
+format: ## Format code
+	@bash -c "$(VENV_ACTIVATE) isort app/ --profile=black --line-length=$(MAX_LINE_LENGTH)"
+	@bash -c "$(VENV_ACTIVATE) black app/ --line-length=$(MAX_LINE_LENGTH)"
+
 test: ## Run tests
 	@bash -c "$(VENV_ACTIVATE) python -m pytest tests/ --cov=app --cov-report=html"
 
@@ -32,10 +36,6 @@ clean: ## Clean up development environment
 	rm -rf *.egg-info
 	rm -rf */*.egg-info
 	rm -rf */*/.egg-info
-
-format: ## Format code
-	@bash -c "$(VENV_ACTIVATE) isort app/ --profile=black --line-length=$(MAX_LINE_LENGTH)"
-	@bash -c "$(VENV_ACTIVATE) black app/ --line-length=$(MAX_LINE_LENGTH)"
 	
 up: ## Start development environment
 	@if ! docker network ls --format '{{.Name}}' | grep -wq clicknback-nw; then \
@@ -56,4 +56,4 @@ db-reset: ## Reset the database
 run: ## Run the application (non-docker)
 	@bash -c "$(VENV_ACTIVATE) uvicorn app.main:app --reload"
 
-.PHONY: install lint test clean format up down db-reset run
+.PHONY: install lint format test clean up down db-reset run

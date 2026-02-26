@@ -115,7 +115,7 @@ This structure supports independent development of features while maintaining tr
 
 Within each module, a strict layering is enforced:
 
-```
+```text
 HTTP (api.py) → Business Logic (services.py + policies.py) → Data Access (repositories.py) → Database
 ```
 
