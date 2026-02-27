@@ -19,7 +19,8 @@ _As an admin, I want to view a list of all merchants so that I can monitor and m
 
 - Results must be paginated
 - Default page size should be appropriate (e.g., 20 items)
-- Support sorting and filtering options if applicable
+- Page size must not exceed 100 items per page
+- Support filtering by active status
 
 ---
 
@@ -47,6 +48,16 @@ _As an admin, I want to view a list of all merchants so that I can monitor and m
 **When** the system processes the request
 **Then** an empty paginated list is returned
 
+**Scenario:** Admin requests a page number below the minimum
+**Given** I am an authenticated admin user
+**When** the request specifies a page zero or lower
+**Then** a validation error is returned
+
+**Scenario:** Admin requests a page size beyond the maximum
+**Given** I am an authenticated admin user
+**When** the request specifies a page_size greater than 100
+**Then** a validation error is returned
+
 ---
 
 ## Use Cases
@@ -68,7 +79,7 @@ An authenticated admin successfully retrieves merchant list
 2. System verifies authentication.
 3. System checks admin role.
 4. System finds user does not have admin role.
-5. System returns `HTTP 403 Forbidden`.
+5. System returns a forbidden error.
 
 #### Unauthenticated Request
 
@@ -77,7 +88,7 @@ An authenticated admin successfully retrieves merchant list
 3. System finds no valid credentials.
 4. System rejects the request as unauthorized.
 
-#### Empty ResultsS
+#### Empty Results
 
 1. Admin requests merchant list.
 2. System verifies admin role.
