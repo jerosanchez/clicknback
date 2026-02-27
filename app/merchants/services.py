@@ -35,6 +35,15 @@ class MerchantService:
 
         return self.merchant_repository.add_merchant(db, new_merchant)
 
+    def list_merchants(
+        self,
+        page: int,
+        page_size: int,
+        active: bool | None,
+        db: Session,
+    ) -> tuple[list[Merchant], int]:
+        return self.merchant_repository.list_merchants(db, page, page_size, active)
+
     def _enforce_merchant_name_uniqueness(self, name: str, db: Session) -> None:
         if self.merchant_repository.get_merchant_by_name(db, name):
             logger.info(
