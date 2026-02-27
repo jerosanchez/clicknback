@@ -13,7 +13,7 @@ from app.merchants.policies import enforce_cashback_percentage_validity
         settings.max_cashback_percentage,  # upper boundary
     ],
 )
-def test_enforce_cashback_percentage_validity_accepts_valid(
+def test_enforce_cashback_percentage_validity_raises_nothing_on_valid_percentage(
     percentage: float,
 ) -> None:
     # Should not raise
@@ -29,7 +29,7 @@ def test_enforce_cashback_percentage_validity_accepts_valid(
         (150.0, "between 0 and"),
     ],
 )
-def test_enforce_cashback_percentage_validity_rejects_invalid(
+def test_enforce_cashback_percentage_validity_raises_on_invalid_percentage(
     percentage: float, expected_message: str
 ) -> None:
     # Act & Assert

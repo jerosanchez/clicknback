@@ -48,7 +48,12 @@ def _login_input_data() -> dict[str, Any]:
     return {"email": "alice@example.com", "password": "ValidPass1!"}
 
 
-def test_login_success(
+# ──────────────────────────────────────────────────────────────────────────────
+# AuthService.login
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_login_returns_token_on_success(
     auth_service: AuthService,
     db: Mock,
     users_client: Mock,
@@ -70,7 +75,7 @@ def test_login_success(
     assert token.token_type == "bearer"
 
 
-def test_login_raises_exception_on_user_not_found(
+def test_login_raises_on_user_not_found(
     auth_service: AuthService,
     db: Mock,
     users_client: Mock,
@@ -83,7 +88,7 @@ def test_login_raises_exception_on_user_not_found(
         auth_service.login(_login_input_data(), db)
 
 
-def test_login_raises_exception_on_password_verification(
+def test_login_raises_on_invalid_password(
     auth_service: AuthService,
     db: Mock,
     users_client: Mock,

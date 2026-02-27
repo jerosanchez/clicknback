@@ -16,7 +16,9 @@ _COMPLEX_VALID_PASSWORD = "A1b2c3d4!@#"
         _COMPLEX_VALID_PASSWORD,
     ],
 )
-def test_enforce_password_complexity_accepts_valid(password: str) -> None:
+def test_enforce_password_complexity_raises_nothing_on_valid_password(
+    password: str,
+) -> None:
     # Should not raise
     enforce_password_complexity(password)
 
@@ -31,7 +33,7 @@ def test_enforce_password_complexity_accepts_valid(password: str) -> None:
         ("Abcdefgh1", "one special character"),
     ],
 )
-def test_enforce_password_complexity_rejects_invalid(
+def test_enforce_password_complexity_raises_on_invalid_password(
     password: str, expected_message: str
 ) -> None:
     # Act & Assert
