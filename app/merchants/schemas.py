@@ -17,3 +17,10 @@ class MerchantOut(MerchantSchemaBase):
 
 class MerchantCreate(MerchantSchemaBase):
     pass
+
+
+class PaginatedMerchantsOut(BaseModel):
+    items: list[MerchantOut]
+    total: int
+    page: int
+    page_size: int

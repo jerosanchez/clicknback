@@ -34,7 +34,12 @@ def merchant_service(
     )
 
 
-def test_create_merchant_success(
+# ──────────────────────────────────────────────────────────────────────────────
+# MerchantService.create_merchant
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_create_merchant_returns_merchant_on_success(
     merchant_service: MerchantService,
     merchant_repository: Mock,
     merchant_factory: Callable[..., Merchant],
@@ -54,7 +59,7 @@ def test_create_merchant_success(
     assert returned_merchant == new_merchant
 
 
-def test_create_merchant_raises_exception_on_name_already_exists(
+def test_create_merchant_raises_on_name_already_exists(
     merchant_service: MerchantService,
     merchant_repository: Mock,
     merchant_factory: Callable[..., Merchant],
@@ -71,7 +76,7 @@ def test_create_merchant_raises_exception_on_name_already_exists(
         merchant_service.create_merchant(data, db)
 
 
-def test_create_merchant_propagates_exception_on_invalid_cashback_percentage(
+def test_create_merchant_raises_on_invalid_cashback_percentage(
     merchant_service: MerchantService,
     enforce_cashback_percentage_validity: Mock,
     merchant_repository: Mock,
@@ -90,3 +95,40 @@ def test_create_merchant_propagates_exception_on_invalid_cashback_percentage(
     # Act & Assert
     with pytest.raises(CashbackPercentageNotValidException):
         merchant_service.create_merchant(data, db)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# MerchantService.list_merchants
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "num_items,expected_total,active_filter",
+    [
+        (3, 3, None),  # multiple items, no filter
+        (0, 0, None),  # empty result, no filter
+        (1, 1, True),  # active filter applied
+    ],
+)
+def test_list_merchants_returns_repository_result_on_call(
+    merchant_service: MerchantService,
+    merchant_repository: Mock,
+    merchant_factory: Callable[..., Merchant],
+    num_items: int,
+    expected_total: int,
+    active_filter: bool | None,
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    merchants = [merchant_factory(name=f"Merchant {i}") for i in range(num_items)]
+    merchant_repository.list_merchants.return_value = (merchants, expected_total)
+
+    # Act
+    items, total = merchant_service.list_merchants(
+        page=1, page_size=20, active=active_filter, db=db
+    )
+
+    # Assert
+    assert items == merchants
+    assert total == expected_total
+    merchant_repository.list_merchants.assert_called_once_with(db, 1, 20, active_filter)

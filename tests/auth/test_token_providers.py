@@ -19,7 +19,12 @@ def token_payload() -> TokenPayload:
     )
 
 
-def test_token_provider_creates_and_verifies_token(
+# ──────────────────────────────────────────────────────────────────────────────
+# JwtOAuth2TokenProvider
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_token_provider_returns_valid_payload_on_create_and_verify(
     token_provider: JwtOAuth2TokenProvider, token_payload: TokenPayload
 ) -> None:
     # Arrange
@@ -33,7 +38,7 @@ def test_token_provider_creates_and_verifies_token(
     assert decoded.user_role == token_payload.user_role
 
 
-def test_token_provider_raises_invalid_token_on_expired_token(
+def test_token_provider_raises_on_expired_token(
     token_provider: JwtOAuth2TokenProvider, token_payload: TokenPayload
 ) -> None:
     # Arrange
@@ -46,7 +51,7 @@ def test_token_provider_raises_invalid_token_on_expired_token(
         token_provider.verify_access_token(token)
 
 
-def test_token_provider_raises_internal_error_on_invalid_token(
+def test_token_provider_raises_on_invalid_token(
     token_provider: JwtOAuth2TokenProvider,
 ) -> None:
     # Arrange

@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     # --- cashback policy
     max_cashback_percentage: float = 20.0
 
+    # pagination defaults
+    default_page_size: int = 20
+    max_page_size: int = 100
+
     model_config = {
         "env_file": ".env" if os.path.exists(".env") else None,
         "extra": "ignore",

@@ -160,6 +160,19 @@ async def create_user(
 
 **The API layer never contains business logic.** It only translates between HTTP and the service layer.
 
+**ORM → Schema conversion for list responses**: Services return ORM model instances. When building a response schema that contains a list of items (e.g., `PaginatedOut`), explicitly convert each item with `model_validate()` to satisfy the type checker and avoid lint errors:
+
+```python
+return PaginatedMerchantsOut(
+    items=[MerchantOut.model_validate(m) for m in items],
+    total=total,
+    page=page,
+    page_size=page_size,
+)
+```
+
+For single-object responses FastAPI handles the conversion automatically via `response_model`, but for nested lists inside response objects the explicit conversion is required.
+
 ---
 
 ## 2. The `core` Module – Cross-Cutting Concerns
@@ -391,7 +404,7 @@ logger.info(f"Login attempt successful for {email}.")
 
 ### Where Each Level Appears by Layer
 
-- **Services and policies**: use `DEBUG` for negative paths (validation failures, not-found lookups) and `INFO` for successful outcomes of meaningful operations.
+- **Services and policies**: use `DEBUG` for negative paths (validation failures, not-found lookups) and `INFO` for successful outcomes of state-mutating operations (create, update, delete, login). Read-only operations (listing, fetching) should not log.
 - **Token provider / infrastructure**: use `DEBUG` for step-by-step tracing, `WARNING` for anomalies (malformed payloads), `ERROR` for unrecoverable processing failures.
 - **API layer**: use `DEBUG` for caught domain exceptions that are translated to HTTP responses, and `ERROR` for the catch-all unexpected exception handler.
 
@@ -399,6 +412,7 @@ logger.info(f"Login attempt successful for {email}.")
 
 - Never log passwords, raw tokens, or any secret material.
 - Do not log at `INFO` or above for every repository query — that belongs at `DEBUG`.
+- Do not log read-only service operations (queries that do not mutate DB state). These have no audit value and add noise. Only log at `INFO` for operations that create, update, or delete records, or that represent a security-relevant event.
 - Do not duplicate the exception traceback manually; Python's `logging.exception()` or `logging.error(..., exc_info=True)` can include it automatically if needed.
 
 ---
@@ -709,7 +723,31 @@ alembic revision --autogenerate -m "add purchases table"
 alembic upgrade head
 ```
 
-### Step 13 – Tests
+### Step 13 – Add seed data
+
+Add realistic test rows for the new entity to `seeds/all.sql`. Seed data serves two purposes: it lets you smoke-test the new endpoints with `api-requests/` files immediately after running `alembic upgrade head`, and it provides a consistent local dataset for the whole team.
+
+Guidelines:
+
+- **Use valid UUIDs** for all `id` columns — never short placeholders like `id-1`.
+- **Use realistic values** for names, emails, amounts, etc. Fake but plausible data is easier to reason about than `test1`, `foo`, `123`.
+- **Add enough rows to exercise pagination** for any listing endpoints. If the default `page_size` is 20, seed at least 21 rows so the second page is reachable and the `total` field in the response is meaningful.
+- **Cover filter edge cases** — if the entity has an `active` flag (or any field used as a filter), include a mix of both values so the filter can be verified manually.
+- **Group related inserts** with a short comment, e.g. `-- active merchants` / `-- inactive merchants`.
+
+Example (merchants):
+
+```sql
+INSERT INTO merchants (id, name, default_cashback_percentage, active) VALUES
+    -- active
+    ('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'Shoply',     5.0,  TRUE),
+    ('b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'QuickCart',  3.5,  TRUE),
+    -- ... (seed enough rows to exceed the default page size)
+    -- inactive
+    ('a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 'LuxWatches', 15.0, FALSE);
+```
+
+### Step 14 – Tests
 
 ```text
 tests/purchases/
@@ -720,7 +758,9 @@ tests/purchases/
 
 Follow the same patterns: mock repository in service tests, override `app.dependency_overrides` in API tests, add factories to `conftest.py`.
 
-### Step 14 – Verify quality gates
+Refer to the [testing guidelines](/docs/agents/testing-guidelines.md) for details about how to write tests.
+
+### Step 15 – Verify quality gates
 
 After completing all the steps above, run the full quality gate suite and fix every reported issue before considering the task done:
 

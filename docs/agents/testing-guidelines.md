@@ -11,8 +11,8 @@ Self-contained reference for writing tests in ClickNBack. When asked to write a 
 | Layer | Count | Description |
 | --- | --- | --- |
 | Unit Tests | Many | Fast, isolated, all dependencies mocked |
-| Integration Tests | Some | Real database, containers (see §13) |
-| E2E Tests | Few | Full HTTP flows via Docker Compose (see §14) |
+| Integration Tests | Some | Real database, containers (see §14) |
+| E2E Tests | Few | Full HTTP flows via Docker Compose (see §15) |
 
 ### What to Test
 
@@ -28,7 +28,7 @@ Self-contained reference for writing tests in ClickNBack. When asked to write a 
 - **AAA pattern** with explicit `# Arrange`, `# Act`, `# Assert` comments (or `# Act & Assert` when using `pytest.raises`).
 - Tests are **fully independent** — no shared mutable state between tests.
 - Unit tests run in **< 100 ms**.
-- **Descriptive names:** `test_{function}_{scenario}_{outcome}` — e.g., `test_create_user_raises_exception_on_email_already_registered`.
+- **Descriptive names:** `test_{sut}_{result}_on_{condition}` — e.g., `test_create_user_raises_on_email_already_registered`, `test_create_user_returns_201_on_success`, `test_list_merchants_returns_403_on_non_admin`. The `_on_` connector is mandatory and reads as a natural sentence: "*create_user* **raises** *on* email already registered".
 - **No magic values:** extract literals into named variables — e.g., `out_of_range_percentage = 150.0`, not a bare `150.0`.
 - **Don't over-specify test data:** When a value passes through a mock without being inspected, use the factory defaults. Only set a specific value when *that value is under test*.
 - **Full type hints everywhere** (fixtures, helpers, test functions). Exception: `Mock()` assignments are inferred correctly and don't need annotation.
@@ -195,7 +195,11 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 ✅ Response body maps model fields correctly  
 ✅ Domain exceptions → correct HTTP status + error code  
 ✅ Unhandled exceptions → 500  
-❌ Business logic (belongs in service tests)
+✅ Non-admin (403) — verifies the endpoint calls the correct admin-guarded dependency  
+✅ Query/path parameter constraint validation — endpoints with `ge`/`le` constraints must have boundary value tests covering both valid and invalid sides  
+❌ Unauthenticated (401) per endpoint — the 401 is raised inside the auth helper (`get_current_user`), which is already tested in `tests/core/test_current_user.py`; testing it on every endpoint is redundant  
+❌ Business logic (belongs in service tests)  
+❌ Service argument forwarding — verifying that query/path params are passed through to the service is redundant; it is already covered implicitly by the success test and will be exercised further in integration/E2E tests
 
 ### API Test Structure
 
@@ -206,6 +210,7 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 5. Success test
 6. Parametrized exceptions test (status codes + codes only)
 7. Individual detail tests for each domain exception (full error body)
+8. Boundary value tests for any endpoint with constrained query/path params (two parametrized tests — valid and invalid)
 
 ### `client` Fixture Pattern
 
@@ -224,10 +229,84 @@ def client(service_mock: Mock) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()   # always clean up
 ```
 
-**For endpoints that require authentication**, also override the auth dependency:
+**For endpoints that require authentication**, also override the auth dependency in `client`:
 
 ```python
 app.dependency_overrides[get_current_admin_user] = lambda: Mock()
+```
+
+**For testing the non-admin (403) scenario**, use a dedicated `non_admin_client` fixture that overrides the auth dependency to raise a forbidden error. Do **not** add an `unauthenticated_client` fixture or a `test_*_returns_401_on_unauthenticated` test — 401 behaviour lives inside the auth helper and is already covered in `tests/core/test_current_user.py`.
+
+```python
+@pytest.fixture
+def non_admin_client(
+    service_mock: Mock,
+) -> Generator[TestClient, None, None]:
+    def raise_forbidden() -> None:
+        raise forbidden_error("Admin access required.", {})
+
+    app.dependency_overrides[get_current_admin_user] = raise_forbidden
+    # ... remaining overrides ...
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+def test_endpoint_returns_403_on_non_admin(
+    non_admin_client: TestClient,
+) -> None:
+    # Act
+    response = non_admin_client.get("/api/v1/resource")
+
+    # Assert
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+```
+
+> **When to use `@pytest.mark.parametrize` vs individual tests:** use parametrize when you are sweeping over a set of equivalent values (boundary numbers, status codes for different exceptions). Use individual named tests when each scenario has a distinct semantic identity — like distinct authorisation roles.
+
+**For endpoints with constrained query or path parameters** (FastAPI `ge`, `le`, etc.), add two parametrized tests — one for values that are valid (expect 200), one for values that are invalid (expect 422). Always drive values from `settings.*` rather than hardcoding. Comment each entry to document its role:
+
+```python
+@pytest.mark.parametrize(
+    "query_string",
+    [
+        "page=0",                                         # below minimum page
+        "page_size=0",                                    # below minimum page_size
+        f"page_size={settings.max_page_size + 1}",        # above maximum page_size
+    ],
+)
+def test_list_resource_returns_422_on_invalid_pagination_params(
+    client: TestClient,
+    query_string: str,
+) -> None:
+    # Act
+    response = client.get(f"/api/v1/resource?{query_string}")
+
+    # Assert
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+@pytest.mark.parametrize(
+    "query_string",
+    [
+        "page=1",                                          # minimum page
+        "page_size=1",                                     # minimum page_size
+        f"page_size={settings.default_page_size}",         # default page_size
+        f"page_size={settings.max_page_size}",             # maximum page_size
+    ],
+)
+def test_list_resource_returns_200_on_valid_pagination_params(
+    client: TestClient,
+    service_mock: Mock,
+    query_string: str,
+) -> None:
+    # Arrange
+    service_mock.list_resource.return_value = ([], 0)
+
+    # Act
+    response = client.get(f"/api/v1/resource?{query_string}")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
 ```
 
 ### Input Data: Module Function vs Fixture
@@ -248,10 +327,13 @@ Use a **fixture** (from `conftest.py`) when the input data must be derived from 
 - [ ] `client` fixture yields, calls `app.dependency_overrides.clear()` after yield
 - [ ] Authenticated endpoints override `get_current_admin_user`
 - [ ] One parametrized test covers status code + code for all exceptions
+- [ ] Non-admin (403) scenario uses a `non_admin_client` fixture with a descriptive test name (`test_*_returns_403_on_non_admin`); do **not** add a separate unauthenticated (401) test per endpoint
+- [ ] No test verifies that query/path params are forwarded to the service (covered implicitly by success tests)
 - [ ] One **separate** test per domain exception verifying full error detail shape
 - [ ] Status codes always use `fastapi.status` constants, never raw integers
 - [ ] Response assertions extracted into `_assert_*_response` helpers
 - [ ] `_assert_error_payload` reused for generic error code checks
+- [ ] Endpoints with constrained params (`ge`/`le`) have two parametrized boundary tests: one for invalid values (→ 422) and one for valid boundary values (→ 200); values come from `settings.*`, each entry is commented
 
 ---
 
@@ -478,7 +560,59 @@ def _mock_authenticated_user(service_mock: Mock, user: User) -> None:
 
 ---
 
-## 12. Type Hints Reference
+## 12. Section Separators
+
+Use `# ──────────────────────────────────────────────────────────────────────────────` (80 characters wide: a hash, a space, then 78 `─` em-dashes) to visually separate major sections within a test file.
+
+### When to add separators
+
+| Situation | Add separator |
+| --- | --- |
+| File has both fixtures and tests | Before the first test function |
+| File tests multiple methods / endpoints | Before each new group of tests |
+| Policy file with valid vs invalid parametrized blocks | Between the two blocks |
+
+**Files with no fixtures and a single test group** (e.g., `test_builders.py`) do not need separators.
+
+### What to put between the two separator lines
+
+Use a short, descriptive label:
+
+- API groups: `# POST /api/v1/users` or `# GET /merchants – listing tests`
+- Service groups: `# MerchantService.create_merchant` or `# MerchantService.list_merchants`
+- Core function groups: `# get_current_user` or `# get_current_admin_user`
+- Policy groups: `# valid inputs` / `# invalid inputs`
+
+### Usage example
+
+```python
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /api/v1/users
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_create_user_success(...) -> None:
+    ...
+```
+
+When switching to a new test group within the same file:
+
+```python
+    ...  # last test of previous group
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /merchants – listing tests
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_list_merchants_success(...) -> None:
+    ...
+```
+
+---
+
+## 13. Type Hints Reference
 
 Every function in a test file requires complete type annotations.
 
@@ -533,7 +667,7 @@ def user_repository() -> Mock:
 
 ---
 
-## 13. Integration Tests (Not Yet Implemented)
+## 14. Integration Tests (Not Yet Implemented)
 
 When implemented, integration tests will use `testcontainers` with a real PostgreSQL container and `sqlalchemy` sessions that roll back after each test.
 
@@ -546,7 +680,7 @@ When implemented, integration tests will use `testcontainers` with a real Postgr
 
 ---
 
-## 14. End-to-End Tests (Not Yet Implemented)
+## 15. End-to-End Tests (Not Yet Implemented)
 
 When implemented, E2E tests will spin up the full stack via Docker Compose and issue real HTTP requests.
 
@@ -559,7 +693,7 @@ When implemented, E2E tests will spin up the full stack via Docker Compose and i
 
 ---
 
-## 15. Common Issues and Fixes
+## 16. Common Issues and Fixes
 
 ### `AttributeError: return_value` not found on fixture
 
@@ -600,7 +734,7 @@ app.dependency_overrides[get_current_admin_user] = lambda: Mock()
 
 ---
 
-## 16. Quick Reference Checklist
+## 17. Quick Reference Checklist
 
 Use this before submitting any new test file.
 
@@ -610,6 +744,8 @@ Use this before submitting any new test file.
 - [ ] All fixtures and test functions have full type hints and `-> None` return
 - [ ] `# Arrange / # Act / # Assert` (or `# Act & Assert`) comments present in every test
 - [ ] No magic literals — use named variables or `settings.*`
+- [ ] Section separators present: one before the first test (when fixtures exist), one before each additional test group
+- [ ] Each separator pair carries a short descriptive label line between the two rule lines
 
 ### Service test files
 

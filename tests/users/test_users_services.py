@@ -41,7 +41,12 @@ def user_service(
     )
 
 
-def test_create_user_success(
+# ──────────────────────────────────────────────────────────────────────────────
+# UserService.create_user
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_create_user_returns_user_on_success(
     user_service: UserService,
     user_repository: Mock,
     user_factory: Callable[..., User],
@@ -61,7 +66,7 @@ def test_create_user_success(
     assert returned_user == new_user
 
 
-def test_create_user_raises_exception_on_email_already_registered(
+def test_create_user_raises_on_email_already_registered(
     user_service: UserService,
     user_repository: Mock,
     user_factory: Callable[..., User],
@@ -78,7 +83,7 @@ def test_create_user_raises_exception_on_email_already_registered(
         user_service.create_user(data, db)
 
 
-def test_create_user_propagates_exception_on_password_not_enough_complex(
+def test_create_user_raises_on_password_not_complex_enough(
     user_service: UserService,
     enforce_password_complexity: Mock,
     user_repository: Mock,

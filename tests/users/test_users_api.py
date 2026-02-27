@@ -65,7 +65,12 @@ def _assert_password_not_complex_enough_error_response(
     ]
 
 
-def test_create_user_success(
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /api/v1/users
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_create_user_returns_201_on_success(
     client: TestClient,
     user_service_mock: Mock,
     user_factory: Callable[..., User],
@@ -104,7 +109,7 @@ def test_create_user_success(
         ),
     ],
 )
-def test_create_user_exceptions(
+def test_create_user_returns_error_on_exception(
     client: TestClient,
     user_service_mock: Mock,
     user_factory: Callable[..., User],
@@ -125,7 +130,7 @@ def test_create_user_exceptions(
     _assert_error_payload(response.json(), expected_code)
 
 
-def test_create_user_email_already_registered_error_details(
+def test_create_user_returns_409_with_details_on_email_already_registered(
     client: TestClient,
     user_service_mock: Mock,
     user_factory: Callable[..., User],
@@ -144,7 +149,7 @@ def test_create_user_email_already_registered_error_details(
     _assert_email_already_registered_error_response(response.json(), exc)
 
 
-def test_create_user_password_not_complex_enough_error_details(
+def test_create_user_returns_400_with_details_on_password_not_complex_enough(
     client: TestClient,
     user_service_mock: Mock,
     user_factory: Callable[..., User],

@@ -31,7 +31,12 @@ def build_token_payload(user_role: UserRoleEnum = UserRoleEnum.user) -> TokenPay
     return TokenPayload(user_id="admin123", user_role=user_role.value)
 
 
-def test_get_current_user_returns_user(
+# ──────────────────────────────────────────────────────────────────────────────
+# get_current_user
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_get_current_user_returns_user_on_valid_token(
     db: Mock,
     token_provider: Mock,
     user_repository: Mock,
@@ -54,7 +59,7 @@ def test_get_current_user_returns_user(
     assert result == user
 
 
-def test_get_current_user_fails_on_user_not_found(
+def test_get_current_user_raises_on_user_not_found(
     db: Mock,
     token_provider: Mock,
     user_repository: Mock,
@@ -73,7 +78,7 @@ def test_get_current_user_fails_on_user_not_found(
         )
 
 
-def test_get_current_user_fails_on_inactive_user(
+def test_get_current_user_raises_on_inactive_user(
     db: Mock,
     token_provider: Mock,
     user_repository: Mock,
@@ -96,7 +101,12 @@ def test_get_current_user_fails_on_inactive_user(
         )
 
 
-def test_get_current_admin_user_returns_admin_user(
+# ──────────────────────────────────────────────────────────────────────────────
+# get_current_admin_user
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_get_current_admin_user_returns_user_on_admin_role(
     user_factory: Callable[..., User],
 ) -> None:
     # Arrange
@@ -109,7 +119,7 @@ def test_get_current_admin_user_returns_admin_user(
     assert result == admin_user
 
 
-def test_get_current_admin_user_fails_on_not_admin_role(
+def test_get_current_admin_user_raises_on_non_admin_role(
     user_factory: Callable[..., User],
 ) -> None:
     # Arrange

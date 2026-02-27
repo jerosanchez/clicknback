@@ -47,7 +47,14 @@ def _assert_error_payload(data: dict[str, Any], expected_code: ErrorCode) -> Non
     assert data["error"]["code"] == expected_code
 
 
-def test_login_success(client: TestClient, auth_service_mock: Mock) -> None:
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /api/v1/login
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_login_returns_200_on_success(
+    client: TestClient, auth_service_mock: Mock
+) -> None:
     # Arrange
     token = Token(access_token="some.jwt.token", token_type="bearer")
     auth_service_mock.login.return_value = token
@@ -80,7 +87,7 @@ def test_login_success(client: TestClient, auth_service_mock: Mock) -> None:
         ),
     ],
 )
-def test_login_exceptions(
+def test_login_returns_error_on_exception(
     client: TestClient,
     auth_service_mock: Mock,
     exception: Exception,
