@@ -1,0 +1,58 @@
+@baseUrl = http://localhost:8000/api/v1
+# For authenticated endpoints, obtain a token via the login endpoint first
+# and paste it below (short-lived, from local seed data only).
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzIyMDg2NjV9.DdUrwTmu8PGRIVN8G4r_rlxaqaFLaGbakuHGBdxECTA
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MjIwOTM1Nn0.HqSauCiqFMA8ASZbaG877AH7dAiEpovfwZHC3Pi7TfU
+
+### Get a token for testing (admin)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "carol@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### Get a token for testing (regular user)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: admin retrieves first page of merchants
+GET {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+
+### 200 – Happy path: admin retrieves page 2 with custom page size
+GET {{baseUrl}}/merchants?page=2&page_size=5
+Authorization: {{adminToken}}
+
+### 200 – Filter by active merchants only
+GET {{baseUrl}}/merchants?active=true
+Authorization: {{adminToken}}
+
+### 200 – Filter by inactive merchants only
+GET {{baseUrl}}/merchants?active=false
+Authorization: {{adminToken}}
+
+### 200 – Empty list (no merchants match the filter)
+GET {{baseUrl}}/merchants?page=999&active=false
+Authorization: {{adminToken}}
+
+### 401 – Unauthenticated: missing Authorization header
+GET {{baseUrl}}/merchants
+
+### 403 – Forbidden: regular (non-admin) user
+GET {{baseUrl}}/merchants
+Authorization: {{userToken}}
+
+### 422 – Validation error: page must be >= 1
+GET {{baseUrl}}/merchants?page=0
+Authorization: {{adminToken}}
+
+### 422 – Validation error: page_size exceeds maximum (100)
+GET {{baseUrl}}/merchants?page_size=999
+Authorization: {{adminToken}}
