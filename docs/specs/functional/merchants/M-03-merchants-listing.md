@@ -96,6 +96,14 @@ An authenticated admin successfully retrieves merchant list
 4. System finds no merchants exist.
 5. System returns empty paginated list.
 
+#### Invalid Pagination Parameters
+
+1. Admin requests merchant list with invalid pagination values.
+2. System verifies admin role.
+3. System validates pagination parameters.
+4. System detects invalid values (e.g., page number below minimum or page size exceeding maximum).
+5. System rejects the request with validation error.
+
 ## API Contract
 
 See [List merchants](../../design/api-contracts/merchants/list-merchants.md) for detailed API specifications.

@@ -14,6 +14,9 @@ class ErrorCode(str, Enum):
     # 403 - Forbidden
     FORBIDDEN = "FORBIDDEN"
 
+    # 404 - Not Found
+    NOT_FOUND = "NOT_FOUND"
+
     # 409 - Conflict (Business rule violations)
 
     # 422 - Unprocessable Entity (Semantically invalid requests)

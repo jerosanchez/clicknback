@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.merchants.exceptions import (
     CashbackPercentageNotValidException,
     MerchantNameAlreadyExistsException,
+    MerchantNotFoundException,
 )
 from app.merchants.models import Merchant
 from app.merchants.repository import MerchantRepositoryABC
@@ -132,3 +133,49 @@ def test_list_merchants_returns_repository_result_on_call(
     assert items == merchants
     assert total == expected_total
     merchant_repository.list_merchants.assert_called_once_with(db, 1, 20, active_filter)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# MerchantService.set_merchant_status
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "target_active",
+    [True, False],
+    ids=["activate", "deactivate"],
+)
+def test_set_merchant_status_returns_updated_merchant(
+    merchant_service: MerchantService,
+    merchant_repository: Mock,
+    merchant_factory: Callable[..., Merchant],
+    target_active: bool,
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    existing = merchant_factory(active=not target_active)
+    updated = merchant_factory(active=target_active)
+    merchant_repository.get_merchant_by_id.return_value = existing
+    merchant_repository.update_merchant_status.return_value = updated
+
+    # Act
+    result = merchant_service.set_merchant_status(existing.id, target_active, db)
+
+    # Assert
+    assert result == updated
+    merchant_repository.update_merchant_status.assert_called_once_with(
+        db, existing, target_active
+    )
+
+
+def test_set_merchant_status_raises_on_merchant_not_found(
+    merchant_service: MerchantService,
+    merchant_repository: Mock,
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    merchant_repository.get_merchant_by_id.return_value = None
+
+    # Act & Assert
+    with pytest.raises(MerchantNotFoundException):
+        merchant_service.set_merchant_status("nonexistent-id", True, db)

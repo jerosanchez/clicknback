@@ -1,0 +1,76 @@
+@baseUrl = http://localhost:8000/api/v1
+@merchantId = a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+# Obtain a token via the login request below and paste it here.
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzIyOTAzNjF9.dOzRipn8NUHoTn61CeAJcDxTRo86VGQf1BWFWnve2lo
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MjIxNjU2Nn0.e-_KS5Cv9mWU6g8UsLg6i3tfdktDs_0xTH23nnF9H8Y
+
+### Get a token for testing (admin)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "carol@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### Get a token for testing (regular user)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: deactivate a merchant
+PATCH {{baseUrl}}/merchants/{{merchantId}}/status
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "inactive"
+}
+
+### 200 – Happy path: activate a merchant
+PATCH {{baseUrl}}/merchants/{{merchantId}}/status
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "active"
+}
+
+### 401 – Missing authentication token
+PATCH {{baseUrl}}/merchants/{{merchantId}}/status
+Content-Type: application/json
+
+{
+  "status": "active"
+}
+
+### 403 – Non-admin user
+PATCH {{baseUrl}}/merchants/{{merchantId}}/status
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "status": "active"
+}
+
+### 404 – Merchant does not exist
+PATCH {{baseUrl}}/merchants/00000000-0000-0000-0000-000000000000/status
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "active"
+}
+
+### 422 – Validation error: invalid status value
+PATCH {{baseUrl}}/merchants/{{merchantId}}/status
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "unknown_status"
+}

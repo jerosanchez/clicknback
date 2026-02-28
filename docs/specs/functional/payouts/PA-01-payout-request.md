@@ -49,6 +49,12 @@ _As an authenticated user, I want to request a payout of my available cashback s
 **When** the system validates the withdrawal policy
 **Then** the request is rejected with policy violation error
 
+**Scenario:** User submits payout request with invalid amount
+**Given** I am an authenticated user
+**And** the requested amount is zero or negative
+**When** the API validates the input
+**Then** the request is rejected with a validation error
+
 ---
 
 ## Use Cases

@@ -50,6 +50,11 @@ _As a system process, I want to automatically calculate and allocate cashback fo
 **When** the system evaluates offer eligibility
 **Then** the system applies appropriate offer selection logic (highest value, first active, etc.)
 
+**Scenario:** System receives purchase with invalid amount
+**Given** a purchase arrives with a zero or negative amount
+**When** the system validates purchase data
+**Then** no cashback transaction is created and the purchase is rejected
+
 ---
 
 ## Use Cases

@@ -4,7 +4,10 @@ from typing import Any, Callable
 from sqlalchemy.orm import Session
 
 from app.core.logging import logger
-from app.merchants.exceptions import MerchantNameAlreadyExistsException
+from app.merchants.exceptions import (
+    MerchantNameAlreadyExistsException,
+    MerchantNotFoundException,
+)
 from app.merchants.models import Merchant
 from app.merchants.repository import MerchantRepositoryABC
 
@@ -43,6 +46,25 @@ class MerchantService:
         db: Session,
     ) -> tuple[list[Merchant], int]:
         return self.merchant_repository.list_merchants(db, page, page_size, active)
+
+    def set_merchant_status(
+        self, merchant_id: str, active: bool, db: Session
+    ) -> Merchant:
+        merchant = self.merchant_repository.get_merchant_by_id(db, merchant_id)
+        if merchant is None:
+            logger.debug(
+                "Merchant not found for status update.",
+                extra={"merchant_id": merchant_id},
+            )
+            raise MerchantNotFoundException(merchant_id)
+
+        updated = self.merchant_repository.update_merchant_status(db, merchant, active)
+        logger.info(
+            "Merchant status updated.",
+            extra={"merchant_id": merchant_id, "active": active},
+        )
+
+        return updated
 
     def _enforce_merchant_name_uniqueness(self, name: str, db: Session) -> None:
         if self.merchant_repository.get_merchant_by_name(db, name):

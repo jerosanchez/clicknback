@@ -50,6 +50,12 @@ _As an admin, I want to create cashback offers for merchants so that I can defin
 **When** the system validates the merchant reference
 **Then** an error is returned indicating merchant not found
 
+**Scenario:** Admin creates offer with invalid cashback configuration
+**Given** I am an authenticated admin user
+**And** I attempt to create an offer with zero or negative cashback amount
+**When** the API validates the input
+**Then** the request is rejected with a validation error
+
 ---
 
 ## Use Cases

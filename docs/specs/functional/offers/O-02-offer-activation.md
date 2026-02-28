@@ -46,6 +46,12 @@ _As an admin, I want to control offer availability so that I can enable or disab
 **When** the system attempts to find the offer
 **Then** a not found error is returned
 
+**Scenario:** Admin submits status update with invalid status value
+**Given** I am an authenticated admin user
+**And** the offer exists in the system
+**When** the API validates the request with an unrecognized status value
+**Then** the request is rejected with a validation error
+
 ---
 
 ## Use Cases
@@ -85,6 +91,14 @@ An admin successfully changes offer availability status
 2. System verifies authentication.
 3. System finds no valid credentials.
 4. System rejects the request as unauthorized.
+
+#### Invalid Status Value
+
+1. Admin sends status update request with unrecognized status value.
+2. System verifies admin role.
+3. System validates request parameters.
+4. System detects invalid status value.
+5. System rejects the request with validation error.
 
 ## API Contract
 

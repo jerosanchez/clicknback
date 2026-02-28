@@ -39,6 +39,16 @@ def forbidden_error(
     )
 
 
+def not_found_error(
+    message: str, details: Optional[dict[str, Any]] = None
+) -> HTTPException:
+    """Build a 404 Not Found error."""
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=error_response(ErrorCode.NOT_FOUND, message, details),
+    )
+
+
 def business_rule_violation_error(
     code: str, message: str, details: Optional[dict[str, Any]] = None
 ) -> HTTPException:

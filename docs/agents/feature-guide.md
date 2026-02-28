@@ -404,9 +404,9 @@ logger.info(f"Login attempt successful for {email}.")
 
 ### Where Each Level Appears by Layer
 
-- **Services and policies**: use `DEBUG` for negative paths (validation failures, not-found lookups) and `INFO` for successful outcomes of state-mutating operations (create, update, delete, login). Read-only operations (listing, fetching) should not log.
+- **Services and policies**: use `DEBUG` for expected negative paths (validation failures, not-found lookups) and `INFO` for successful outcomes of state-mutating operations (create, update, delete, login). Read-only operations (listing, fetching) should not log. **Do not duplicate logs for the same event in both the service/policy and API layers—log only in the service or policy layer.**
 - **Token provider / infrastructure**: use `DEBUG` for step-by-step tracing, `WARNING` for anomalies (malformed payloads), `ERROR` for unrecoverable processing failures.
-- **API layer**: use `DEBUG` for caught domain exceptions that are translated to HTTP responses, and `ERROR` for the catch-all unexpected exception handler.
+- **API layer**: only use `ERROR` for the catch-all unexpected exception handler. Do not log expected domain exceptions (such as not found, validation errors, or business rule violations) in the API layer if they are already logged in the service or policy layer.
 
 ### What Not to Log
 

@@ -45,6 +45,11 @@ _As an external system, I want to record user purchases through a webhook so tha
 **When** the system validates merchant existence
 **Then** an error is returned indicating merchant not found
 
+**Scenario:** External system submits purchase with invalid data
+**Given** I send a purchase ingestion request with missing or invalid purchase amount
+**When** the API validates the input
+**Then** the request is rejected with a validation error
+
 ---
 
 ## Use Cases

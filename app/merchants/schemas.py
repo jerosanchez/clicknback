@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -24,3 +25,12 @@ class PaginatedMerchantsOut(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class MerchantStatusUpdate(BaseModel):
+    status: Literal["active", "inactive"]
+
+
+class MerchantStatusOut(BaseModel):
+    id: UUID
+    status: str
