@@ -44,8 +44,8 @@ The system is intentionally small in surface area but deep in engineering rigor.
 | User Registration | Users | 🟢 done |
 | **Merchant Management** | | |
 | Merchant Creation | Merchants | 🟢 done |
-| Merchants Listing | Merchants | ⚪ planned |
-| Merchant Activation | Merchants | ⚪ planned |
+| Merchants Listing | Merchants | 🟢 done |
+| Merchant Activation | Merchants | 🟢 done |
 | **Offer Management** | | |
 | Offer Creation | Offers | ⚪ planned |
 | Offers Listing | Offers | ⚪ planned |
