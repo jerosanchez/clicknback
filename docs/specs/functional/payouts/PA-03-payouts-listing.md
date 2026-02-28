@@ -46,6 +46,11 @@ _As an admin, I want to view all payout operations so that I can monitor and man
 **When** the system applies filters
 **Then** only payouts with the requested status are returned
 
+**Scenario:** Admin requests payout list with invalid pagination parameters
+**Given** I am an authenticated admin user
+**When** the request contains invalid pagination parameters (e.g., negative page number)
+**Then** a validation error is returned
+
 ---
 
 ## Use Cases
@@ -84,6 +89,14 @@ Admin successfully retrieves all payouts
 3. System retrieves payouts matching filters.
 4. System finds no payouts match criteria.
 5. System returns empty paginated list.
+
+#### Invalid Pagination Parameters
+
+1. Admin requests payout list with invalid pagination values.
+2. System verifies admin role.
+3. System validates pagination parameters.
+4. System detects invalid values (e.g., negative page number or oversized page size).
+5. System rejects the request with validation error.
 
 ## API Contract
 
