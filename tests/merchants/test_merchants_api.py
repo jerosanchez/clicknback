@@ -12,7 +12,10 @@ from app.core.errors.builders import forbidden_error
 from app.core.errors.codes import ErrorCode
 from app.main import app
 from app.merchants.composition import get_merchant_service
-from app.merchants.exceptions import CashbackPercentageNotValidException
+from app.merchants.exceptions import (
+    CashbackPercentageNotValidException,
+    MerchantNotFoundException,
+)
 from app.merchants.models import Merchant
 from app.merchants.services import MerchantService
 
@@ -297,3 +300,114 @@ def test_list_merchants_returns_200_on_valid_pagination_params(
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PATCH /api/v1/merchants/{merchant_id}/status
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "target_status,expected_active",
+    [
+        ("active", True),
+        ("inactive", False),
+    ],
+)
+def test_set_merchant_status_returns_200_with_updated_status(
+    client: TestClient,
+    merchant_service_mock: Mock,
+    merchant_factory: Callable[..., Merchant],
+    target_status: str,
+    expected_active: bool,
+) -> None:
+    # Arrange
+    merchant = merchant_factory(active=expected_active)
+    merchant_service_mock.set_merchant_status.return_value = merchant
+
+    # Act
+    response = client.patch(
+        f"/api/v1/merchants/{merchant.id}/status",
+        json={"status": target_status},
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["id"] == str(merchant.id)
+    assert data["status"] == target_status
+
+
+def test_set_merchant_status_returns_404_when_merchant_not_found(
+    client: TestClient,
+    merchant_service_mock: Mock,
+) -> None:
+    # Arrange
+    not_found_merchant_id = "00000000-0000-0000-0000-000000000000"
+    merchant_service_mock.set_merchant_status.side_effect = MerchantNotFoundException(
+        not_found_merchant_id
+    )
+
+    # Act
+    response = client.patch(
+        f"/api/v1/merchants/{not_found_merchant_id}/status",
+        json={"status": "active"},
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    _assert_error_payload(response.json(), ErrorCode.NOT_FOUND)
+
+
+def test_set_merchant_status_returns_403_on_non_admin(
+    non_admin_client: TestClient,
+    merchant_factory: Callable[..., Merchant],
+) -> None:
+    # Arrange
+    merchant = merchant_factory()
+
+    # Act
+    response = non_admin_client.patch(
+        f"/api/v1/merchants/{merchant.id}/status",
+        json={"status": "active"},
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_set_merchant_status_returns_422_on_invalid_status_value(
+    client: TestClient,
+    merchant_factory: Callable[..., Merchant],
+) -> None:
+    # Arrange
+    merchant = merchant_factory()
+
+    # Act
+    response = client.patch(
+        f"/api/v1/merchants/{merchant.id}/status",
+        json={"status": "unknown_status"},
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_set_merchant_status_returns_500_on_unexpected_error(
+    client: TestClient,
+    merchant_service_mock: Mock,
+    merchant_factory: Callable[..., Merchant],
+) -> None:
+    # Arrange
+    merchant = merchant_factory()
+    merchant_service_mock.set_merchant_status.side_effect = Exception("Something broke")
+
+    # Act
+    response = client.patch(
+        f"/api/v1/merchants/{merchant.id}/status",
+        json={"status": "active"},
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    _assert_error_payload(response.json(), ErrorCode.INTERNAL_SERVER_ERROR)
