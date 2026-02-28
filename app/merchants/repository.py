@@ -11,6 +11,10 @@ class MerchantRepositoryABC(ABC):
         pass
 
     @abstractmethod
+    def get_merchant_by_id(self, db: Session, merchant_id: str) -> Merchant | None:
+        pass
+
+    @abstractmethod
     def add_merchant(self, db: Session, merchant: Merchant) -> Merchant:
         pass
 
@@ -24,10 +28,19 @@ class MerchantRepositoryABC(ABC):
     ) -> tuple[list[Merchant], int]:
         pass
 
+    @abstractmethod
+    def update_merchant_status(
+        self, db: Session, merchant: Merchant, active: bool
+    ) -> Merchant:
+        pass
+
 
 class MerchantRepository(MerchantRepositoryABC):
     def get_merchant_by_name(self, db: Session, name: str) -> Merchant | None:
         return db.query(Merchant).filter(Merchant.name == name).first()
+
+    def get_merchant_by_id(self, db: Session, merchant_id: str) -> Merchant | None:
+        return db.query(Merchant).filter(Merchant.id == merchant_id).first()
 
     def add_merchant(self, db: Session, merchant: Merchant) -> Merchant:
         db.add(merchant)
@@ -48,3 +61,11 @@ class MerchantRepository(MerchantRepositoryABC):
         total = query.count()
         items = query.offset((page - 1) * page_size).limit(page_size).all()
         return items, total
+
+    def update_merchant_status(
+        self, db: Session, merchant: Merchant, active: bool
+    ) -> Merchant:
+        merchant.active = active
+        db.commit()
+        db.refresh(merchant)
+        return merchant

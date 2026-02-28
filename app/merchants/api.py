@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -7,12 +9,22 @@ from app.core.database import get_db
 from app.core.errors.builders import (
     business_rule_violation_error,
     internal_server_error,
+    not_found_error,
 )
 from app.core.errors.codes import ErrorCode
 from app.core.logging import logging
 from app.merchants.composition import get_merchant_service
-from app.merchants.exceptions import CashbackPercentageNotValidException
-from app.merchants.schemas import MerchantCreate, MerchantOut, PaginatedMerchantsOut
+from app.merchants.exceptions import (
+    CashbackPercentageNotValidException,
+    MerchantNotFoundException,
+)
+from app.merchants.schemas import (
+    MerchantCreate,
+    MerchantOut,
+    MerchantStatusOut,
+    MerchantStatusUpdate,
+    PaginatedMerchantsOut,
+)
 from app.merchants.services import MerchantService
 from app.users.models import User
 
@@ -82,4 +94,37 @@ def list_merchants(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.patch("/merchants/{merchant_id}/status", status_code=status.HTTP_200_OK)
+def set_merchant_status(
+    merchant_id: str,
+    update_data: MerchantStatusUpdate,
+    merchant_service: MerchantService = Depends(get_merchant_service),
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_admin_user),
+) -> MerchantStatusOut:
+    active = update_data.status == "active"
+    try:
+        updated = merchant_service.set_merchant_status(merchant_id, active, db)
+
+    except MerchantNotFoundException as exc:
+        raise not_found_error(
+            message=str(exc),
+            details={
+                "resource_type": "merchant",
+                "resource_id": merchant_id,
+            },
+        )
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while updating merchant status.",
+            extra={"error": str(e)},
+        )
+        raise internal_server_error()
+
+    return MerchantStatusOut(
+        id=UUID(merchant_id),
+        status="active" if updated.active else "inactive",
     )
