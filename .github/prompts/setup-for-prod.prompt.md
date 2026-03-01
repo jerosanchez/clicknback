@@ -74,7 +74,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 2 — CORS middleware
 - [x] Step 3 — `/health/live` and `/health/ready` probes
 - [x] Step 4 — Dockerfile (two-stage, non-root)
-- [ ] Step 5 — `.dockerignore`
+- [x] Step 5 — `.dockerignore`
 - [ ] Step 6 — Rewrite `docker-compose.yml` (migrate + app services)
 - [ ] Step 7 — Add `APP_PORT` and `APP_IMAGE` to `.env.example`
 - [ ] Step 8 — Rename `make run` → `make dev`, add `make logs`
@@ -140,9 +140,11 @@ Two-stage builds keep the final image small (no build tools, no test libraries) 
 
 Only after all six checks pass may the step be committed.
 
-5. **Add `.dockerignore`** at repo root, excluding `.venv/`, `__pycache__/`, `htmlcov/`, `tests/`, `.github/`, `.env`, `*.egg-info`, and `coverage.*`.
+5. **Add `.dockerignore`** at repo root, excluding: `.venv/`, `__pycache__/`, `htmlcov/`, `tests/`, `.github/`, `.env`, `.env.example`, `*.egg-info`, `coverage.*`, `Makefile`, `docs/`, and `CONTRIBUTING.md`.
 
 Without this file, Docker's build context includes every file in the repo, which slows builds and risks accidentally baking secrets (`.env`) or test artifacts into the image layer cache.
+
+**Do not exclude `README.md`** (with a wildcard or explicit rule). The builder stage copies it explicitly because setuptools reads it for package metadata during `pip install .` — excluding it would fail the build. Exclude `docs/` and individual `.md` files by name instead of using a `*.md` glob.
 
 ---
 

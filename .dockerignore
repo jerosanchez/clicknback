@@ -1,0 +1,33 @@
+# Python environment and cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Test artefacts
+tests/
+htmlcov/
+coverage.*
+.pytest_cache/
+
+# CI/CD and dev tooling
+.github/
+.mypy_cache/
+Makefile
+
+# Documentation — not needed at runtime
+# NOTE: README.md is intentionally excluded from this block.
+# The builder stage copies it explicitly because setuptools reads it
+# for package metadata during `pip install .`. Excluding it here would
+# break the build.
+docs/
+CONTRIBUTING.md
+
+# Secrets — must never be baked into an image layer
+.env
+.env.example
+
+# Editor and OS noise
+.vscode/
+.DS_Store
