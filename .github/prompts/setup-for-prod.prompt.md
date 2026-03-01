@@ -76,7 +76,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 4 — Dockerfile (two-stage, non-root)
 - [x] Step 5 — `.dockerignore`
 - [x] Step 6 — Add `APP_PORT` and `APP_IMAGE` to `.env.example`
-- [ ] Step 7 — Rewrite `docker-compose.yml` (migrate + app services)
+- [x] Step 7 — Rewrite `docker-compose.yml` (migrate + app services)
 - [ ] Step 8 — Rename `make run` → `make dev`, add `make logs`
 - [ ] Step 9 — Document static secrets strategy for VPS
 - [ ] Step 10 — Add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY, SONAR_TOKEN)

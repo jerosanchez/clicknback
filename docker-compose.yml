@@ -10,18 +10,58 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     networks:
-      - internal
+      - clicknback-nw
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  migrate:
+    image: "${APP_IMAGE}"
+    command: [ "alembic", "upgrade", "head" ]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@clicknback-db:5432/${POSTGRES_DB}"
+    depends_on:
+      clicknback-db:
+        condition: service_healthy
+    networks:
+      - clicknback-nw
+    restart: "no"
+
+  clicknback-app:
+    image: "${APP_IMAGE}"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@clicknback-db:5432/${POSTGRES_DB}"
+    ports:
+      - "${APP_PORT}:8000"
+    depends_on:
+      clicknback-db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - clicknback-nw
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - >-
+          python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
 volumes:
   pgdata:
 
 
 networks:
-  internal:
+  clicknback-nw:
     external: true
     name: ${DOCKER_NETWORK_NAME}
