@@ -168,26 +168,26 @@ For a demo/MVP, FRs and NFRs should be prioritized together to ensure a cohesive
 
 ### Phase 1 (Essential Foundation)
 
-**FRs**: U-01, U-02, W-01  
-**NFRs**: NFR-01, NFR-03, NFR-04, NFR-05, NFR-08  
+**FRs**: U-01, U-02, W-01
+**NFRs**: NFR-01, NFR-03, NFR-04, NFR-05, NFR-08
 **Goal**: Core user authentication and wallet infrastructure with financial integrity.
 
 ### Phase 2 (Merchant & Offer Ecosystem)
 
-**FRs**: M-01, O-01, O-04, O-03, M-02, M-03, O-05  
-**NFRs**: NFR-02, NFR-06, NFR-09  
+**FRs**: M-01, O-01, O-04, O-03, M-02, M-03, O-05
+**NFRs**: NFR-02, NFR-06, NFR-09
 **Goal**: Enable admin control and user discovery of merchant offers with operational robustness.
 
 ### Phase 3 (Purchase & Cashback Processing)
 
-**FRs**: PU-01, PU-03, PU-02, PU-06, PU-04, PU-05, PU-07  
-**NFRs**: NFR-07, NFR-10, NFR-11  
+**FRs**: PU-01, PU-03, PU-02, PU-06, PU-04, PU-05, PU-07
+**NFRs**: NFR-07, NFR-10, NFR-11
 **Goal**: Ingest purchases, calculate cashback atomically, and provide comprehensive purchase history with scalability.
 
 ### Phase 4 (Payouts & Production Readiness)
 
-**FRs**: PA-01, PA-02, PA-03, PA-04, W-02  
-**NFRs**: NFR-12  
+**FRs**: PA-01, PA-02, PA-03, PA-04, W-02
+**NFRs**: NFR-12
 **Goal**: Enable user withdrawals and complete observability with backup/recovery capabilities.
 
 ---

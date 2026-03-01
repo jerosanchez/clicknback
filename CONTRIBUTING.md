@@ -63,7 +63,22 @@ This will:
 - Start PostgreSQL container with the database initialized
 - Run pending migrations automatically
 
-#### 5. Verify Your Setup
+#### 5. Install Pre-commit Hooks
+
+This project uses pre-commit to enforce quality gates locally before every commit. Run this once after cloning:
+
+```shell
+source .venv/bin/activate
+pre-commit install
+```
+
+After this, Git will automatically run all hooks before every `git commit`. To run all hooks manually at any time:
+
+```shell
+pre-commit run --all-files
+```
+
+#### 6. Verify Your Setup
 
 ```shell
 # Run the test suite
@@ -72,10 +87,11 @@ make test
 # Start the development server (in another terminal)
 # First, activate the venv again if needed
 source .venv/bin/activate
-make run
+make dev
 ```
 
-The API will be available at `http://localhost:8000` with interactive docs at `http://localhost:8000/docs`.
+The API will be available at `http://localhost:8000` with interactive docs at
+`http://localhost:8000/docs`.
 
 ### Common Development Tasks
 
@@ -84,18 +100,19 @@ The API will be available at `http://localhost:8000` with interactive docs at `h
 make install     # Create .venv and install all dependencies
 
 # Start/stop the application and database
-make up          # Start containers and database
+make up          # Start containers (DB + migrations + app)
 make down        # Stop containers and remove network
 
 # Run tests
 make test        # Run tests with coverage (pytest)
+make coverage    # Run tests and print emoji-graded coverage report
 
 # Code quality
 make lint        # Run all linters (markdown, flake8, isort, black)
-make format      # Auto-format code (isort, black)
+make security    # Run Bandit security scan on app/ (medium/high only)
 
-# Start development server
-make run         # Start FastAPI server with auto-reload
+# Start development server (hot-reload, no Docker)
+make dev         # Start FastAPI server with auto-reload
 
 # Reset database (useful during development)
 make db-reset    # Rollback migrations, apply fresh migrations, seed data
@@ -118,14 +135,18 @@ Follow a pragmatic approach:
 
 ## Quality Enforcement
 
-To ensure code quality and consistency, always run the following before pushing or opening a pull request:
+Always run the full gate sequence before pushing or opening a pull request:
 
 ```shell
-make lint   # Check code style, formatting, and docs
-make test   # Run all tests with coverage
+make lint       # Check code style, formatting, and docs
+make test       # Run all tests with coverage
+make coverage   # Verify coverage meets the 70% threshold
+make security   # Bandit scan — must exit 0 before pushing
 ```
 
-Refer to the Architecture Decision Records (ADRs) in `docs/adr/` for details on the project's testing and quality strategy.
+If you have completed the one-time `pre-commit install` step (see Initial Setup above), Git runs these checks automatically before every commit.
+
+Refer to `docs/agents/quality-gates.md` for the full gate sequence and coverage grading scale.
 
 ## Database Migrations
 
@@ -177,7 +198,7 @@ python3 --version  # Check your Python version
 python3 -m venv .venv
 
 # If venv is broken
-make clean 
+make clean
 make install
 ```
 

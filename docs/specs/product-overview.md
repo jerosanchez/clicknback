@@ -65,12 +65,12 @@ Time-bound or merchant-specific reward rules that define:
 
 ### Purchases
 
-Events representing a user transaction at a merchant.  
+Events representing a user transaction at a merchant.
 Purchases enter the system as external events (e.g., webhook ingestion).
 
 ### Cashback Transactions
 
-Internal reward records generated from purchases.  
+Internal reward records generated from purchases.
 These track state changes independently from purchase state.
 
 ### Wallet

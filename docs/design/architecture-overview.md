@@ -19,7 +19,7 @@ graph TB
     subgraph "API Layer"
         HTTP["FastAPI Application"]
     end
-    
+
     subgraph "Feature Modules - Domain-Driven Organization"
         Users["👤 Users Module"]
         Merchants["🏪 Merchants Module"]
@@ -28,66 +28,66 @@ graph TB
         Wallets["💰 Wallets Module"]
         Payouts["💳 Payouts Module"]
     end
-    
+
     subgraph "Service & Persistence Layer"
         UserSvc["UserService"]
         MerchantSvc["MerchantService"]
         CashbackCalcSvc["CashbackCalculator"]
-        
+
         UserRepo["UserRepository"]
         MerchantRepo["MerchantRepository"]
         PurchaseRepo["PurchaseRepository"]
         WalletRepo["WalletRepository"]
     end
-    
+
     subgraph "Core/Shared Infrastructure"
         DB["Database Session Manager"]
         Config["Configuration"]
         Security["Security & Auth"]
         Policies["Business Policies<br/>RateLimiting, Validation"]
     end
-    
+
     subgraph "Data Layer"
         PostgreSQL[("PostgreSQL<br/>Source of Truth")]
     end
-    
+
     HTTP -->|Routes & validates| Users
     HTTP -->|Routes & validates| Merchants
     HTTP -->|Routes & validates| Offers
     HTTP -->|Routes & validates| Purchases
     HTTP -->|Routes & validates| Wallets
     HTTP -->|Routes & validates| Payouts
-    
+
     Users -->|Composes| UserSvc
     Merchants -->|Composes| MerchantSvc
     Purchases -->|Composes| CashbackCalcSvc
     Wallets -->|Composes| WalletSvc["WalletService"]
-    
+
     UserSvc -->|Persists| UserRepo
     MerchantSvc -->|Persists| MerchantRepo
     Purchases -->|Persists| PurchaseRepo
     Wallets -->|Persists| WalletRepo
-    
+
     Users -->|Enforces| Security
     Merchants -->|Uses| Policies
     Purchases -->|Uses| Policies
-    
+
     UserSvc -->|Uses| Config
     MerchantSvc -->|Uses| Config
     CashbackCalcSvc -->|Uses| Config
-    
+
     UserRepo -->|Session| DB
     MerchantRepo -->|Session| DB
     PurchaseRepo -->|Session| DB
     WalletRepo -->|Session| DB
-    
+
     DB -->|Executes| PostgreSQL
-    
+
     classDef module fill:#4A90E2,stroke:#2E5C8A,color:#fff
     classDef service fill:#50C878,stroke:#2D7A4A,color:#fff
     classDef core fill:#FFB84D,stroke:#B8860B,color:#000
     classDef data fill:#E94B3C,stroke:#A63428,color:#fff
-    
+
     class Users,Merchants,Offers,Purchases,Wallets,Payouts module
     class UserSvc,MerchantSvc,CashbackCalcSvc,WalletSvc service
     class DB,Config,Security,Policies core

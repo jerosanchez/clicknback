@@ -16,12 +16,12 @@ Self-contained reference for writing tests in ClickNBack. When asked to write a 
 
 ### What to Test
 
-✅ Service business logic  
-✅ API response/error mapping  
-✅ Policies and validators  
-✅ Utilities and builders  
-❌ Thin repository implementations  
-❌ Framework internals (FastAPI routing, SQLAlchemy engine)  
+✅ Service business logic
+✅ API response/error mapping
+✅ Policies and validators
+✅ Utilities and builders
+❌ Thin repository implementations
+❌ Framework internals (FastAPI routing, SQLAlchemy engine)
 
 ### Quality Standards
 
@@ -58,7 +58,7 @@ tests/
         test_users_services.py
 ```
 
-**Rule:** `tests/{module}/test_{module_name}_{layer}.py`  
+**Rule:** `tests/{module}/test_{module_name}_{layer}.py`
 Maps exactly to `app/{module}/{layer}.py` — e.g., `tests/users/test_users_services.py` ↔ `app/users/services.py`.
 
 ---
@@ -169,7 +169,7 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 | A `Callable[[X], Y]` (e.g. `hash_password`, `enforce_*`) | `Mock()` (optionally with `return_value`) |
 | `db: Session` inside a test | `Mock(spec=Session)` — local variable, not a fixture |
 
-> **Return type of mock fixtures must be `Mock`, not the ABC.**  
+> **Return type of mock fixtures must be `Mock`, not the ABC.**
 > `-> Mock` lets the type checker resolve `.return_value` and `.side_effect`.
 
 **Canonical example:** `tests/users/test_users_services.py` — read this file before writing a new service test. `tests/merchants/test_merchants_services.py` and `tests/auth/test_auth_services.py` follow the exact same structure.
@@ -191,14 +191,14 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 
 ### Testing Scope
 
-✅ Status codes match `fastapi.status` constants  
-✅ Response body maps model fields correctly  
-✅ Domain exceptions → correct HTTP status + error code  
-✅ Unhandled exceptions → 500  
-✅ Non-admin (403) — verifies the endpoint calls the correct admin-guarded dependency  
-✅ Query/path parameter constraint validation — endpoints with `ge`/`le` constraints must have boundary value tests covering both valid and invalid sides  
-❌ Unauthenticated (401) per endpoint — the 401 is raised inside the auth helper (`get_current_user`), which is already tested in `tests/core/test_current_user.py`; testing it on every endpoint is redundant  
-❌ Business logic (belongs in service tests)  
+✅ Status codes match `fastapi.status` constants
+✅ Response body maps model fields correctly
+✅ Domain exceptions → correct HTTP status + error code
+✅ Unhandled exceptions → 500
+✅ Non-admin (403) — verifies the endpoint calls the correct admin-guarded dependency
+✅ Query/path parameter constraint validation — endpoints with `ge`/`le` constraints must have boundary value tests covering both valid and invalid sides
+❌ Unauthenticated (401) per endpoint — the 401 is raised inside the auth helper (`get_current_user`), which is already tested in `tests/core/test_current_user.py`; testing it on every endpoint is redundant
+❌ Business logic (belongs in service tests)
 ❌ Service argument forwarding — verifying that query/path params are passed through to the service is redundant; it is already covered implicitly by the success test and will be exercised further in integration/E2E tests
 
 ### API Test Structure
@@ -697,22 +697,22 @@ When implemented, E2E tests will spin up the full stack via Docker Compose and i
 
 ### `AttributeError: return_value` not found on fixture
 
-**Cause:** Fixture return type is declared as the ABC, not `Mock`.  
+**Cause:** Fixture return type is declared as the ABC, not `Mock`.
 **Fix:** Change `-> MyABC:` to `-> Mock:` on the fixture.
 
 ### Mock method not behaving as expected
 
-**Cause:** `return_value` or `side_effect` was not set before the call.  
+**Cause:** `return_value` or `side_effect` was not set before the call.
 **Fix:** Always configure mocks in the **Arrange** block of the test, not in the fixture itself.
 
 ### Fixture not injected / `fixture 'x' not found`
 
-**Cause:** Fixture defined in the wrong file.  
+**Cause:** Fixture defined in the wrong file.
 **Fix:** If used by more than one test module, move it to `tests/conftest.py`. Pytest auto-discovers `conftest.py` fixtures in all parent directories.
 
 ### `app.dependency_overrides` leaks between tests
 
-**Cause:** The `client` fixture did not call `app.dependency_overrides.clear()`.  
+**Cause:** The `client` fixture did not call `app.dependency_overrides.clear()`.
 **Fix:** Always use a `yield`-based fixture and call `.clear()` after yield:
 
 ```python
@@ -725,7 +725,7 @@ def client(...) -> Generator[TestClient, None, None]:
 
 ### Mocking authenticated endpoints
 
-**Cause:** `get_current_admin_user` dependency was not overridden.  
+**Cause:** `get_current_admin_user` dependency was not overridden.
 **Fix:** Add to the `client` fixture before creating the `TestClient`:
 
 ```python

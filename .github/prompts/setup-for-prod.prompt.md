@@ -83,7 +83,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 12 — Create `scripts/coverage-grade.sh`
 - [x] Step 13 — Add `make coverage` target
 - [x] Step 14 — Add Bandit and `make security` target
-- [ ] Step 15 — Create `.pre-commit-config.yaml` (pre-commit hooks)
+- [x] Step 15 — Create `.pre-commit-config.yaml` (pre-commit hooks)
 - [ ] Step 16 — Update `.github/workflows/ci.yml` (coverage + security jobs)
 - [ ] Step 17 — Add `.github/dependabot.yml`
 - [ ] Step 18 — Create `.github/workflows/cd.yml`

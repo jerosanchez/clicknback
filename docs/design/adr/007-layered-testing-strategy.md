@@ -44,10 +44,10 @@ def user_factory() -> Callable[..., User]:
 def test_create_user_success(user_service, user_factory):
     # Arrange
     user_repository.get_user_by_email.return_value = None
-    
+
     # Act
     user = user_service.create_user(data, db)
-    
+
     # Assert
     assert user.email == data["email"]
 ```
@@ -75,10 +75,10 @@ def test_create_user_returns_409_on_duplicate_email(user_service_mock):
     # Arrange
     user_service_mock.create_user.side_effect = EmailAlreadyRegisteredException()
     client = TestClient(app)
-    
+
     # Act
     response = client.post("/users", json={"email": "dupe@example.com", "password": "Test123!"})
-    
+
     # Assert
     assert response.status_code == 409
     assert "already registered" in response.json()["detail"]
@@ -87,10 +87,10 @@ def test_create_user_returns_422_on_weak_password(user_service_mock):
     # Arrange
     user_service_mock.create_user.side_effect = PasswordNotComplexEnoughException()
     client = TestClient(app)
-    
+
     # Act
     response = client.post("/users", json={"email": "test@example.com", "password": "weak"})
-    
+
     # Assert
     assert response.status_code == 422
     assert "complex" in response.json()["detail"].lower()

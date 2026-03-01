@@ -15,9 +15,7 @@ from app.users.exceptions import (
     PasswordNotComplexEnoughException,
 )
 from app.users.schemas import UserCreate, UserOut
-from app.users.services import (
-    UserService,
-)
+from app.users.services import UserService
 
 router = APIRouter(prefix="/users")
 
