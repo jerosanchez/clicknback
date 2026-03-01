@@ -78,7 +78,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 6 — Add `APP_PORT` and `APP_IMAGE` to `.env.example`
 - [x] Step 7 — Rewrite `docker-compose.yml` (migrate + app services)
 - [x] Step 8 — Rename `make run` → `make dev`, add `make logs`
-- [ ] Step 9 — Document static secrets strategy for VPS
+- [x] Step 9 — Document static secrets strategy for VPS
 - [ ] Step 10 — Add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY, SONAR_TOKEN)
 - [ ] Step 11 — Add `--cov-report=xml` to `make test`
 - [ ] Step 12 — Create `scripts/coverage-grade.sh`

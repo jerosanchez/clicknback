@@ -65,7 +65,7 @@ The modular monolith (ADR 001) supports single-instance deployment today while a
 
 **Schema Evolution:** Database migrations (via Alembic) are versioned and applied deterministically. Rollback capability is preserved through migration history.
 
-**Secret Management:** Credentials and sensitive config are stored in GitHub Secrets, never in repositories. Injected at runtime into the VPS environment.
+**Secret Management:** Application secrets live in a static `.env` file on the VPS, placed once by an operator with `chmod 600`. The CD pipeline never reads or writes this file. See [Section 8](#8-production-secrets-strategy) for the full strategy.
 
 **Single Deployable Unit:** The entire application (FastAPI service + PostgreSQL database) is containerized, enabling reproducible deployments across machines and environments.
 
@@ -131,3 +131,51 @@ For a demo system, basic approach: application logs to stdout (captured by conta
 - Centralized logging across instances
 - Automated rollback on health check failure
 - Multi-instance load balancing
+
+---
+
+## 8. Production Secrets Strategy
+
+Production secrets (database credentials, OAuth keys, etc.) are managed as a static file on the VPS — never injected through CI environment variables.
+
+### 8.1 Placement
+
+The file lives at `/opt/clicknback/.env` on the VPS, placed once by an operator:
+
+```bash
+# Lock permissions so only the owner can read it
+chmod 600 /opt/clicknback/.env
+chown deploy:deploy /opt/clicknback/.env
+```
+
+The file is never committed to the repository. `.env` is listed in `.gitignore` and must stay there.
+
+### 8.2 CD Separation of Concerns
+
+The CD pipeline **never** reads, writes, or references the `.env` file. It only:
+
+1. Pulls the new image from `ghcr.io`.
+1. Runs `docker compose up -d --no-build --remove-orphans`.
+
+Docker Compose reads `.env` from the deploy directory at startup — no CI involvement.
+
+### 8.3 Why Not CI Secrets Injection
+
+Injecting production secrets through CI environment variables (e.g., `docker compose up -e DB_PASSWORD=${{ secrets.DB_PASSWORD }}`) is an anti-pattern because:
+
+- Variables can appear in CI logs if the command fails verbosely.
+- CI secrets rotate independently of the VPS; keeping them in sync adds operational risk.
+- A static file on the VPS is auditable via SSH access logs; CI variable injection is not.
+
+### 8.4 GitHub Secrets Scope
+
+GitHub Secrets are reserved for pipeline credentials only:
+
+| Secret | Purpose |
+| --- | --- |
+| `VPS_HOST` | SSH target for the deploy job |
+| `VPS_USER` | SSH username for the deploy job |
+| `VPS_SSH_KEY` | Ed25519 deploy key private half |
+| `SONAR_TOKEN` | SonarCloud scan authentication |
+
+Application secrets (`DATABASE_URL`, `OAUTH_HASH_KEY`, etc.) never enter GitHub.
