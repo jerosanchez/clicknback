@@ -75,8 +75,8 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 3 — `/health/live` and `/health/ready` probes
 - [x] Step 4 — Dockerfile (two-stage, non-root)
 - [x] Step 5 — `.dockerignore`
-- [ ] Step 6 — Rewrite `docker-compose.yml` (migrate + app services)
-- [ ] Step 7 — Add `APP_PORT` and `APP_IMAGE` to `.env.example`
+- [x] Step 6 — Add `APP_PORT` and `APP_IMAGE` to `.env.example`
+- [ ] Step 7 — Rewrite `docker-compose.yml` (migrate + app services)
 - [ ] Step 8 — Rename `make run` → `make dev`, add `make logs`
 - [ ] Step 9 — Document static secrets strategy for VPS
 - [ ] Step 10 — Add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY, SONAR_TOKEN)
@@ -150,13 +150,31 @@ Without this file, Docker's build context includes every file in the repo, which
 
 ## Phase 3 — Compose Orchestration *(generic)*
 
-6. **Rewrite `docker-compose.yml`** to add two new services alongside the existing `clicknback-db`:
+6. **Add `APP_PORT` and `APP_IMAGE` variables** to `.env.example`. `APP_PORT` controls the host-side published port (useful to avoid conflicts with other services on the VPS). `APP_IMAGE` allows the CD pipeline to inject the exact `sha`-tagged image pulled from ghcr.io, making each deploy fully traceable to a commit.
+
+   Also add the same variables to your local `.env` before proceeding to Step 7 — they are required to smoke-test the new compose services.
+
+7. **Rewrite `docker-compose.yml`** to add two new services alongside the existing `clicknback-db`:
 
    - **`migrate` service**: uses the app image; overrides `command` to `alembic upgrade head`; `depends_on: clicknback-db: condition: service_healthy`; `restart: "no"`. It is a one-shot container that must exit 0. The restart policy must be `"no"` — not `on-failure` — because a migration failure (e.g., conflicting schema, bad SQL) is not a transient error. Retrying it automatically would mask the root cause and could corrupt the schema.
 
    - **`clicknback-app` service**: uses the app image; `depends_on` both `clicknback-db: condition: service_healthy` and `migrate: condition: service_completed_successfully`; exposes `${APP_PORT}:8000`; uses `GET /health/ready` as its Docker health check (not `/health/live`, since we want the container to be healthy only when the DB is reachable); `restart: unless-stopped`. The double dependency chain — DB healthy AND migrations complete — is the key coordination mechanism that prevents the app from starting against an unready or unmigrated database.
 
-7. **Add `APP_PORT` and `APP_IMAGE` variables** to `.env.example`. `APP_PORT` controls the host-side published port (useful to avoid conflicts with other services on the VPS). `APP_IMAGE` allows the CD pipeline to inject the exact `sha`-tagged image pulled from ghcr.io, making each deploy fully traceable to a commit.
+   **Smoke-test the compose stack before committing.** After writing the file, run the full stack end-to-end:
+
+   1. Ensure your local `.env` has `APP_PORT` and `APP_IMAGE` set (Step 6).
+   2. Build the image with the tag that matches `APP_IMAGE`: `docker build -t <APP_IMAGE> .`
+   3. Create the network if it doesn't exist: `docker network create clicknback-nw` (or `make up` does this automatically).
+   4. Start the full stack: `make up` — this should bring up `clicknback-db`, then `migrate` (exits 0), then `clicknback-app`.
+   5. Confirm the `migrate` container exited successfully: `docker compose ps` must show `migrate` with state `Exited (0)`.
+   6. Confirm `clicknback-app` is healthy: `docker compose ps` must show `clicknback-app` with state `healthy`.
+   7. Hit the readiness probe: `curl localhost:${APP_PORT}/health/ready` → `{"status":"ready"}` with HTTP 200.
+   8. Inspect migration logs: `docker compose logs migrate` — must show `Running upgrade` lines and no errors.
+   9. Tear down: `make down`.
+
+   Note: the `migrate` and `clicknback-app` services override `DATABASE_URL` in compose to point at `clicknback-db` (the Docker service name) rather than `localhost`. This is intentional — `localhost` in the local `.env` works for `make test` (direct pytest against the host Postgres), while the compose override ensures containers reach the DB over the Docker network.
+
+   Only after all checks pass may the step be committed.
 
 8. **Update `Makefile`**: rename the existing `make run` to `make dev` (local uvicorn with `--reload`, dev only). Add a `make logs` target (`docker compose logs -f clicknback-app`) for tailing production-style container logs locally. `make up` already starts compose — after this phase it starts the full stack (DB + migrations + app). Keeping `make dev` distinct from `make up` preserves the fast inner-loop workflow without a container rebuild on every code change.
 
