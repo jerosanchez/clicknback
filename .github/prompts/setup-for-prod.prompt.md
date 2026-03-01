@@ -84,7 +84,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 13 — Add `make coverage` target
 - [x] Step 14 — Add Bandit and `make security` target
 - [x] Step 15 — Create `.pre-commit-config.yaml` (pre-commit hooks)
-- [ ] Step 16 — Update `.github/workflows/ci.yml` (coverage + security jobs)
+- [x] Step 16 — Update `.github/workflows/ci.yml` (coverage + security jobs)
 - [ ] Step 17 — Add `.github/dependabot.yml`
 - [ ] Step 18 — Create `.github/workflows/cd.yml`
 - [ ] Step 19 — Initial VPS provisioning (manual, on VPS)
@@ -402,9 +402,13 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 ## Phase 7 — GitHub Actions CI Update *(generic)*
 
-16. **Update `.github/workflows/ci.yml`** to extend the job chain: add a **`coverage`** job after `test` that re-runs pytest with `--cov-fail-under=70` as a hard gate (`pytest tests/ --cov=app --cov-report=xml --cov-fail-under=70`); add a **`security`** job after `coverage` that runs `bandit -r app/ -ll` and fails the pipeline if any medium or high severity issue is found. Final job order: `lint` → `test` → `coverage` → `security`. Keeping `test`, `coverage`, and `security` as separate jobs makes failure reasons unambiguous in the GitHub Actions UI: a red `coverage` job means the threshold was missed specifically; a red `security` job means a security issue was introduced — neither is conflated with broken tests.
+16. **Update `.github/workflows/ci.yml`** to extend the job chain: add a **`coverage`** job after `test` that runs `make coverage` as the single source of truth for the threshold (same script, same grade output as local); add a **`security`** job after `coverage` that runs `make security` and fails the pipeline if any medium or high severity issue is found. Final job order: `lint` → `test` → `coverage` → `security`.
 
-17. **Add `.github/dependabot.yml`** to configure automated dependency update PRs for both the Python ecosystem (`pip`, weekly) and GitHub Actions (`github-actions`, weekly). Dependabot PRs run through the full CI pipeline automatically, so security and compatibility regressions in dependencies are caught without manual audits. This is a one-file addition that signals proactive maintenance discipline — a quality that senior engineers are expected to embed into a project from the start.
+Keeping `test`, `coverage`, and `security` as separate jobs makes failure reasons unambiguous in the GitHub Actions UI: a red `coverage` job means the threshold was missed specifically; a red `security` job means a security issue was introduced — neither is conflated with broken tests.
+
+17. **Add `.github/dependabot.yml`** to configure automated dependency update PRs for both the Python ecosystem (`pip`, weekly) and GitHub Actions (`github-actions`, weekly).
+
+Dependabot PRs run through the full CI pipeline automatically, so security and compatibility regressions in dependencies are caught without manual audits. This is a one-file addition that signals proactive maintenance discipline — a quality that senior engineers are expected to embed into a project from the start.
 
 ---
 
