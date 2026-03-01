@@ -52,6 +52,8 @@ Before starting any step, read the following project context files in full:
 
 Each step that produces code, configuration, or documentation is a **separate commit**. Do not begin the next step until the current step's commit is approved and executed by the human.
 
+**AI agents may run any read-only or research commands autonomously, without asking permission.** This includes, but is not limited to: `make test`, `make lint`, `make format`, listing files, searching, or any command that does not modify project state. Only state-changing actions (e.g., `git commit`, file edits, deployments) require explicit human approval.
+
 To close a step:
 
 1. Run `make lint && make format && make test` — all must pass.
@@ -65,7 +67,7 @@ When resuming work after a break, read the **Progress** section first to identif
 
 ## Progress
 
-- [ ] Step 1 — API version prefix `/api/v1/`
+- [x] Step 1 — API version prefix `/api/v1/`
 - [ ] Step 2 — CORS middleware
 - [ ] Step 3 — `/health/live` and `/health/ready` probes
 - [ ] Step 4 — Dockerfile (two-stage, non-root)
