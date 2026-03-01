@@ -47,6 +47,7 @@ Before starting any step, read the following project context files in full:
 - Do not re-seed the database as part of any automated step — seeding is a one-time manual operation (Step 21 only).
 - Phase 9 steps are manual and performed directly on the VPS; describe the exact commands to run but do not attempt to execute them remotely.
 - All `.md` files created or updated must comply with `docs/agents/markdown-guidelines.md` and pass `markdownlint` — `make lint` must be green before committing any documentation step.
+- All tests written must comply with `docs/agents/testing-guidelines.md` — use module-level functions (not classes), the `test_{sut}_{result}_on_{condition}` naming pattern with the `_on_` connector, AAA comments, and section separators as specified in that document.
 
 ## Commit Protocol
 
@@ -58,7 +59,9 @@ To close a step:
 
 1. Run `make lint && make format && make test` — all must pass.
 2. Stage the changes and output `git diff --staged`.
-3. Propose a commit message.
+3. Propose a commit message. Keep it short and outcome-focused — state what the step achieves, not which files were
+   changed or how it was implemented. File-level details are already visible in the diff. One line is almost always
+   enough; use a body paragraph only when the *why* is non-obvious from the step description.
 4. **Wait for explicit human approval before executing `git commit`.**
 
 When resuming work after a break, read the **Progress** section first to identify the next incomplete step, then continue from there without re-doing completed ones. After the human approves a commit for a step, mark that step's checkbox as done (`- [x]`) and include that change in the same commit.
@@ -68,8 +71,8 @@ When resuming work after a break, read the **Progress** section first to identif
 ## Progress
 
 - [x] Step 1 — API version prefix `/api/v1/`
-- [ ] Step 2 — CORS middleware
-- [ ] Step 3 — `/health/live` and `/health/ready` probes
+- [x] Step 2 — CORS middleware
+- [x] Step 3 — `/health/live` and `/health/ready` probes
 - [ ] Step 4 — Dockerfile (two-stage, non-root)
 - [ ] Step 5 — `.dockerignore`
 - [ ] Step 6 — Rewrite `docker-compose.yml` (migrate + app services)

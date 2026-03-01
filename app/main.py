@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import api as auth_api
 from app.core.errors.handlers import register_error_handlers
+from app.core.health import router as health_router
 from app.merchants import api as merchants_api
 from app.users import api as users_api
 
@@ -22,8 +23,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routers for `api/v1` endpoints. Each router corresponds to a specific
-# domain of functionality (users, auth, merchants, etc.).
+# Health probes are registered without the /api/v1 prefix because they are
+# infrastructure endpoints consumed by Docker, Nginx, and the CD pipeline.
+app.include_router(health_router)
+
+# API routers for `api/v1` endpoints.
 app.include_router(users_api.router, prefix="/api/v1")
 app.include_router(auth_api.router, prefix="/api/v1")
 app.include_router(merchants_api.router, prefix="/api/v1")
