@@ -73,7 +73,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 1 — API version prefix `/api/v1/`
 - [x] Step 2 — CORS middleware
 - [x] Step 3 — `/health/live` and `/health/ready` probes
-- [ ] Step 4 — Dockerfile (two-stage, non-root)
+- [x] Step 4 — Dockerfile (two-stage, non-root)
 - [ ] Step 5 — `.dockerignore`
 - [ ] Step 6 — Rewrite `docker-compose.yml` (migrate + app services)
 - [ ] Step 7 — Add `APP_PORT` and `APP_IMAGE` to `.env.example`
@@ -124,9 +124,21 @@ The distinction matters because a process can be alive (liveness passes) but una
 
 ## Phase 2 — App Container *(generic)*
 
-4. **Create `Dockerfile`** at repo root using a two-stage build. The `builder` stage uses `python:3.13-slim` and installs only runtime dependencies (`pip install .` without `[dev]`), producing a populated `site-packages`. The `runtime` stage copies only what is needed (`app/`, `alembic/`, `alembic.ini`, `seeds/`, and the installed packages) and drops privileges to a non-root user before setting `CMD` to `uvicorn app.main:app --host 0.0.0.0 --port 8000`. 
+4. **Create `Dockerfile`** at repo root using a two-stage build. The `builder` stage uses `python:3.13-slim` and installs only runtime dependencies (`pip install .` without `[dev]`), producing a populated `site-packages`. The `runtime` stage copies only what is needed (`app/`, `alembic/`, `alembic.ini`, `seeds/`, and the installed packages) and drops privileges to a non-root user before setting `CMD` to `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
 
 Two-stage builds keep the final image small (no build tools, no test libraries) and running as non-root is a baseline container security requirement — running as root inside a container is mapped to root on the host if the container runtime is misconfigured.
+
+**Smoke-test the image before committing.** After creating the Dockerfile, build and run it to confirm the image works end-to-end:
+
+1. Start the database: `docker compose up -d clicknback-db` and wait until healthy.
+2. Build the image: `docker build -t clicknback:smoke-test .` — the build must complete with no errors.
+3. Start a short-lived container on `clicknback-nw`, passing `DATABASE_URL` as a full connection string (the `config.py` `Settings` model expects this single field, not the individual `POSTGRES_*` vars), plus all other required env vars from `.env`.
+4. Confirm startup in the logs: look for `Application startup complete.` and `Uvicorn running on http://0.0.0.0:8000`.
+5. Hit both probes: `curl localhost:<port>/health/live` → `{"status":"alive"}` and `curl localhost:<port>/health/ready` → `{"status":"ready"}` with HTTP 200.
+6. Confirm the non-root user: `docker exec <container> whoami` must return `appuser`, not `root`.
+7. Clean up: `docker rm -f <container>`, `docker rmi clicknback:smoke-test`, `docker compose down`.
+
+Only after all six checks pass may the step be committed.
 
 5. **Add `.dockerignore`** at repo root, excluding `.venv/`, `__pycache__/`, `htmlcov/`, `tests/`, `.github/`, `.env`, `*.egg-info`, and `coverage.*`.
 
