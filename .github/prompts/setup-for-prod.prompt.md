@@ -1,8 +1,8 @@
 # Prompt: Containerize, Deploy, and Harden ClickNBack
 
-> **Note:** This is a project-specific deployment runbook. The overall structure — containerization, compose orchestration, coverage scripting, SonarCloud integration, GitHub Actions CI/CD, and VPS setup — is a reusable pattern. The project-specific values (domain, registry path, VPS layout, blog coexistence) are listed in the **Project-Specific Configuration** section below. To adapt this for a new project, replace those values before handing to the AI.
+> **Note:** This is a project-specific deployment runbook. The overall structure — containerization, compose orchestration, coverage scripting, security scanning, pre-commit hooks, GitHub Actions CI/CD, and VPS setup — is a reusable pattern. The project-specific values (domain, registry path, VPS layout, blog coexistence) are listed in the **Project-Specific Configuration** section below. To adapt this for a new project, replace those values before handing to the AI.
 
-The app will be fully containerized (new Dockerfile), the compose file will orchestrate DB + migrations + app in the right order, a CD pipeline will deploy on every merge to `main` via SSH to the DigitalOcean VPS, Nginx on the VPS will route `clicknback.com` to the new container alongside the existing Hugo blog, SonarCloud will detect code smells, and a new `make coverage` target with a graded bash script will give a visual coverage quality signal. All relevant docs are updated at the end.
+The app will be fully containerized (new Dockerfile), the compose file will orchestrate DB + migrations + app in the right order, a CD pipeline will deploy on every merge to `main` via SSH to the DigitalOcean VPS, Nginx on the VPS will route `clicknback.com` to the new container alongside the existing Hugo blog, Bandit will detect security issues in Python code, pre-commit hooks will enforce quality gates locally before any push reaches CI, and a new `make coverage` target with a graded bash script will give a visual coverage quality signal. All relevant docs are updated at the end.
 
 ---
 
@@ -17,8 +17,7 @@ The values below are specific to this project. When adapting this runbook for a 
 | Container service names | `clicknback-app`, `clicknback-db` | your service names |
 | VPS deploy path | `/opt/clicknback/` | your deploy path |
 | CORS allowed origin | `https://clicknback.com` | your domain |
-| SonarCloud project key | set when creating the project on sonarcloud.io | your project key |
-| Coexisting service on VPS | Hugo blog at `jerosanchez.com` (Phase 9, Step 23) | remove or replace if not applicable |
+| Coexisting service on VPS | Hugo blog at `jerosanchez.com` (Phase 9, Step 22) | remove or replace if not applicable |
 | Python version | `python:3.13-slim` | your required version |
 
 ## Context Files (Read First)
@@ -31,7 +30,7 @@ Before starting any step, read the following project context files in full:
 - `docs/agents/project-context.md` — domain model and overall system purpose
 - `docs/design/architecture-overview.md` — system structure; the API version prefix decision (Step 1) is documented here
 - `docs/design/security-strategy.md` — governs CORS allowed origins (Step 2), non-root container requirement (Step 4), and secrets handling rules (Steps 9–10)
-- `docs/design/deployment-plan.md` — read the current state before updating it in Steps 25–27
+- `docs/design/deployment-plan.md` — read the current state before updating it in Steps 24–26
 - `docs/agents/markdown-guidelines.md` — all rules for writing `.md` files; every doc updated in Phase 10 must comply and pass `markdownlint`
 
 ## Known Constraints
@@ -44,7 +43,7 @@ Before starting any step, read the following project context files in full:
 - Do not modify `app/core/errors/handlers.py` or the global error response shape.
 - The application container must run as a non-root user — do not omit the `USER` instruction from the Dockerfile.
 - The `migrate` service must use `restart: "no"` — never `on-failure` — migration failures are not transient errors and must not be retried automatically.
-- Do not re-seed the database as part of any automated step — seeding is a one-time manual operation (Step 21 only).
+- Do not re-seed the database as part of any automated step — seeding is a one-time manual operation (Step 20 only).
 - Phase 9 steps are manual and performed directly on the VPS; describe the exact commands to run but do not attempt to execute them remotely.
 - All `.md` files created or updated must comply with `docs/agents/markdown-guidelines.md` and pass `markdownlint` — `make lint` must be green before committing any documentation step.
 - All tests written must comply with `docs/agents/testing-guidelines.md` — use module-level functions (not classes), the `test_{sut}_{result}_on_{condition}` naming pattern with the `_on_` connector, AAA comments, and section separators as specified in that document.
@@ -53,11 +52,11 @@ Before starting any step, read the following project context files in full:
 
 Each step that produces code, configuration, or documentation is a **separate commit**. Do not begin the next step until the current step's commit is approved and executed by the human.
 
-**AI agents may run any read-only or research commands autonomously, without asking permission.** This includes, but is not limited to: `make test`, `make lint`, `make format`, listing files, searching, or any command that does not modify project state. Only state-changing actions (e.g., `git commit`, file edits, deployments) require explicit human approval.
+**AI agents may run any read-only or research commands autonomously, without asking permission.** This includes, but is not limited to: `make lint`, `make test`, `make coverage`, `make security`, listing files, searching, or any command that does not modify project state. Only state-changing actions (e.g., `git commit`, file edits, deployments) require explicit human approval.
 
 To close a step:
 
-1. Run `make lint && make format && make test` — all must pass.
+1. Run `make lint && make test && make coverage && make security` — all must pass.
 2. Stage the changes and output `git diff --staged`.
 3. Propose a commit message. Keep it short and outcome-focused — state what the step achieves, not which files were
    changed or how it was implemented. File-level details are already visible in the diff. One line is almost always
@@ -79,27 +78,26 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 7 — Rewrite `docker-compose.yml` (migrate + app services)
 - [x] Step 8 — Rename `make run` → `make dev`, add `make logs`
 - [x] Step 9 — Document static secrets strategy for VPS
-- [x] Step 10 — Add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY, SONAR_TOKEN)
+- [x] Step 10 — Add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY)
 - [x] Step 11 — Add `--cov-report=xml` to `make test`
 - [x] Step 12 — Create `scripts/coverage-grade.sh`
 - [x] Step 13 — Add `make coverage` target
-- [ ] Step 14 — Create SonarCloud project and enable Quality Gate (manual, UI)
-- [ ] Step 15 — Create `sonar-project.properties`
-- [ ] Step 16 — Add `make sonar` target
-- [ ] Step 17 — Update `.github/workflows/ci.yml` (coverage + sonar jobs)
-- [ ] Step 18 — Add `.github/dependabot.yml`
-- [ ] Step 19 — Create `.github/workflows/cd.yml`
-- [ ] Step 20 — Initial VPS provisioning (manual, on VPS)
-- [ ] Step 21 — First-deploy seeding (manual, on VPS)
-- [ ] Step 22 — Nginx virtual host + Certbot TLS (manual, on VPS)
-- [ ] Step 23 — Verify blog coexistence on VPS (manual, on VPS)
-- [ ] Step 24 — Database backup and nightly reseed cron jobs (manual, on VPS)
-- [ ] Step 25 — Document rollback procedure in deployment-plan.md
-- [ ] Step 26 — Document production log access in deployment-plan.md
-- [ ] Step 27 — Update `docs/design/deployment-plan.md`
-- [ ] Step 28 — Update `docs/agents/quality-gates.md`
-- [ ] Step 29 — Update `README.md`
-- [ ] Step 30 — Update `.env.example`
+- [x] Step 14 — Add Bandit and `make security` target
+- [ ] Step 15 — Create `.pre-commit-config.yaml` (pre-commit hooks)
+- [ ] Step 16 — Update `.github/workflows/ci.yml` (coverage + security jobs)
+- [ ] Step 17 — Add `.github/dependabot.yml`
+- [ ] Step 18 — Create `.github/workflows/cd.yml`
+- [ ] Step 19 — Initial VPS provisioning (manual, on VPS)
+- [ ] Step 20 — First-deploy seeding (manual, on VPS)
+- [ ] Step 21 — Nginx virtual host + Certbot TLS (manual, on VPS)
+- [ ] Step 22 — Verify blog coexistence on VPS (manual, on VPS)
+- [ ] Step 23 — Database backup and nightly reseed cron jobs (manual, on VPS)
+- [ ] Step 24 — Document rollback procedure in deployment-plan.md
+- [ ] Step 25 — Document production log access in deployment-plan.md
+- [ ] Step 26 — Update `docs/design/deployment-plan.md`
+- [ ] Step 27 — Update `docs/agents/quality-gates.md`
+- [ ] Step 28 — Update `README.md`
+- [ ] Step 29 — Update `.env.example`
 
 ---
 
@@ -245,9 +243,8 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
       | `VPS_HOST` | IP address or hostname of your DigitalOcean VPS | `123.45.67.89` |
       | `VPS_USER` | SSH username you will use for deployments | `deploy` |
       | `VPS_SSH_KEY` | Contents of `~/.ssh/clicknback_deploy` (step 2 above) | *(multiline PEM block)* |
-      | `SONAR_TOKEN` | Generated in Step 14 (SonarCloud UI) — add then | *(leave until Step 14)* |
 
-   `VPS_HOST`, `VPS_USER`, and `VPS_SSH_KEY` can and should be added now. `SONAR_TOKEN` does not exist yet — add it after completing Step 14.
+   All three secrets can and should be added now.
 
    **Verify the key works** before relying on it in CI (do this after Step 20 when the VPS is provisioned):
 
@@ -261,7 +258,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 ## Phase 5 — Coverage Script & Makefile Target *(generic)*
 
-11. **Add `--cov-report=xml`** to both `make test` and the new `make coverage` target in `Makefile`. The XML report (`coverage.xml`) is the machine-readable format consumed by SonarCloud and CI coverage gates. The HTML report (`htmlcov/`) is for human inspection. Generating both from the same run avoids running pytest twice and ensures the reports are always in sync.
+11. **Add `--cov-report=xml`** to both `make test` and the new `make coverage` target in `Makefile`. The XML report (`coverage.xml`) is the machine-readable format consumed by CI coverage gates. The HTML report (`htmlcov/`) is for human inspection. Generating both from the same run avoids running pytest twice and ensures the reports are always in sync.
 
 12. **Create `scripts/coverage-grade.sh`** — a bash script that parses the total line from `coverage.txt` (the captured pytest-cov stdout), extracts the percentage, and prints an emoji-graded result:
 
@@ -309,27 +306,111 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 ---
 
-## Phase 6 — SonarCloud Integration *(generic)*
+## Phase 6 — Security Scanning & Pre-commit Hooks *(generic)*
 
-14. **Create a project on sonarcloud.io**: sign in with GitHub, import the repository, note the `projectKey` and `organization` slug assigned. Enable the "Sonar Way" Quality Gate in the project's Quality Gate settings and tick **"Fail the pipeline if the Quality Gate status is Failed"**. This step is purely in the SonarCloud UI but is critical — without it, the GitHub Action runs the scan but never blocks a PR, making the gate decorative rather than enforcing.
+14. **Add Bandit and `make security` target.** Bandit is a static analysis tool that scans Python source code for common security issues (e.g., hardcoded passwords, use of unsafe functions, SQL injection patterns). It runs in seconds and requires no external service.
 
-15. **Create `sonar-project.properties`** at repo root with `sonar.projectKey`, `sonar.organization`, source dir (`app/`), coverage report path (`coverage.xml`), and exclusions (`tests/`, `alembic/`, `seeds/`). This file is the contract between the repo and SonarCloud: it tells the scanner what to analyze, what to skip, and where to find the coverage data so that SonarCloud's code smell, duplication, and security hotspot results are scoped correctly to production code.
+    **Add `bandit` to the dev dependencies in `pyproject.toml`** (flag this addition for human review before proceeding — do not modify `pyproject.toml` without explicit approval). Once approved, install it in the local venv:
 
-16. **Add `make sonar`** target in `Makefile`: runs `sonar-scanner` via Docker (`docker run --rm -v $(PWD):/usr/src sonarsource/sonar-scanner-cli`) so no local install is required. This enables developers to run a full SonarCloud scan locally before pushing, closing the feedback loop without waiting for CI.
+    ```bash
+    pip install bandit
+    ```
+
+    **Add a `make security` target** in `Makefile`:
+
+    ```makefile
+    security:
+        bandit -r app/ -ll
+    ```
+
+    The `-ll` flag reports only medium and high severity issues, filtering out low-severity noise that rarely requires immediate action. Scoping to `app/` ensures tests and seeds are excluded — Bandit should only gate production code.
+
+    **Test the target before committing:**
+
+    ```bash
+    make security
+    ```
+
+    It must exit 0 on the current codebase. If bandit reports findings, resolve them before committing — do not suppress warnings with `# nosec` without a documented reason.
+
+15. **Create `.pre-commit-config.yaml`** at repo root to wire together all quality checks as local pre-commit hooks. This ensures no developer can push code that fails lint, format, coverage, or security checks — the same gates enforced in CI run automatically on every commit locally.
+
+    ```yaml
+    repos:
+      - repo: https://github.com/pre-commit/pre-commit-hooks
+        rev: v5.0.0
+        hooks:
+          - id: trailing-whitespace
+          - id: end-of-file-fixer
+          - id: check-yaml
+          - id: check-added-large-files
+
+      - repo: https://github.com/psf/black
+        rev: 24.10.0
+        hooks:
+          - id: black
+
+      - repo: https://github.com/pycqa/isort
+        rev: 5.13.2
+        hooks:
+          - id: isort
+
+      - repo: https://github.com/pycqa/flake8
+        rev: 7.1.1
+        hooks:
+          - id: flake8
+
+      - repo: https://github.com/PyCQA/bandit
+        rev: 1.8.3
+        hooks:
+          - id: bandit
+            args: ["-r", "app/", "-ll"]
+            pass_filenames: false
+    ```
+
+    **Manual setup required — every developer must run this once after cloning the repo:**
+
+    ```bash
+    # Install the pre-commit tool (already in dev dependencies)
+    pip install pre-commit
+
+    # Install the hooks into the local .git directory
+    pre-commit install
+    ```
+
+    After `pre-commit install`, Git will automatically run all hooks before every `git commit`. If any hook fails, the commit is aborted and the developer sees exactly which check failed and why.
+
+    To run all hooks manually against the entire codebase at any time (useful when first installing or after updating hook versions):
+
+    ```bash
+    pre-commit run --all-files
+    ```
+
+    **Add `pre-commit` to the dev dependencies in `pyproject.toml`** (flag for human review). Update `CONTRIBUTING.md` to document the one-time setup step (`pre-commit install`) so that all contributors know it is required.
+
+    **Pin hook versions** in `.pre-commit-config.yaml` — never use floating refs like `main` or `latest`. Pinned versions ensure the hooks behave identically on every machine and in CI, making the gates deterministic. Run `pre-commit autoupdate` periodically to bump them in a controlled way.
+
+    **Verify the hooks work before committing:**
+
+    ```bash
+    pre-commit run --all-files
+    ```
+
+    All hooks must pass on the current codebase before the step is committed.
 
 ---
 
 ## Phase 7 — GitHub Actions CI Update *(generic)*
 
-17. **Update `.github/workflows/ci.yml`** to extend the job chain: add a **`coverage`** job after `test` that re-runs pytest with `--cov-fail-under=70` as a hard gate (`pytest tests/ --cov=app --cov-report=xml --cov-fail-under=70`); add a **`sonar`** job after `coverage` using `SonarSource/sonarcloud-github-action@master` with `SONAR_TOKEN`. Final job order: `lint` → `test` → `coverage` → `sonar`. Keeping `test` and `coverage` as separate jobs makes failure reasons unambiguous in the GitHub Actions UI: a red `coverage` job means the threshold was missed specifically, not that tests are broken.
+16. **Update `.github/workflows/ci.yml`** to extend the job chain: add a **`coverage`** job after `test` that re-runs pytest with `--cov-fail-under=70` as a hard gate (`pytest tests/ --cov=app --cov-report=xml --cov-fail-under=70`); add a **`security`** job after `coverage` that runs `bandit -r app/ -ll` and fails the pipeline if any medium or high severity issue is found. Final job order: `lint` → `test` → `coverage` → `security`. Keeping `test`, `coverage`, and `security` as separate jobs makes failure reasons unambiguous in the GitHub Actions UI: a red `coverage` job means the threshold was missed specifically; a red `security` job means a security issue was introduced — neither is conflated with broken tests.
 
-18. **Add `.github/dependabot.yml`** to configure automated dependency update PRs for both the Python ecosystem (`pip`, weekly) and GitHub Actions (`github-actions`, weekly). Dependabot PRs run through the full CI pipeline automatically, so security and compatibility regressions in dependencies are caught without manual audits. This is a one-file addition that signals proactive maintenance discipline — a quality that senior engineers are expected to embed into a project from the start.
+17. **Add `.github/dependabot.yml`** to configure automated dependency update PRs for both the Python ecosystem (`pip`, weekly) and GitHub Actions (`github-actions`, weekly). Dependabot PRs run through the full CI pipeline automatically, so security and compatibility regressions in dependencies are caught without manual audits. This is a one-file addition that signals proactive maintenance discipline — a quality that senior engineers are expected to embed into a project from the start.
 
 ---
 
 ## Phase 8 — GitHub Actions CD Pipeline *(generic — uses project-specific image and domain from the configuration table above)*
 
-19. **Create `.github/workflows/cd.yml`** triggered by `workflow_run` on the CI workflow completing successfully on `main`. The **`build-push`** job logs in to `ghcr.io` with `GITHUB_TOKEN` (no extra secret needed), builds the image, and pushes two tags: `ghcr.io/jerosanchez/clicknback:latest` and `ghcr.io/jerosanchez/clicknback:sha-${{ github.sha }}`. Tagging with the commit SHA makes every image traceable to its exact source — `latest` is a convenience alias for compose to reference, but the SHA tag is what enables precise rollbacks. The **`deploy`** job (needs `build-push`) SSHes into the VPS via `appleboy/ssh-action` and runs:
+18. **Create `.github/workflows/cd.yml`** triggered by `workflow_run` on the CI workflow completing successfully on `main`. The **`build-push`** job logs in to `ghcr.io` with `GITHUB_TOKEN` (no extra secret needed), builds the image, and pushes two tags: `ghcr.io/jerosanchez/clicknback:latest` and `ghcr.io/jerosanchez/clicknback:sha-${{ github.sha }}`. Tagging with the commit SHA makes every image traceable to its exact source — `latest` is a convenience alias for compose to reference, but the SHA tag is what enables precise rollbacks. The **`deploy`** job (needs `build-push`) SSHes into the VPS via `appleboy/ssh-action` and runs:
 
     ```bash
     docker pull ghcr.io/jerosanchez/clicknback:latest
@@ -344,17 +425,17 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 > **⚙️ Project-specific phase.** This phase reflects the exact setup for this project: DigitalOcean VPS, `/opt/clicknback/` deploy path, `clicknback.com` domain, Nginx + Certbot TLS, and coexistence with a Hugo blog. Adapt or drop steps that do not apply to a different deployment target.
 
-20. **Initial VPS provisioning**: create `/opt/clicknback/`, place `docker-compose.yml` and `.env` (with production values, `chmod 600`). Add the deploy user to the `docker` group (`sudo usermod -aG docker deploy`). Create the shared Docker network: `docker network create clicknback-nw`. Log in to ghcr.io: `docker login ghcr.io -u jerosanchez -p <PAT>` (use a Personal Access Token with `read:packages` scope). This bootstrapping only happens once — all subsequent deploys are automated via CD.
+19. **Initial VPS provisioning**: create `/opt/clicknback/`, place `docker-compose.yml` and `.env` (with production values, `chmod 600`). Add the deploy user to the `docker` group (`sudo usermod -aG docker deploy`). Create the shared Docker network: `docker network create clicknback-nw`. Log in to ghcr.io: `docker login ghcr.io -u jerosanchez -p <PAT>` (use a Personal Access Token with `read:packages` scope). This bootstrapping only happens once — all subsequent deploys are automated via CD.
 
-21. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database:
+20. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database:
 
     ```bash
     docker exec -i clicknback-db psql -U $POSTGRES_USER -d $POSTGRES_DB < /opt/clicknback/seeds/all.sql
     ```
 
-    Before running this, ensure `seeds/all.sql` includes a hardcoded demo admin user (e.g., `admin@clicknback.com` / `demo1234` with `admin` role). This user is the entry point for testers who need to exercise admin-only endpoints. The credentials will be documented in the README. The nightly cron (Step 24) re-runs this same seed file every morning, so the first-deploy seeding and the nightly reset use the same source of truth.
+    Before running this, ensure `seeds/all.sql` includes a hardcoded demo admin user (e.g., `admin@clicknback.com` / `demo1234` with `admin` role). This user is the entry point for testers who need to exercise admin-only endpoints. The credentials will be documented in the README. The nightly cron (Step 23) re-runs this same seed file every morning, so the first-deploy seeding and the nightly reset use the same source of truth.
 
-22. **Nginx virtual host** (`/etc/nginx/sites-available/clicknback.com`): `server_name clicknback.com www.clicknback.com;`, `proxy_pass http://127.0.0.1:${APP_PORT};`, with `proxy_set_header` blocks for `Host`, `X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto`. Run `sudo certbot --nginx -d clicknback.com -d www.clicknback.com` for automatic TLS. Add an A record for `clicknback.com` → VPS IP and a CNAME for `www`.
+21. **Nginx virtual host** (`/etc/nginx/sites-available/clicknback.com`): `server_name clicknback.com www.clicknback.com;`, `proxy_pass http://127.0.0.1:${APP_PORT};`, with `proxy_set_header` blocks for `Host`, `X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto`. Run `sudo certbot --nginx -d clicknback.com -d www.clicknback.com` for automatic TLS. Add an A record for `clicknback.com` → VPS IP and a CNAME for `www`.
 
     Also add rate limiting to protect the unauthenticated endpoints (login and registration) from abuse. Define a rate limit zone in the `http` block of `/etc/nginx/nginx.conf`:
 
@@ -373,9 +454,9 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
     This allows bursts of up to 3 requests per IP before rate-limiting kicks in, which is enough for legitimate demo use without enabling brute-force or registration spam. Nginx acts as the TLS terminator, reverse proxy, and first-line abuse guard — the app itself never deals with certificates or rate limiting.
 
-23. **Blog coexistence**: the Hugo container already runs on the VPS and is reached via the `jerosanchez.com` `server_name` block in Nginx. The ClickNBack app gets its own block for `clicknback.com` on a different `APP_PORT`. Both blocks are served by the same Nginx process — no port conflicts, no changes to the blog config needed. Both domains share the same TLS infrastructure managed by Certbot.
+22. **Blog coexistence**: the Hugo container already runs on the VPS and is reached via the `jerosanchez.com` `server_name` block in Nginx. The ClickNBack app gets its own block for `clicknback.com` on a different `APP_PORT`. Both blocks are served by the same Nginx process — no port conflicts, no changes to the blog config needed. Both domains share the same TLS infrastructure managed by Certbot.
 
-24. **Database backup and nightly reseed cron jobs**: add the following entries to the deploy user's crontab (`crontab -e`):
+23. **Database backup and nightly reseed cron jobs**: add the following entries to the deploy user's crontab (`crontab -e`):
 
     ```bash
     # 03:00 — back up the database before wiping it
@@ -390,7 +471,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
     The backup runs first (03:00) so a restorable snapshot always exists before the wipe. The 5-minute gap gives the backup time to complete. The reseed sequence is three operations: drop and recreate the public schema (wipes all data), run migrations to restore the schema structure, then load `seeds/all.sql`. This gives every recruiter or reviewer a clean, consistent demo state each morning without requiring a manual reset. Even for a demo system, losing the database due to an accidental volume deletion or VPS snapshot failure is an avoidable incident — the backup cron is the minimum responsible baseline regardless of the nightly reset.
 
-25. **Rollback procedure** (documented in `docs/design/deployment-plan.md`): every deploy pushes a `sha-<commit>` image to ghcr.io. To roll back to the previous version:
+24. **Rollback procedure** (documented in `docs/design/deployment-plan.md`): every deploy pushes a `sha-<commit>` image to ghcr.io. To roll back to the previous version:
 
     ```bash
     # On the VPS
@@ -401,7 +482,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
     If the rollback also requires a schema downgrade: `docker compose run --rm migrate alembic downgrade -1` before restarting the app. The rollback SHA can be found in the GitHub Actions run history or via `docker images | grep clicknback`. Document this as a runbook section, not left implicit.
 
-26. **Production log access** (documented as a runbook one-liner):
+25. **Production log access** (documented as a runbook one-liner):
 
     ```bash
     ssh deploy@<VPS_HOST> "docker compose -f /opt/clicknback/docker-compose.yml logs -f clicknback-app"
@@ -413,18 +494,18 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 ## Phase 10 — Documentation *(generic)*
 
-27. **Update `docs/design/deployment-plan.md`**: reflect the full production architecture — Dockerfile two-stage build, ghcr.io image registry, `clicknback.com` domain, Nginx reverse proxy with Certbot, CD on merge to main, migration container pattern, secrets strategy, backup cron, nightly reseed schedule, rollback runbook, and log access one-liner.
+26. **Update `docs/design/deployment-plan.md`**: reflect the full production architecture — Dockerfile two-stage build, ghcr.io image registry, `clicknback.com` domain, Nginx reverse proxy with Certbot, CD on merge to main, migration container pattern, secrets strategy, backup cron, nightly reseed schedule, rollback runbook, and log access one-liner.
 
-28. **Update `docs/agents/quality-gates.md`**: add `make coverage` and `make sonar` to the mandatory gate sequence, document the coverage grading scale, and note the SonarCloud Quality Gate dashboard configuration as a required one-time setup step.
+27. **Update `docs/agents/quality-gates.md`**: add `make coverage`, `make security`, and `pre-commit run --all-files` to the mandatory gate sequence, document the coverage grading scale, note the one-time `pre-commit install` setup required for local development, and explain the CI job order (`lint` → `test` → `coverage` → `security`).
 
-29. **Update `README.md`**: add the following sections:
+28. **Update `README.md`**: add the following sections:
 
     - **"Try the Live API"** — place this near the top, before any local setup instructions. Include: the base URL (`https://clicknback.com`), a direct link to the interactive Swagger UI (`https://clicknback.com/docs`), demo credentials for the admin user (`admin@clicknback.com` / `demo1234`) to access admin-only endpoints, a note that anyone can also self-register via `POST /api/v1/users` for a personal account, a note that the database resets nightly at 03:00 UTC so any data created will not persist, and a short etiquette line — "This is a shared demo environment; please be considerate." Keep this section to ~8 lines — Swagger covers endpoint details.
     - **"Running with Docker"** — `make up` starts the full stack (DB + migrations + app).
     - **"Development"** — `make dev` for local hot-reload without Docker.
     - **"Production"** — pointer to `docs/design/deployment-plan.md` for the full runbook.
 
-30. **Update `.env.example`**: add `APP_PORT` (e.g., `8001`), `APP_IMAGE` (e.g., `ghcr.io/jerosanchez/clicknback:latest`), and a comment explaining the static secrets strategy.
+29. **Update `.env.example`**: add `APP_PORT` (e.g., `8001`), `APP_IMAGE` (e.g., `ghcr.io/jerosanchez/clicknback:latest`), and a comment explaining the static secrets strategy.
 
 ---
 
@@ -432,7 +513,9 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 - Locally: `make up` → DB healthy → migrations complete → app healthy → `curl localhost:${APP_PORT}/health/ready` returns `{"status":"ready"}`.
 - Locally: `make coverage` → `coverage.xml` generated → emoji grade printed → exits non-zero below 70%.
-- CI on a PR: `lint` → `test` → `coverage` (gate at 70%) → `sonar` (Quality Gate enforced in SonarCloud dashboard).
+- Locally: `make security` → Bandit scans `app/` → exits non-zero on any medium/high severity finding.
+- Locally: `pre-commit run --all-files` → all hooks pass on the entire codebase.
+- CI on a PR: `lint` → `test` → `coverage` (gate at 70%) → `security` (Bandit, blocks on findings).
 - CD on merge to main: image built and pushed to ghcr.io with `sha-` and `latest` tags → VPS pulls → `--remove-orphans` cleans stale containers → `/health/ready` polling confirms readiness.
 - Production: `https://clicknback.com/health/ready` returns HTTP 200 over HTTPS.
 
@@ -442,7 +525,8 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 - **CD trigger**: merge to `main` (over semver tag) — simpler for a demo/showcase workflow; a tag-based strategy can be layered on top later.
 - **Image registry**: `ghcr.io` — free, no extra credentials beyond `GITHUB_TOKEN`, images are private by default.
-- **Static analysis**: SonarCloud (hosted) over self-hosted SonarQube — no VPS resources consumed, free for OSS, GitHub-native Quality Gate integration.
+- **Security scanning**: Bandit over SonarCloud — no external service, no tokens, runs identically locally and in CI; sufficient for Python security hotspot detection at this scale.
+- **Pre-commit hooks**: enforces the same lint, format, and security gates locally that CI enforces remotely — closes the feedback loop without waiting for a pipeline run.
 - **Coverage threshold**: 70% hard gate in CI, 80% aspirational goal documented in deployment plan.
 - **Secrets**: static `.env` on VPS, never written by CI — clean separation of deployment and operational concerns.
 - **No re-seeding on deploy**: seeds are dev/demo only (`make db-reset`); automated re-seeding in CD would destroy production data.
