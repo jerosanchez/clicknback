@@ -20,7 +20,10 @@ format: ## Format code
 	@bash -c "$(VENV_ACTIVATE) black app/ --line-length=$(MAX_LINE_LENGTH)"
 
 test: ## Run tests
-	@bash -c "$(VENV_ACTIVATE) python -m pytest tests/ --cov=app --cov-report=html"
+	@bash -c "$(VENV_ACTIVATE) python -m pytest tests/ --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml"
+
+coverage: ## Run tests, generate coverage reports, and print emoji grade (exits non-zero below 70%)
+	@$(MAKE) --no-print-directory test > coverage.txt 2>&1; bash scripts/coverage-grade.sh
 
 # Development lifecycle:
 
@@ -59,4 +62,4 @@ dev: ## Run the application locally with hot-reload (no Docker)
 logs: ## Tail container logs for clicknback-app
 	docker compose logs -f clicknback-app
 
-.PHONY: install lint format test clean up down db-reset dev logs
+.PHONY: install lint format test coverage clean up down db-reset dev logs

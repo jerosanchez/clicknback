@@ -80,9 +80,9 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 8 — Rename `make run` → `make dev`, add `make logs`
 - [x] Step 9 — Document static secrets strategy for VPS
 - [x] Step 10 — Add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY, SONAR_TOKEN)
-- [ ] Step 11 — Add `--cov-report=xml` to `make test`
-- [ ] Step 12 — Create `scripts/coverage-grade.sh`
-- [ ] Step 13 — Add `make coverage` target
+- [x] Step 11 — Add `--cov-report=xml` to `make test`
+- [x] Step 12 — Create `scripts/coverage-grade.sh`
+- [x] Step 13 — Add `make coverage` target
 - [ ] Step 14 — Create SonarCloud project and enable Quality Gate (manual, UI)
 - [ ] Step 15 — Create `sonar-project.properties`
 - [ ] Step 16 — Add `make sonar` target
@@ -272,6 +272,33 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
     - `≥ 90%` → 🚀 **Excellent** — outstanding coverage
 
     Exits non-zero if coverage is below 70%, so `make coverage` fails loudly when the threshold is not met. The human-readable grade is designed to give instant visual feedback at the terminal without reading numbers — useful in code review discussions and standup demos.
+
+    The script accepts an optional path argument (`bash scripts/coverage-grade.sh <file>`) so it can be tested against synthetic input without running pytest.
+
+    **Test the script at all five grade bands before committing.** The key properties to verify are the label text and the exit code — below 70% must exit 1, at or above 70% must exit 0. Use synthetic `coverage.txt` files to exercise each band:
+
+    ```bash
+    for pct in 45 60 75 85 92; do
+        f=$(mktemp)
+        printf "TOTAL  100  $((100 - pct))  ${pct}%%\n" > "$f"
+        echo -n "pct=${pct}%: "
+        bash scripts/coverage-grade.sh "$f" > /dev/null 2>&1
+        echo "exit=$?"
+        rm "$f"
+    done
+    ```
+
+    Expected output:
+
+    ```text
+    pct=45%: exit=1
+    pct=60%: exit=1
+    pct=75%: exit=0
+    pct=85%: exit=0
+    pct=92%: exit=0
+    ```
+
+    Only after all five exit codes match may the step be committed.
 
 13. **Add `make coverage`** target in `Makefile`:
 
