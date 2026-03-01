@@ -85,7 +85,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 14 — Add Bandit and `make security` target
 - [x] Step 15 — Create `.pre-commit-config.yaml` (pre-commit hooks)
 - [x] Step 16 — Update `.github/workflows/ci.yml` (coverage + security jobs)
-- [ ] Step 17 — Add `.github/dependabot.yml`
+- [x] Step 17 — Add `.github/dependabot.yml`
 - [ ] Step 18 — Create `.github/workflows/cd.yml`
 - [ ] Step 19 — Initial VPS provisioning (manual, on VPS)
 - [ ] Step 20 — First-deploy seeding (manual, on VPS)
@@ -406,9 +406,42 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 Keeping `test`, `coverage`, and `security` as separate jobs makes failure reasons unambiguous in the GitHub Actions UI: a red `coverage` job means the threshold was missed specifically; a red `security` job means a security issue was introduced — neither is conflated with broken tests.
 
-17. **Add `.github/dependabot.yml`** to configure automated dependency update PRs for both the Python ecosystem (`pip`, weekly) and GitHub Actions (`github-actions`, weekly).
+17. **Add `.github/dependabot.yml`** to configure automated dependency update PRs
+    for both the Python ecosystem (`pip`, weekly) and GitHub Actions
+    (`github-actions`, weekly).
 
-Dependabot PRs run through the full CI pipeline automatically, so security and compatibility regressions in dependencies are caught without manual audits. This is a one-file addition that signals proactive maintenance discipline — a quality that senior engineers are expected to embed into a project from the start.
+    **How Dependabot catches security issues:** GitHub maintains the Advisory
+    Database — a curated list of CVEs mapped to specific package versions. When a
+    vulnerability is published for any package you depend on, Dependabot raises a
+    security alert immediately (bypassing the weekly schedule) and opens a PR to
+    the patched version. You don't need to monitor PyPI or CVE feeds manually — the
+    signal comes to you.
+
+    **How it catches compatibility regressions:** each Dependabot PR runs through
+    the full CI pipeline (`lint` → `test` → `coverage` → `security`). A dependency
+    bump that silently breaks your code fails CI on the PR before it ever touches
+    `main`. Without Dependabot, the same breakage would surface months later when
+    someone manually upgrades and runs tests — often under pressure to ship
+    something else.
+
+    **Human workflow when Dependabot opens a PR:**
+
+    1. GitHub notifies you (email or Actions UI) that a new Dependabot PR is open.
+    2. Check the CI status on the PR — green means the bump is safe to merge; red
+       means the new version broke something.
+    3. If CI is red: pull the branch locally (`git fetch origin` then
+       `git checkout dependabot/pip/...`), run `make test` to reproduce, fix the
+       incompatibility (usually a small API change in the upgraded package), push
+       the fix to the same branch. Dependabot re-runs CI automatically.
+    4. If CI is green: review the changelog link Dependabot includes in the PR
+       body, then merge. No local checkout needed for routine patch/minor bumps.
+    5. For major version bumps (e.g., FastAPI 0.x → 1.x): treat these like any
+       other breaking change — read the migration guide, test locally, fix before
+       merging.
+
+    Dependabot does not resolve dependency conflicts automatically — if bumping
+    package `A` requires a new version of `B` that conflicts with `C`, you resolve
+    it manually. For a project this size that is rare in practice.
 
 ---
 
