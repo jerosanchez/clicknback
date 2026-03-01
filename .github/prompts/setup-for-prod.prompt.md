@@ -79,7 +79,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 7 — Rewrite `docker-compose.yml` (migrate + app services)
 - [x] Step 8 — Rename `make run` → `make dev`, add `make logs`
 - [x] Step 9 — Document static secrets strategy for VPS
-- [ ] Step 10 — Add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY, SONAR_TOKEN)
+- [x] Step 10 — Add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY, SONAR_TOKEN)
 - [ ] Step 11 — Add `--cov-report=xml` to `make test`
 - [ ] Step 12 — Create `scripts/coverage-grade.sh`
 - [ ] Step 13 — Add `make coverage` target
@@ -186,7 +186,76 @@ Without this file, Docker's build context includes every file in the repo, which
 
 The CD pipeline never writes or touches this file — it only pulls the new image and restarts compose. This is the correct separation of concerns: secrets are an operational concern, not a deployment artifact. Documenting this explicitly prevents the anti-pattern of injecting secrets through CI environment variables directly into `docker compose up`, which would make secrets visible in CI logs.
 
-10. **Add the following GitHub Secrets** to the repository (Settings → Secrets → Actions): `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `SONAR_TOKEN`. These are referenced by the CI/CD workflows. `VPS_SSH_KEY` should be a dedicated deploy key (not a personal key) — generate a new Ed25519 keypair, add the public key to `~/.ssh/authorized_keys` on the VPS, and store the private key as the secret.
+10. **Add the following GitHub Secrets** to the repository. These are the pipeline's only credentials — they are not application secrets and never reach the VPS `.env` file.
+
+   **Where to add them:** GitHub repository → Settings → Secrets and variables → Actions → New repository secret.
+
+   **Why a dedicated deploy key instead of a personal key:** A personal SSH key gives the CI pipeline the same access as you. A dedicated Ed25519 keypair scoped to this repo limits the blast radius if the key is ever rotated or compromised.
+
+   **Step-by-step:**
+
+   1. **Generate the deploy keypair** (run this on your local machine — never on the VPS):
+
+      ```bash
+      ssh-keygen -t ed25519 -C "clicknback-deploy" -f ~/.ssh/clicknback_deploy
+      ```
+
+      This creates two files: `~/.ssh/clicknback_deploy` (private key) and `~/.ssh/clicknback_deploy.pub` (public key).
+
+   1. **Store the private key as `VPS_SSH_KEY`** in GitHub Secrets. Copy the full contents of the private key file:
+
+      ```bash
+      cat ~/.ssh/clicknback_deploy
+      ```
+
+      Paste the entire output (including the `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----` lines) as the secret value.
+
+   1. **Create the `deploy` user on the VPS** (do this when you perform Step 20 — initial VPS provisioning). DigitalOcean droplets only have `root` by default; running deployments as root is a security risk. SSH in as root first, then run:
+
+      ```bash
+      # Create the user with a home directory and bash shell
+      useradd --create-home --shell /bin/bash deploy
+
+      # Allow the deploy user to run Docker commands without sudo
+      usermod -aG docker deploy
+
+      # Create the .ssh directory for the deploy user
+      mkdir -p /home/deploy/.ssh
+      chmod 700 /home/deploy/.ssh
+      chown deploy:deploy /home/deploy/.ssh
+      ```
+
+   1. **Add the public key to the VPS** (immediately after creating the user in the previous step):
+
+      ```bash
+      # Still running as root on the VPS
+      cat >> /home/deploy/.ssh/authorized_keys << 'EOF'
+      <paste the contents of ~/.ssh/clicknback_deploy.pub here>
+      EOF
+      chmod 600 /home/deploy/.ssh/authorized_keys
+      chown deploy:deploy /home/deploy/.ssh/authorized_keys
+      ```
+
+      You can get the public key contents with `cat ~/.ssh/clicknback_deploy.pub` on your local machine.
+
+   1. **Add the remaining three secrets** in the GitHub Secrets UI:
+
+      | Secret | Where to get the value | Example |
+      | --- | --- | --- |
+      | `VPS_HOST` | IP address or hostname of your DigitalOcean VPS | `123.45.67.89` |
+      | `VPS_USER` | SSH username you will use for deployments | `deploy` |
+      | `VPS_SSH_KEY` | Contents of `~/.ssh/clicknback_deploy` (step 2 above) | *(multiline PEM block)* |
+      | `SONAR_TOKEN` | Generated in Step 14 (SonarCloud UI) — add then | *(leave until Step 14)* |
+
+   `VPS_HOST`, `VPS_USER`, and `VPS_SSH_KEY` can and should be added now. `SONAR_TOKEN` does not exist yet — add it after completing Step 14.
+
+   **Verify the key works** before relying on it in CI (do this after Step 20 when the VPS is provisioned):
+
+   ```bash
+   ssh -i ~/.ssh/clicknback_deploy deploy@<VPS_HOST> echo "SSH OK"
+   ```
+
+   The output must be `SSH OK` with no password prompt.
 
 ---
 
