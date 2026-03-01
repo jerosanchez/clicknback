@@ -10,6 +10,6 @@ app = FastAPI()
 # Register custom error handlers to ensure all exceptions are handled consistently
 register_error_handlers(app)
 
-app.include_router(users_api.router)
-app.include_router(auth_api.router)
-app.include_router(merchants_api.router)
+app.include_router(users_api.router, prefix="/api/v1")
+app.include_router(auth_api.router, prefix="/api/v1")
+app.include_router(merchants_api.router, prefix="/api/v1")

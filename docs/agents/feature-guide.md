@@ -301,7 +301,7 @@ Pure Python dataclasses (no ORM):
 
 ### Login Flow
 
-1. `POST /api/v1/login` → `auth/api.py`
+1. `POST /api/v1/auth/login` → `auth/api.py`
 2. Calls `AuthService.login(data, db)`
 3. Service uses `UsersClient.get_user_by_email()` → raises `UserNotFoundException` if not found
 4. Verifies password with injected `verify_password` callable → raises `PasswordVerificationException`

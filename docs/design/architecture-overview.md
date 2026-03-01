@@ -118,7 +118,25 @@ See the [ADR Index](adr-index.md) for the complete decision log.
 
 ---
 
-## 4. Key Design Properties
+## 4. API Versioning
+
+All public routes are mounted under `/api/v1/` by `app/main.py`. The prefix is applied
+centrally at include time — individual modules declare their own sub-prefixes and route
+paths without embedding the version string:
+
+| Module | Base path |
+| --- | --- |
+| Users | `/api/v1/users` |
+| Auth | `/api/v1/auth/login` |
+| Merchants | `/api/v1/merchants` |
+
+**Rationale:** Even for a v1-only system, the prefix signals versioning intent and avoids a
+breaking migration later. Centralising the prefix in `main.py` keeps modules
+version-agnostic: introducing a v2 router requires no changes inside feature modules.
+
+---
+
+## 5. Key Design Properties
 
 - **Concurrency Safety**: Database transactions + row-level locking; `SELECT FOR UPDATE` on wallet updates
 - **Idempotency**: Unique constraints on external IDs at database level
@@ -129,7 +147,7 @@ See the [ADR Index](adr-index.md) for the complete decision log.
 
 ---
 
-## 5. Why This Architecture?
+## 6. Why This Architecture?
 
 This design signals to evaluators:
 
@@ -141,7 +159,7 @@ This design signals to evaluators:
 
 ---
 
-## 6. Module Inventory
+## 7. Module Inventory
 
 | Module | Responsibility | Key Patterns |
 | -------- | --- | --- |

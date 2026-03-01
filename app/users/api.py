@@ -19,10 +19,10 @@ from app.users.services import (
     UserService,
 )
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/users")
 
 
-@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     create_data: UserCreate,
     user_service: UserService = Depends(get_user_service),

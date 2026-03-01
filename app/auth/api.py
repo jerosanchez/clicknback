@@ -10,7 +10,7 @@ from app.core.database import get_db
 from app.core.errors.builders import authentication_error, internal_server_error
 from app.core.logging import logging
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/auth")
 
 
 @router.post("/login", response_model=Token)
