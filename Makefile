@@ -53,7 +53,10 @@ db-reset: ## Reset the database
 	docker exec -i clicknback-clicknback-db-1 \
 		psql -U user -d db < seeds/all.sql
 
-run: ## Run the application (non-docker)
+dev: ## Run the application locally with hot-reload (no Docker)
 	@bash -c "$(VENV_ACTIVATE) uvicorn app.main:app --reload"
 
-.PHONY: install lint format test clean up down db-reset run
+logs: ## Tail container logs for clicknback-app
+	docker compose logs -f clicknback-app
+
+.PHONY: install lint format test clean up down db-reset dev logs
