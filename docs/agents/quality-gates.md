@@ -9,10 +9,22 @@ This document is the authoritative reference for code quality enforcement in the
 After making any modification to the repository, run the following sequence from the project root before reporting the task as done:
 
 ```bash
-make lint && make format && make test
+make lint && make test && make coverage && make security
 ```
 
-All three commands must exit with code 0. If any of them fails, fix the issue and re-run the full sequence from the start. Do not stop mid-sequence or skip a gate.
+All four commands must exit with code 0. If any of them fails, fix the issue and re-run the full sequence from the start. Do not stop mid-sequence or skip a gate.
+
+**Pre-commit hooks (one-time local setup):** The same gates also run automatically before every `git commit` via pre-commit hooks. Run this once after cloning the repo:
+
+```bash
+pre-commit install
+```
+
+After that, every commit is automatically checked. To run the hooks manually against the entire codebase at any time:
+
+```bash
+pre-commit run --all-files
+```
 
 ---
 
@@ -31,26 +43,62 @@ Runs three checkers in order:
 
 `make lint` is read-only — it checks but does not modify files.
 
-### `make format`
-
-Runs the auto-formatters that fix the issues `make lint` reports:
-
-| Tool | What it does |
-| --- | --- |
-| `isort` | Re-orders imports in-place under `app/` |
-| `black` | Rewrites Python files in-place under `app/` to match the project's formatting standard |
-
-Always run `make format` **before** `make lint` when fixing formatting issues. After `make format` completes, re-run `make lint` to confirm no residual issues remain.
-
 ### `make test`
 
-Runs the full pytest suite with coverage:
+Runs the full pytest suite with line-level coverage:
 
 ```bash
-python -m pytest tests/ --cov=app --cov-report=html
+python -m pytest tests/ --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
 ```
 
-All tests must pass. Coverage output is written to `htmlcov/` for inspection if needed.
+All tests must pass. Three reports are generated:
+
+- `htmlcov/` — human-readable HTML for browser inspection
+- `coverage.xml` — machine-readable XML consumed by CI coverage gate
+- Terminal output — visible inline during the run
+
+### `make coverage`
+
+Runs the full test suite, captures output to `coverage.txt`, then runs `scripts/coverage-grade.sh` to print an emoji-graded result:
+
+| Coverage | Grade |
+| --- | --- |
+| `< 50%` | ❌ Poor — significant gaps, must improve |
+| `50–69%` | ⚠️ Low — almost there, keep going |
+| `70–79%` | ✅ Approved — minimum bar cleared |
+| `80–89%` | 🌟 High — above expectations |
+| `≥ 90%` | 🚀 Excellent — outstanding coverage |
+
+**Hard gate: 70%.** `make coverage` exits non-zero below 70%, failing CI and blocking the commit-close sequence. **80% is the aspirational target** — the grade scale makes it visible at a glance without reading numbers.
+
+### `make security`
+
+Runs Bandit static analysis on `app/`:
+
+```bash
+bandit -r app/ -ll
+```
+
+The `-ll` flag reports only **medium and high severity** issues. Low-severity noise is filtered out. Scope is limited to `app/` — tests and seeds are excluded. Exits non-zero if any medium or high severity finding is present.
+
+Do not suppress findings with `# nosec` without a documented reason.
+
+### `pre-commit run --all-files`
+
+Runs all pre-commit hooks against every file in the repository:
+
+| Hook | What it checks |
+| --- | --- |
+| `trailing-whitespace` | No trailing spaces |
+| `end-of-file-fixer` | Files end with a newline |
+| `check-yaml` | YAML syntax |
+| `check-added-large-files` | No accidentally committed large files |
+| `black` | Code formatting |
+| `isort` | Import ordering |
+| `flake8` | PEP 8 + undefined names |
+| `bandit` | Security scan (medium/high severity) |
+
+Hooks run automatically on every `git commit` after `pre-commit install`. Use `pre-commit run --all-files` when first setting up or after updating hook versions.
 
 ---
 
@@ -59,12 +107,22 @@ All tests must pass. Coverage output is written to `htmlcov/` for inspection if 
 Follow this sequence for every task, no matter how small:
 
 1. **Implement the change** following the project conventions in `feature-guide.md`.
-2. **Run `make lint && make format && make test`** in the project root.
+2. **Run the full gate sequence** from the project root (see Section 7 Quick Reference for the exact command).
 3. **Fix every failure autonomously** — see Section 4 for specific remedies.
-4. **Re-run the full sequence** until all three gates exit with code 0.
+4. **Re-run the full sequence** until all four gates exit with code 0.
 5. **Only then report the task as complete** to the user.
 
 Never hand control back to the user while any gate is failing. Never ask the user to run the quality gates themselves.
+
+### CI Job Order
+
+The same gates run in GitHub Actions on every pull request and push to `main`, as sequential jobs that each depend on the previous:
+
+```text
+lint → test → coverage → security
+```
+
+Each job is separate so failure reasons are unambiguous in the Actions UI: a red `coverage` job means the threshold was missed; a red `security` job means a Bandit finding was introduced — neither is conflated with broken tests.
 
 ---
 
@@ -72,7 +130,9 @@ Never hand control back to the user while any gate is failing. Never ask the use
 
 ### 4.1 `markdownlint` Failures
 
-Markdownlint checks all `.md` files in the repository, including files under `docs/`. Common violations and fixes:
+Markdownlint checks all `.md` files in the repository, including files under `docs/`.
+
+Common violations and fixes:
 
 | Violation | Typical cause | Fix |
 | --- | --- | --- |
@@ -197,14 +257,26 @@ If, upon running the quality gates, failures are detected that pre-date the curr
 ## 7. Quick Reference
 
 ```bash
-# Run all quality gates
-make lint && make format && make test
+# Run all quality gates (full sequence)
+make lint && make format && make test && make coverage && make security
 
 # Fix formatting, then re-lint
 make format && make lint
 
 # Run only tests (useful mid-fix iteration)
 make test
+
+# Run coverage with graded output (includes test run)
+make coverage
+
+# Run Bandit security scan
+make security
+
+# Run all pre-commit hooks against the whole repo
+pre-commit run --all-files
+
+# One-time local setup: install pre-commit hooks into .git
+pre-commit install
 
 # Run a single test file during debugging
 source .venv/bin/activate && python -m pytest tests/<module>/test_<file>.py -v

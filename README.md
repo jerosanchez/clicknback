@@ -69,38 +69,16 @@ The system is intentionally small in surface area but deep in engineering rigor.
 
 ---
 
-## Quick Start
+## Try the Live API
 
-```bash
-# Install dependencies and start the database
-make install
-make up
+The API is deployed at **<https://clicknback.com>**. No setup required.
 
-# Run the test suite
-make test
-```
-
-The API is available at `http://localhost:8000`. Interactive docs (Swagger UI) are at `http://localhost:8000/docs`.
-
----
-
-## Navigating the Code
-
-The application lives under `app/`. Every domain is a self-contained module (e.g., `app/users/`, `app/merchants/`) that follows the same layered structure:
-
-- `api.py` — HTTP routing only: receives requests, calls the service, maps exceptions to responses
-- `services.py` — business logic orchestration; no HTTP knowledge; fully injectable and unit-testable
-- `policies.py` — pure functions enforcing individual business rules; raise domain exceptions on violation
-- `repositories.py` — data access behind an ABC; the concrete implementation uses SQLAlchemy
-- `models.py`, `schemas.py` — ORM models and Pydantic request/response schemas respectively
-- `exceptions.py`, `errors.py` — domain exceptions and module-level HTTP error codes
-- `composition.py` — wires concrete implementations together for FastAPI `Depends()`
-
-Cross-cutting infrastructure (config, DB session factory, JWT, logging, error builders) lives in `app/core/`.
-
-Tests mirror the module structure under `tests/`. The `conftest.py` at the root provides factory fixtures used across all test suites.
-
-For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/project-context.md](docs/agents/project-context.md).
+- **Interactive docs (Swagger UI):** <https://clicknback.com/docs>
+- **Demo admin credentials:** `carol@clicknback.com` / `Str0ng!Pass` — use these to access admin-only endpoints
+- **Self-register:** anyone can create a personal account via `POST /api/v1/users`
+- **Nightly reset:** the database resets every night at 03:00 UTC — any data you create will not persist
+- **Rate limits:** login and registration are capped at 5 requests/min per IP; all other endpoints at 60 requests/min per IP — you will get a `429` if you exceed these
+- _This is a shared demo environment; please be considerate._
 
 ---
 

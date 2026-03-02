@@ -63,7 +63,7 @@ class Container(containers.DeclarativeContainer):
     config = providers.Configuration()
     db = providers.Singleton(Database, config.db.url)
     user_service = providers.Factory(
-        UserService, 
+        UserService,
         repository=providers.Factory(UserRepository, db=db)
     )
 ```
@@ -127,16 +127,16 @@ def test_create_user_returns_409_on_duplicate(client):
     # Arrange
     mock_service = Mock(spec=UserService)
     mock_service.create_user.side_effect = EmailAlreadyRegisteredException()
-    
+
     # Override dependency for this test
     app.dependency_overrides[get_user_service] = lambda: mock_service
-    
+
     # Act
     response = client.post("/users", json={...})
-    
+
     # Assert
     assert response.status_code == 409
-    
+
     # Cleanup
     app.dependency_overrides.clear()
 ```

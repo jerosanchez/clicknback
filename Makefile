@@ -15,12 +15,14 @@ lint: ## Run linting
 	@bash -c "$(VENV_ACTIVATE) isort --check-only app/ --profile=black --line-length=$(MAX_LINE_LENGTH)"
 	@bash -c "$(VENV_ACTIVATE) black --check app/ --line-length=$(MAX_LINE_LENGTH)"
 
-format: ## Format code
-	@bash -c "$(VENV_ACTIVATE) isort app/ --profile=black --line-length=$(MAX_LINE_LENGTH)"
-	@bash -c "$(VENV_ACTIVATE) black app/ --line-length=$(MAX_LINE_LENGTH)"
-
 test: ## Run tests
-	@bash -c "$(VENV_ACTIVATE) python -m pytest tests/ --cov=app --cov-report=html"
+	@bash -c "$(VENV_ACTIVATE) python -m pytest tests/ --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml"
+
+coverage: ## Run tests, generate coverage reports, and print emoji grade (exits non-zero below 70%)
+	@$(MAKE) --no-print-directory test > coverage.txt 2>&1; bash scripts/coverage-grade.sh
+
+security: ## Run Bandit security scan on app/ (medium and high severity only)
+	@bash -c "$(VENV_ACTIVATE) bandit -r app/ -ll"
 
 # Development lifecycle:
 
@@ -36,7 +38,7 @@ clean: ## Clean up development environment
 	rm -rf *.egg-info
 	rm -rf */*.egg-info
 	rm -rf */*/.egg-info
-	
+
 up: ## Start development environment
 	@if ! docker network ls --format '{{.Name}}' | grep -wq clicknback-nw; then \
 		docker network create clicknback-nw; \
@@ -53,7 +55,10 @@ db-reset: ## Reset the database
 	docker exec -i clicknback-clicknback-db-1 \
 		psql -U user -d db < seeds/all.sql
 
-run: ## Run the application (non-docker)
+dev: ## Run the application locally with hot-reload (no Docker)
 	@bash -c "$(VENV_ACTIVATE) uvicorn app.main:app --reload"
 
-.PHONY: install lint format test clean up down db-reset run
+logs: ## Tail container logs for clicknback-app
+	docker compose logs -f clicknback-app
+
+.PHONY: install lint test coverage security clean up down db-reset dev logs

@@ -190,15 +190,15 @@ class UserService:
     def create_user(self, data: dict, db: Session) -> User:
         email = data["email"]
         password = data["password"]
-        
+
         # Enforce business rules
         if self.user_repository.get_user_by_email(db, email):
             raise EmailAlreadyRegisteredException(
                 f"Email '{email}' is already registered."
             )
-        
+
         self.enforce_password_complexity(password)  # Raises if invalid
-        
+
         hashed = self.hash_password(password)
         user = User(email=email, hashed_password=hashed, active=True)
         return self.user_repository.add_user(db, user)
@@ -317,7 +317,7 @@ All financial operations execute within a single database transaction:
 def create_purchase(self, request: PurchaseRequest, db: Session) -> Purchase:
     """
     Creates a purchase and associated cashback transaction.
-    
+
     Entire operation is atomic:
     - If cashback calculation or insert fails, purchase creation is rolled back.
     - If user wallet update fails, both purchase and cashback are rolled back.
@@ -328,7 +328,7 @@ def create_purchase(self, request: PurchaseRequest, db: Session) -> Purchase:
         merchant = db.query(Merchant).filter(Merchant.id == request.merchant_id).first()
         if not merchant:
             raise MerchantNotFoundException(f"Merchant {request.merchant_id} not found.")
-        
+
         # 2. Create purchase
         purchase = Purchase(
             external_purchase_id=request.external_purchase_id,
@@ -339,7 +339,7 @@ def create_purchase(self, request: PurchaseRequest, db: Session) -> Purchase:
         )
         db.add(purchase)
         db.flush()  # Enforce unique constraint; raises IntegrityError if duplicate
-        
+
         # 3. Calculate and create cashback
         cashback_amount = calculate_cashback(merchant, purchase.amount)
         cashback = CashbackTransaction(
@@ -349,11 +349,11 @@ def create_purchase(self, request: PurchaseRequest, db: Session) -> Purchase:
             status=CashbackStatus.PENDING,
         )
         db.add(cashback)
-        
+
         # 4. Update wallet
         wallet = db.query(Wallet).filter(Wallet.user_id == request.user_id).with_for_update().first()
         wallet.pending_balance += cashback_amount
-        
+
         db.commit()
         return purchase
     except IntegrityError as e:
@@ -384,9 +384,9 @@ def process_purchase(purchase_id, db):
     try:
         purchase.status = PurchaseStatus.PROCESSING
         db.commit()
-        
+
         result = call_external_service()  # Can fail!
-        
+
         purchase.status = PurchaseStatus.COMPLETED
         db.commit()
     except Exception:
@@ -546,7 +546,7 @@ def test_purchase_creation_rolls_back_on_error(db):
     """If cashback calculation fails, purchase is not created."""
     user = create_test_user(db)
     merchant = create_test_merchant(db)
-    
+
     with pytest.raises(CashbackCalculationException):
         service.create_purchase(
             PurchaseRequest(
@@ -557,13 +557,13 @@ def test_purchase_creation_rolls_back_on_error(db):
             ),
             db
         )
-    
+
     # Verify purchase was not created
     purchase = db.query(Purchase).filter(
         Purchase.external_purchase_id == "ext_123"
     ).first()
     assert purchase is None
-    
+
     # Verify wallet was not updated
     wallet = db.query(Wallet).filter(Wallet.user_id == user.id).first()
     assert wallet.pending_balance == Decimal("0")
@@ -576,7 +576,7 @@ def test_duplicate_purchase_is_idempotent(db):
     """Re-submitting with same external_id returns same result."""
     user = create_test_user(db)
     merchant = create_test_merchant(db)
-    
+
     # First request
     request = PurchaseRequest(
         external_purchase_id="ext_123",
@@ -585,12 +585,12 @@ def test_duplicate_purchase_is_idempotent(db):
         amount=Decimal("50.00"),
     )
     purchase_1 = service.create_purchase(request, db)
-    
+
     # Second request (retry with same external_id)
     response = client.post("/purchases", json=request.model_dump())
     assert response.status_code == 200  # Success, not 409 Conflict
     purchase_2 = response.json()
-    
+
     # Same result
     assert purchase_1.id == purchase_2["id"]
     assert purchase_1.external_purchase_id == purchase_2["external_purchase_id"]

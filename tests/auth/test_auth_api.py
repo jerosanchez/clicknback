@@ -48,7 +48,7 @@ def _assert_error_payload(data: dict[str, Any], expected_code: ErrorCode) -> Non
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# POST /api/v1/login
+# POST /api/v1/auth/login
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -60,7 +60,7 @@ def test_login_returns_200_on_success(
     auth_service_mock.login.return_value = token
 
     # Act
-    response = client.post("/api/v1/login", json=_login_input_data())
+    response = client.post("/api/v1/auth/login", json=_login_input_data())
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
@@ -98,7 +98,7 @@ def test_login_returns_error_on_exception(
     auth_service_mock.login.side_effect = exception
 
     # Act
-    response = client.post("/api/v1/login", json=_login_input_data())
+    response = client.post("/api/v1/auth/login", json=_login_input_data())
 
     # Assert
     assert response.status_code == expected_status

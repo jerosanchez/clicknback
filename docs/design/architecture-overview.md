@@ -19,7 +19,7 @@ graph TB
     subgraph "API Layer"
         HTTP["FastAPI Application"]
     end
-    
+
     subgraph "Feature Modules - Domain-Driven Organization"
         Users["👤 Users Module"]
         Merchants["🏪 Merchants Module"]
@@ -28,66 +28,66 @@ graph TB
         Wallets["💰 Wallets Module"]
         Payouts["💳 Payouts Module"]
     end
-    
+
     subgraph "Service & Persistence Layer"
         UserSvc["UserService"]
         MerchantSvc["MerchantService"]
         CashbackCalcSvc["CashbackCalculator"]
-        
+
         UserRepo["UserRepository"]
         MerchantRepo["MerchantRepository"]
         PurchaseRepo["PurchaseRepository"]
         WalletRepo["WalletRepository"]
     end
-    
+
     subgraph "Core/Shared Infrastructure"
         DB["Database Session Manager"]
         Config["Configuration"]
         Security["Security & Auth"]
         Policies["Business Policies<br/>RateLimiting, Validation"]
     end
-    
+
     subgraph "Data Layer"
         PostgreSQL[("PostgreSQL<br/>Source of Truth")]
     end
-    
+
     HTTP -->|Routes & validates| Users
     HTTP -->|Routes & validates| Merchants
     HTTP -->|Routes & validates| Offers
     HTTP -->|Routes & validates| Purchases
     HTTP -->|Routes & validates| Wallets
     HTTP -->|Routes & validates| Payouts
-    
+
     Users -->|Composes| UserSvc
     Merchants -->|Composes| MerchantSvc
     Purchases -->|Composes| CashbackCalcSvc
     Wallets -->|Composes| WalletSvc["WalletService"]
-    
+
     UserSvc -->|Persists| UserRepo
     MerchantSvc -->|Persists| MerchantRepo
     Purchases -->|Persists| PurchaseRepo
     Wallets -->|Persists| WalletRepo
-    
+
     Users -->|Enforces| Security
     Merchants -->|Uses| Policies
     Purchases -->|Uses| Policies
-    
+
     UserSvc -->|Uses| Config
     MerchantSvc -->|Uses| Config
     CashbackCalcSvc -->|Uses| Config
-    
+
     UserRepo -->|Session| DB
     MerchantRepo -->|Session| DB
     PurchaseRepo -->|Session| DB
     WalletRepo -->|Session| DB
-    
+
     DB -->|Executes| PostgreSQL
-    
+
     classDef module fill:#4A90E2,stroke:#2E5C8A,color:#fff
     classDef service fill:#50C878,stroke:#2D7A4A,color:#fff
     classDef core fill:#FFB84D,stroke:#B8860B,color:#000
     classDef data fill:#E94B3C,stroke:#A63428,color:#fff
-    
+
     class Users,Merchants,Offers,Purchases,Wallets,Payouts module
     class UserSvc,MerchantSvc,CashbackCalcSvc,WalletSvc service
     class DB,Config,Security,Policies core
@@ -118,7 +118,25 @@ See the [ADR Index](adr-index.md) for the complete decision log.
 
 ---
 
-## 4. Key Design Properties
+## 4. API Versioning
+
+All public routes are mounted under `/api/v1/` by `app/main.py`. The prefix is applied
+centrally at include time — individual modules declare their own sub-prefixes and route
+paths without embedding the version string:
+
+| Module | Base path |
+| --- | --- |
+| Users | `/api/v1/users` |
+| Auth | `/api/v1/auth/login` |
+| Merchants | `/api/v1/merchants` |
+
+**Rationale:** Even for a v1-only system, the prefix signals versioning intent and avoids a
+breaking migration later. Centralising the prefix in `main.py` keeps modules
+version-agnostic: introducing a v2 router requires no changes inside feature modules.
+
+---
+
+## 5. Key Design Properties
 
 - **Concurrency Safety**: Database transactions + row-level locking; `SELECT FOR UPDATE` on wallet updates
 - **Idempotency**: Unique constraints on external IDs at database level
@@ -129,7 +147,7 @@ See the [ADR Index](adr-index.md) for the complete decision log.
 
 ---
 
-## 5. Why This Architecture?
+## 6. Why This Architecture?
 
 This design signals to evaluators:
 
@@ -141,7 +159,7 @@ This design signals to evaluators:
 
 ---
 
-## 6. Module Inventory
+## 7. Module Inventory
 
 | Module | Responsibility | Key Patterns |
 | -------- | --- | --- |

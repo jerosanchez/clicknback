@@ -59,7 +59,7 @@ class UserRole:
     ADMIN = \"admin\"
     USER = \"user\"
     MERCHANT = \"merchant\"
-    
+
     ALL = [ADMIN, USER, MERCHANT]  # Easy to iterate, extend
 
 # app/users/schemas.py - Validate at API boundary
@@ -67,7 +67,7 @@ from pydantic import Field, field_validator
 
 class UserResponse(BaseModel):
     role: str = Field(..., description=\"User role\")
-    
+
     @field_validator('role')
     @classmethod
     def validate_role(cls, v):
@@ -91,7 +91,7 @@ class UserRole:
     USER = \"user\"\n    MERCHANT = \"merchant\"  # Existing
     # NEW: just add a new value
     MODERATOR = \"moderator\"
-    
+
     ALL = [ADMIN, USER, MERCHANT, MODERATOR]
 ```
 

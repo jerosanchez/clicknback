@@ -217,6 +217,32 @@ Do not leave spaces at the end of any line. Hard line breaks use a backslash `\`
 
 Use spaces only. Configure your editor to expand tabs.
 
+### One Line Per Paragraph — No Manual Wrapping
+
+Write each paragraph as a single unbroken line regardless of its length. Never insert a hard line break in the middle of a paragraph to keep it within a visual column limit.
+
+Editors and renderers wrap lines automatically. Manual wraps create misleading diffs and break paragraph-level search.
+
+```markdown
+<!-- ✅ correct — full paragraph on one line -->
+Application secrets live in a static `.env` file on the VPS, placed once by an operator with `chmod 600`. The CD pipeline never reads or writes this file.
+
+<!-- ❌ wrong — manual wrap mid-paragraph -->
+Application secrets live in a static `.env` file on the VPS, placed once by an
+operator with `chmod 600`. The CD pipeline never reads or writes this file.
+```
+
+The same rule applies to list items: each item is a single line.
+
+```markdown
+<!-- ✅ correct -->
+- CI secrets rotate independently of the VPS; keeping them in sync adds operational risk.
+
+<!-- ❌ wrong -->
+- CI secrets rotate independently of the VPS; keeping them in sync adds
+  operational risk.
+```
+
 ### No More Than One Consecutive Blank Line (MD012)
 
 ```markdown
