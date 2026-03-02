@@ -527,24 +527,156 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
     ```
     - Confirm that the expected rows are returned. You can adapt the query to check other tables or data as needed.~
 
-22. **Nginx virtual host** (`/etc/nginx/sites-available/clicknback.com`): `server_name clicknback.com www.clicknback.com;`, `proxy_pass http://127.0.0.1:${APP_PORT};`, with `proxy_set_header` blocks for `Host`, `X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto`. Run `sudo certbot --nginx -d clicknback.com -d www.clicknback.com` for automatic TLS. Add an A record for `clicknback.com` → VPS IP and a CNAME for `www`.
+22. **Nginx virtual host + Certbot TLS** (manual, on VPS)
 
-    Also add rate limiting to protect the unauthenticated endpoints (login and registration) from abuse. Define a rate limit zone in the `http` block of `/etc/nginx/nginx.conf`:
+    Nginx acts as the TLS terminator, reverse proxy, and first-line abuse guard — the app itself never deals with certificates or rate limiting. Complete all substeps in order.
+
+    **Prerequisites before starting:**
+    - The app container is running and healthy (`docker compose ps` shows `clicknback-app` as healthy).
+    - You know the value of `APP_PORT` from `/home/clicknback/app/.env` — you will need it in the config below.
+    - Nginx is installed (`nginx -v`). If not: `sudo apt install -y nginx`.
+    - Certbot is installed (`certbot --version`). If not: `sudo apt install -y certbot python3-certbot-nginx`.
+
+    **1. Add DNS records** (do this at your DNS provider — changes can take up to 24 hours to propagate, so do it first):
+
+    | Type | Name | Value |
+    | --- | --- | --- |
+    | A | `clicknback.com` | `<VPS IP address>` |
+
+    Confirm propagation before continuing: `dig +short clicknback.com` must return the VPS IP.
+
+    **2. Add rate-limit and connection-limit zones to the global Nginx config.** Open `/etc/nginx/nginx.conf` and add the following lines inside the `http { }` block, just before the `include` statements:
 
     ```nginx
+    # Rate-limit zones (requests per minute per IP)
     limit_req_zone $binary_remote_addr zone=auth:10m rate=5r/m;
+    limit_req_zone $binary_remote_addr zone=api:10m  rate=60r/m;
+
+    # Connection-limit zone (simultaneous open connections per IP)
+    limit_conn_zone $binary_remote_addr zone=perip:10m;
     ```
 
-    Then apply it to the sensitive locations inside the `server` block for `clicknback.com`:
+    - `auth` — 5 requests/min per IP for login and registration (brute-force and credential-stuffing risk).
+    - `api` — 60 requests/min per IP for all other API traffic (scraping and DoS risk).
+    - `perip` — caps simultaneous open connections per IP regardless of request rate; this is the primary defence against slow-read/slow-write floods that bypass rate limits.
+
+    **3. Create the virtual host config file:**
+
+    ```bash
+    sudo nano /etc/nginx/sites-available/clicknback.com
+    ```
+
+    Paste the following content exactly, replacing `<APP_PORT>` with the actual port value from your `.env`:
 
     ```nginx
-    location ~ ^/api/v1/(auth/login|users)$ {
-        limit_req zone=auth burst=3 nodelay;
-        proxy_pass http://127.0.0.1:${APP_PORT};
+    server {
+        listen 80;
+        server_name clicknback.com;
+
+        # --- Hardening for a small VPS (1 CPU / 1 GB RAM) ---
+        # Drop clients that take too long to send a request or read a response.
+        # This kills slow-read/slow-write floods before they exhaust workers.
+        client_header_timeout  10s;
+        client_body_timeout    10s;
+        send_timeout           10s;
+        keepalive_timeout      30s;
+
+        # Reject request bodies larger than 1 MB — prevents memory exhaustion
+        # from malicious large payloads. Raise if you ever add file uploads.
+        client_max_body_size   1m;
+
+        # Cap simultaneous open connections per IP across the entire server.
+        # Prevents a single IP from opening hundreds of idle connections.
+        limit_conn perip 20;
+
+        # --- Rate-limited endpoints (login and registration) ---
+        # Strict: 5 r/m, burst 3. Primary brute-force and credential-stuffing guard.
+        location ~ ^/api/v1/(auth/login|users)$ {
+            limit_req  zone=auth burst=3 nodelay;
+            limit_conn perip 5;
+            proxy_pass http://127.0.0.1:<APP_PORT>;
+            proxy_set_header Host              $host;
+            proxy_set_header X-Real-IP         $remote_addr;
+            proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # --- All other API requests ---
+        # 60 r/m with burst 10. Stops scraping and DoS while allowing normal use.
+        location /api/ {
+            limit_req  zone=api burst=10 nodelay;
+            proxy_pass http://127.0.0.1:<APP_PORT>;
+            proxy_set_header Host              $host;
+            proxy_set_header X-Real-IP         $remote_addr;
+            proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # --- Non-API requests (Swagger UI, health probes, etc.) ---
+        location / {
+            proxy_pass http://127.0.0.1:<APP_PORT>;
+            proxy_set_header Host              $host;
+            proxy_set_header X-Real-IP         $remote_addr;
+            proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
     }
     ```
 
-    This allows bursts of up to 3 requests per IP before rate-limiting kicks in, which is enough for legitimate demo use without enabling brute-force or registration spam. Nginx acts as the TLS terminator, reverse proxy, and first-line abuse guard — the app itself never deals with certificates or rate limiting.
+    **4. Enable the site and verify the config:**
+
+    ```bash
+    sudo ln -s /etc/nginx/sites-available/clicknback.com /etc/nginx/sites-enabled/
+    sudo nginx -t
+    ```
+
+    `nginx -t` must print `syntax is ok` and `test is successful`. Fix any errors before continuing.
+
+    **5. Reload Nginx to apply the new site over HTTP first:**
+
+    ```bash
+    sudo systemctl reload nginx
+    ```
+
+    Verify HTTP is working: `curl -I http://clicknback.com/docs` must return `HTTP/1.1 200`.
+
+    **6. Obtain TLS certificates with Certbot:**
+
+    ```bash
+    sudo certbot --nginx -d clicknback.com
+    ```
+
+    When prompted:
+    - Enter your email address for renewal notifications.
+    - Agree to the terms of service.
+    - Choose whether to share your email with EFF (optional).
+    - Select option **2 — Redirect** (redirect all HTTP traffic to HTTPS).
+
+    Certbot will automatically edit the `clicknback.com` virtual host to add the TLS configuration and set up automatic renewals via a systemd timer.
+
+    **7. Verify TLS and the full stack:**
+
+    ```bash
+    # HTTPS docs endpoint must return 200
+    curl -I https://clicknback.com/docs
+    # Expected: HTTP/1.1 200
+
+    # HTTP must redirect to HTTPS
+    curl -I http://clicknback.com/docs
+    # Expected: HTTP/1.1 301 Moved Permanently
+
+    # Certbot auto-renewal dry run must succeed
+    sudo certbot renew --dry-run
+    # Expected: "Congratulations, all simulated renewals succeeded"
+    ```
+
+    All three checks must pass before marking this step complete.
+
+    **Note:** For a production system under sustained attack, the next layers would be:
+    - **fail2ban**: auto-ban IPs that repeatedly trigger rate limits or connection caps.
+    - **Cloudflare (or similar CDN/WAF)**: absorb volumetric DDoS and provide global edge protection.
+
+    For a demo system, the Nginx rate limits and connection caps are sufficient to prevent abuse while allowing normal use. The manual API kill switch (Step 23) provides an emergency off button if needed.
 
 23. **Manual API kill switch (Nginx, on VPS)**: To allow instant manual shutdown of all API access in case of emergency (e.g., DDoS, abuse, runaway costs), add a file-based kill switch to the Nginx config. When the file `/opt/clicknback/api_off` exists, Nginx will return a 404 for all API requests, bypassing the app entirely. To activate, SSH into the VPS and run `touch /opt/clicknback/api_off`; to restore, run `rm /opt/clicknback/api_off` and reload Nginx.
 
