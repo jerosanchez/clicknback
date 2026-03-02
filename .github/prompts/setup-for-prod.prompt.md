@@ -483,49 +483,100 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
     From this point on, every merge to `main` will rebuild and push via the CD pipeline automatically.
 
 
-20. **Initial VPS provisioning** (perform these substeps manually on the VPS):
+20. **Initial VPS provisioning** — all substeps below run on the VPS. SSH in as root first:
 
-     1. Create the application directory:
-         - `mkdir -p /home/clicknback/app/`
+    ```bash
+    ssh root@<VPS_IP>
+    ```
 
-     2. Place your `docker-compose.yml` and production `.env` file in `/home/clicknback/app/`.
-         - Set correct permissions: `chmod 600 /home/clicknback/app/.env`
+     1. Create the application directory and set ownership so the `clicknback` deploy user can write to it:
 
-     3. Ensure the database seed file is present on the VPS:
-         - Copy your seed file (e.g. `seeds/all.sql`) to `/home/clicknback/app/` or another appropriate location on the VPS.
-         - Set correct permissions if needed: `chmod 600 /home/clicknback/app/all.sql`
-         - This ensures the seed is available for the first-deploy seeding step.
+         ```bash
+         mkdir -p /home/clicknback/app/scripts
+         chown -R clicknback:clicknback /home/clicknback/app
+         ```
 
-     4. Generate a secure random OAUTH_HASH_KEY for production:
+     2. Copy the production compose file from the repo to the VPS, naming it `docker-compose.yml` — this is the filename the CD pipeline references.
+        Run this from your **local machine**:
+
+         ```bash
+         scp docker-compose.prod.yml clicknback@<VPS_IP>:/home/clicknback/app/docker-compose.yml
+         ```
+
+        Then create `/home/clicknback/app/.env` on the VPS with real production values (see substep 5 for generating the key) and restrict permissions:
+
+         ```bash
+         chmod 600 /home/clicknback/app/.env
+         ```
+
+     3. Copy the seed file from the repo to the VPS, renaming it to `seed.sql` — that is the filename the reseed script (`reseed-db.sh`) expects at runtime.
+        Run this from your **local machine**:
+
+         ```bash
+         scp seeds/all.sql clicknback@<VPS_IP>:/home/clicknback/app/seed.sql
+         ```
+
+        Set permissions:
+
+         ```bash
+         chmod 600 /home/clicknback/app/seed.sql
+         ```
+
+     4. Copy the operational scripts from the repo to the VPS.
+        Run this from your **local machine**:
+
+         ```bash
+         # Cron scripts go into the scripts/ subdirectory
+         scp scripts/production/backup-db.sh \
+             scripts/production/cleanup-backups.sh \
+             scripts/production/reseed-db.sh \
+             clicknback@<VPS_IP>:/home/clicknback/app/scripts/
+
+         # Kill switch scripts go at the app root (used by the api-off/api-on commands in Step 23)
+         scp scripts/production/api-off.sh \
+             scripts/production/api-on.sh \
+             clicknback@<VPS_IP>:/home/clicknback/app/
+         ```
+
+        Make all scripts executable on the VPS:
+
+         ```bash
+         chmod 700 /home/clicknback/app/scripts/*.sh
+         chmod 700 /home/clicknback/app/api-off.sh /home/clicknback/app/api-on.sh
+         ```
+
+     5. Generate a secure random OAUTH_HASH_KEY for production:
          - Run: `openssl rand -hex 32`
-         - Use the output as your OAUTH_HASH_KEY in the production `.env` file. Never reuse your development key in production.
+         - Use the output as your `OAUTH_HASH_KEY` in `/home/clicknback/app/.env`. Never reuse your development key in production.
 
-     5. Add the `clicknback` user to the `docker` group (if not done already when created the user in Step 10):
-         - `sudo usermod -aG docker clicknback`
-
-     6. Create the shared Docker network:
+     6. Create the shared Docker network (on the VPS, as the `clicknback` user or root):
          - `docker network create clicknback-nw`
 
-     7. Log in to GitHub Container Registry:
+     7. Log in to GitHub Container Registry (on the VPS, as the `clicknback` user):
          - `echo <PAT> | docker login ghcr.io -u jerosanchez --password-stdin` (use a Personal Access Token with `read:packages` scope)
 
+        > **Note:** The `clicknback` user was created and added to the `docker` group in Step 10.3. If you skipped that substep, run `usermod -aG docker clicknback` as root now, then log out and back in for the group change to take effect.
 
-21. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database:
+
+21. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database. Run all commands from `/home/clicknback/app/` on the VPS (where `.env` and `seed.sql` live):
 
         ```bash
+        cd /home/clicknback/app
         set -a; source .env; set +a
         docker exec -i app-clicknback-db-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < seed.sql
         ```
 
-    Before running this, ensure `seeds.sql` includes a hardcoded demo admin user (e.g., `admin@clicknback.com` / `demo1234` with `admin` role). This user is the entry point for testers who need to exercise admin-only endpoints. The credentials will be documented in the README. The nightly cron (Step 23) re-runs this same seed file every morning, so the first-deploy seeding and the nightly reset use the same source of truth.
+    Before running this, verify the seed file includes the demo admin user — open `seeds/all.sql` in the repo and confirm that `carol@clicknback.com` is present with role `admin` and password `Str0ng!Pass`. This is the entry point for testers needing admin-only endpoints, and these credentials are documented in the README. The nightly cron (Step 25) re-runs this same `seed.sql` every morning, so the first-deploy seeding and the nightly reset use the same source of truth.
 
     **Verify the data is loaded:**
-    - Connect to the database and check for the presence of the demo admin user or other seeded data. For example:
+
     ```bash
+    cd /home/clicknback/app
     set -a; source .env; set +a
     docker exec -it app-clicknback-db-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT * FROM users;"
     ```
-    - Confirm that the expected rows are returned. You can adapt the query to check other tables or data as needed.~
+
+    Confirm that the expected rows are returned, including `carol@clicknback.com`. You can adapt the query to check other tables or data as needed.
 
 22. **Nginx virtual host + Certbot TLS** (manual, on VPS)
 
@@ -691,14 +742,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
     }
     ```
 
-    - Copy scripts `api-off.sh` and `api-on.sh` to `/home/clicknback/app/` on the VPS and give right permissions:
-
-        ```
-        sudo chown root:root api-off.sh api-on.sh
-        chmod 700 api-off.sh api-on.sh
-        ```
-
-     These scripts create or remove the `api_off` file and reload Nginx automatically. Set permissions: `chmod 700 /home/clicknback/app/api-off.sh /home/clicknback/app/api-on.sh`.
+     The `api-off.sh` and `api-on.sh` scripts were already deployed to `/home/clicknback/app/` in Step 20.4. No additional copy needed. These scripts create or remove the `api_off` file and reload Nginx automatically.
 
     **Usage:**
     - Before using the scripts, always test the Nginx config:
@@ -787,7 +831,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 30. **Update `README.md`**: add the following sections:
 
-    - **"Try the Live API"** — place this near the top, before any local setup instructions. Include: the base URL (`https://clicknback.com`), a direct link to the interactive Swagger UI (`https://clicknback.com/docs`), demo credentials for the admin user (`admin@clicknback.com` / `demo1234`) to access admin-only endpoints, a note that anyone can also self-register via `POST /api/v1/users` for a personal account, a note that the database resets nightly at 03:00 UTC so any data created will not persist, and a short etiquette line — "This is a shared demo environment; please be considerate." Keep this section to ~8 lines — Swagger covers endpoint details.
+    - **"Try the Live API"** — place this near the top, before any local setup instructions. Include: the base URL (`https://clicknback.com`), a direct link to the interactive Swagger UI (`https://clicknback.com/docs`), demo credentials for the admin user (`carol@clicknback.com` / `Str0ng!Pass`) to access admin-only endpoints, a note that anyone can also self-register via `POST /api/v1/users` for a personal account, a note that the database resets nightly at 03:00 UTC so any data created will not persist, and a short etiquette line — "This is a shared demo environment; please be considerate." Keep this section to ~8 lines — Swagger covers endpoint details.
     - **"Running with Docker"** — `make up` starts the full stack (DB + migrations + app).
     - **"Development"** — `make dev` for local hot-reload without Docker.
     - **"Production"** — pointer to `docs/design/deployment-plan.md` for the full runbook.
