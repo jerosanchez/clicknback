@@ -1,3 +1,4 @@
+version: '3.8'
 services:
   clicknback-db:
     image: "${POSTGRES_IMAGE}"
@@ -18,8 +19,7 @@ services:
       retries: 5
 
   migrate:
-    build:
-      context: .
+    image: "${APP_IMAGE}"
     command: [ "alembic", "upgrade", "head" ]
     env_file:
       - .env
@@ -33,7 +33,7 @@ services:
     restart: "no"
 
   clicknback-app:
-    image: "${APP_IMAGE}"
+    image: "ghcr.io/jerosanchez/clicknback:latest"
     env_file:
       - .env
     environment:

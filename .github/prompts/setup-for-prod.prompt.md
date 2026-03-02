@@ -482,6 +482,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     From this point on, every merge to `main` will rebuild and push via the CD pipeline automatically.
 
+
 20. **Initial VPS provisioning** (perform these substeps manually on the VPS):
 
      1. Create the application directory:
@@ -490,26 +491,41 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
      2. Place your `docker-compose.yml` and production `.env` file in `/home/clicknback/app/`.
          - Set correct permissions: `chmod 600 /home/clicknback/app/.env`
 
-     3. Generate a secure random OAUTH_HASH_KEY for production:
+     3. Ensure the database seed file is present on the VPS:
+         - Copy your seed file (e.g. `seeds/all.sql`) to `/home/clicknback/app/` or another appropriate location on the VPS.
+         - Set correct permissions if needed: `chmod 600 /home/clicknback/app/all.sql`
+         - This ensures the seed is available for the first-deploy seeding step.
+
+     4. Generate a secure random OAUTH_HASH_KEY for production:
          - Run: `openssl rand -hex 32`
          - Use the output as your OAUTH_HASH_KEY in the production `.env` file. Never reuse your development key in production.
 
-     4. Add the `clicknback` user to the `docker` group (if not done already when created the user in Step 10):
+     5. Add the `clicknback` user to the `docker` group (if not done already when created the user in Step 10):
          - `sudo usermod -aG docker clicknback`
 
-     5. Create the shared Docker network:
+     6. Create the shared Docker network:
          - `docker network create clicknback-nw`
 
-     6. Log in to GitHub Container Registry:
-         - `docker login ghcr.io -u jerosanchez -p <PAT>` (use a Personal Access Token with `read:packages` scope)
+     7. Log in to GitHub Container Registry:
+         - `echo <PAT> | docker login ghcr.io -u jerosanchez --password-stdin` (use a Personal Access Token with `read:packages` scope)
+
 
 21. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database:
 
-    ```bash
-    docker exec -i clicknback-db psql -U $POSTGRES_USER -d $POSTGRES_DB < /opt/clicknback/seeds/all.sql
-    ```
+        ```bash
+        set -a; source .env; set +a
+        docker exec -i app-clicknback-db-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < seed.sql
+        ```
 
-    Before running this, ensure `seeds/all.sql` includes a hardcoded demo admin user (e.g., `admin@clicknback.com` / `demo1234` with `admin` role). This user is the entry point for testers who need to exercise admin-only endpoints. The credentials will be documented in the README. The nightly cron (Step 23) re-runs this same seed file every morning, so the first-deploy seeding and the nightly reset use the same source of truth.
+    Before running this, ensure `seeds.sql` includes a hardcoded demo admin user (e.g., `admin@clicknback.com` / `demo1234` with `admin` role). This user is the entry point for testers who need to exercise admin-only endpoints. The credentials will be documented in the README. The nightly cron (Step 23) re-runs this same seed file every morning, so the first-deploy seeding and the nightly reset use the same source of truth.
+
+    **Verify the data is loaded:**
+    - Connect to the database and check for the presence of the demo admin user or other seeded data. For example:
+    ```bash
+    set -a; source .env; set +a
+    docker exec -it app-clicknback-db-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT * FROM users;"
+    ```
+    - Confirm that the expected rows are returned. You can adapt the query to check other tables or data as needed.~
 
 22. **Nginx virtual host** (`/etc/nginx/sites-available/clicknback.com`): `server_name clicknback.com www.clicknback.com;`, `proxy_pass http://127.0.0.1:${APP_PORT};`, with `proxy_set_header` blocks for `Host`, `X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto`. Run `sudo certbot --nginx -d clicknback.com -d www.clicknback.com` for automatic TLS. Add an A record for `clicknback.com` → VPS IP and a CNAME for `www`.
 
