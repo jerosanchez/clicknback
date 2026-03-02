@@ -243,11 +243,12 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
       | Secret | Where to get the value | Example |
       | --- | --- | --- |
+      | `GHCR_PAT` | Personal Access Token with `write:packages` (and `read:packages`) scope — create at GitHub → Settings → Developer settings → Personal access tokens → Fine-grained or classic | *(token string)* |
       | `VPS_HOST` | IP address or hostname of your DigitalOcean VPS | `123.45.67.89` |
       | `VPS_USER` | SSH username you will use for deployments | `clicknback` |
       | `VPS_SSH_KEY` | Contents of `~/.ssh/clicknback_deploy` (step 2 above) | *(multiline PEM block)* |
 
-   All three secrets can and should be added now.
+   All four secrets can and should be added now.
 
    **Verify the key works** before relying on it in CI (do this after Step 20 when the VPS is provisioned):
 
@@ -450,7 +451,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 ## Phase 8 — GitHub Actions CD Pipeline *(generic — uses project-specific image and domain from the configuration table above)*
 
-18. **Create `.github/workflows/cd.yml`** triggered by `workflow_run` on the CI workflow completing successfully on `main`. The **`build-push`** job logs in to `ghcr.io` with `GITHUB_TOKEN` (no extra secret needed), builds the image, and pushes two tags: `ghcr.io/jerosanchez/clicknback:latest` and `ghcr.io/jerosanchez/clicknback:sha-${{ github.sha }}`. Tagging with the commit SHA makes every image traceable to its exact source — `latest` is a convenience alias for compose to reference, but the SHA tag is what enables precise rollbacks. The **`deploy`** job (needs `build-push`) SSHes into the VPS via `appleboy/ssh-action` and runs:
+18. **Create `.github/workflows/cd.yml`** triggered by `workflow_run` on the CI workflow completing successfully on `main`. The **`build-push`** job logs in to `ghcr.io` with a `GHCR_PAT` secret (a Personal Access Token with `write:packages` scope — `GITHUB_TOKEN` cannot push images from a `workflow_run`-triggered job because GitHub restricts its `write:packages` permission in that context), builds the image, and pushes two tags: `ghcr.io/jerosanchez/clicknback:latest` and `ghcr.io/jerosanchez/clicknback:sha-${{ github.sha }}`. Tagging with the commit SHA makes every image traceable to its exact source — `latest` is a convenience alias for compose to reference, but the SHA tag is what enables precise rollbacks. The **`deploy`** job (needs `build-push`) SSHes into the VPS via `appleboy/ssh-action` and runs:
 
     ```bash
     docker pull ghcr.io/jerosanchez/clicknback:latest
@@ -855,7 +856,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 ## Decisions
 
 - **CD trigger**: merge to `main` (over semver tag) — simpler for a demo/showcase workflow; a tag-based strategy can be layered on top later.
-- **Image registry**: `ghcr.io` — free, no extra credentials beyond `GITHUB_TOKEN`, images are private by default.
+- **Image registry**: `ghcr.io` — free, requires a `GHCR_PAT` secret (`write:packages` PAT) because `workflow_run` triggers do not carry `write:packages` permission via `GITHUB_TOKEN`; images are private by default.
 - **Security scanning**: Bandit over SonarCloud — no external service, no tokens, runs identically locally and in CI; sufficient for Python security hotspot detection at this scale.
 - **Pre-commit hooks**: enforces the same lint, format, and security gates locally that CI enforces remotely — closes the feedback loop without waiting for a pipeline run.
 - **Coverage threshold**: 70% hard gate in CI, 80% aspirational goal documented in deployment plan.

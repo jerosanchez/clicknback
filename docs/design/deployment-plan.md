@@ -12,7 +12,7 @@ Strategic deployment architecture for ClickNBack, showcasing a pragmatic CI/CD l
 
 - **Compute:** Single VPS (DigitalOcean) running Ubuntu
 - **Containerization:** Docker + Docker Compose for consistency across all environments
-- **Image Registry:** `ghcr.io` (GitHub Container Registry) — free, gated by `GITHUB_TOKEN`, images private by default
+- **Image Registry:** `ghcr.io` (GitHub Container Registry) — free, requires a `GHCR_PAT` secret (Personal Access Token with `write:packages`) because the CD workflow is triggered by `workflow_run`, which does not carry `write:packages` permission via `GITHUB_TOKEN`; images are private by default
 - **Reverse Proxy:** Nginx on the VPS — terminates TLS (via Certbot), routes `clicknback.com` to the app container, hosts the API kill switch
 - **Database:** PostgreSQL (Docker Compose locally; containerized on the VPS)
 - **CI/CD:** GitHub Actions — CI on pull requests, CD on every merge to `main`
@@ -62,7 +62,7 @@ If any hook fails, the commit is aborted and the developer sees which check fail
 
 **Deployment Pipeline (GitHub Actions `cd.yml`):**
 
-1. **`build-push` job** — logs in to `ghcr.io` with `GITHUB_TOKEN`, builds the Docker image, and pushes two tags:
+1. **`build-push` job** — logs in to `ghcr.io` with `GHCR_PAT` (a Personal Access Token with `write:packages` scope, stored as a GitHub Secret), builds the Docker image, and pushes two tags:
    - `ghcr.io/jerosanchez/clicknback:latest` — convenience alias for Compose
    - `ghcr.io/jerosanchez/clicknback:sha-<commit>` — exact traceability per deploy
 2. **`deploy` job** (needs `build-push`) — SSHes into the VPS and runs:
@@ -186,7 +186,7 @@ The CD pipeline **never** reads, writes, or references the `.env` file. Its only
 1. Pull the new image from `ghcr.io`.
 1. Run `docker compose up -d --no-build --remove-orphans`.
 
-Docker Compose reads `.env` from `/home/clicknback/app/` at startup — no CI involvement. The image build and push (`build-push` job) happen entirely within GitHub Actions using `GITHUB_TOKEN`; no application secrets are involved.
+Docker Compose reads `.env` from `/home/clicknback/app/` at startup — no CI involvement. The image build and push (`build-push` job) happen entirely within GitHub Actions using `GHCR_PAT`; no application secrets are involved.
 
 ### 8.3 Why Not CI Secrets Injection
 
@@ -202,6 +202,7 @@ GitHub Secrets are reserved for pipeline credentials only:
 
 | Secret | Purpose |
 | --- | --- |
+| `GHCR_PAT` | Personal Access Token with `write:packages` scope — used to push images to `ghcr.io` from a `workflow_run`-triggered pipeline |
 | `VPS_HOST` | SSH target for the deploy job |
 | `VPS_USER` | SSH username for the deploy job |
 | `VPS_SSH_KEY` | Ed25519 deploy key private half |
