@@ -95,9 +95,9 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 23 — Manual API kill switch (Nginx, on VPS)
 - [x] Step 24 — Verify blog coexistence on VPS (manual, on VPS)
 - [x] Step 25 — Database backup and nightly reseed cron jobs (manual, on VPS)
-- [ ] Step 26 — Document rollback procedure in deployment-plan.md
-- [ ] Step 27 — Document production log access in deployment-plan.md
-- [ ] Step 28 — Update `docs/design/deployment-plan.md`
+- [x] Step 26 — Document rollback procedure in deployment-plan.md
+- [x] Step 27 — Document production log access in deployment-plan.md
+- [x] Step 28 — Update `docs/design/deployment-plan.md`
 - [ ] Step 29 — Update `docs/agents/quality-gates.md`
 - [ ] Step 30 — Update `README.md`
 - [ ] Step 31 — Update `.env.example`
