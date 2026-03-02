@@ -5,6 +5,7 @@ from app.auth import api as auth_api
 from app.core.errors.handlers import register_error_handlers
 from app.core.health import router as health_router
 from app.merchants import api as merchants_api
+from app.offers import api as offers_api
 from app.users import api as users_api
 
 app = FastAPI()
@@ -31,3 +32,4 @@ app.include_router(health_router)
 app.include_router(users_api.router, prefix="/api/v1")
 app.include_router(auth_api.router, prefix="/api/v1")
 app.include_router(merchants_api.router, prefix="/api/v1")
+app.include_router(offers_api.router, prefix="/api/v1")
