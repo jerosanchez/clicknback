@@ -77,6 +77,7 @@ The API is deployed at **<https://clicknback.com>**. No setup required.
 - **Demo admin credentials:** `carol@clicknback.com` / `Str0ng!Pass` — use these to access admin-only endpoints
 - **Self-register:** anyone can create a personal account via `POST /api/v1/users`
 - **Nightly reset:** the database resets every night at 03:00 UTC — any data you create will not persist
+- **Rate limits:** login and registration are capped at 5 requests/min per IP; all other endpoints at 60 requests/min per IP — you will get a `429` if you exceed these
 - _This is a shared demo environment; please be considerate._
 
 ---
