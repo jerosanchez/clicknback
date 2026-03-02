@@ -140,12 +140,12 @@ Production secrets (database credentials, OAuth keys, etc.) are managed as a sta
 
 ### 8.1 Placement
 
-The file lives at `/opt/clicknback/.env` on the VPS, placed once by an operator:
+The file lives at `/home/clicknback/app/.env` on the VPS, placed once by an operator:
 
 ```bash
 # Lock permissions so only the owner can read it
-chmod 600 /opt/clicknback/.env
-chown deploy:deploy /opt/clicknback/.env
+chmod 600 /home/clicknback/app/.env
+chown clicknback:clicknback /home/clicknback/app/.env
 ```
 
 The file is never committed to the repository. `.env` is listed in `.gitignore` and must stay there.

@@ -15,7 +15,7 @@ The values below are specific to this project. When adapting this runbook for a 
 | App domain | `clicknback.com` | your domain |
 | Container image | `ghcr.io/jerosanchez/clicknback` | `ghcr.io/<owner>/<repo>` |
 | Container service names | `clicknback-app`, `clicknback-db` | your service names |
-| VPS deploy path | `/opt/clicknback/` | your deploy path |
+| VPS deploy path | `/home/clicknback/app/` | your deploy path |
 | CORS allowed origin | `https://clicknback.com` | your domain |
 | Coexisting service on VPS | Hugo blog at `jerosanchez.com` (Phase 9, Step 22) | remove or replace if not applicable |
 | Python version | `python:3.13-slim` | your required version |
@@ -38,7 +38,7 @@ Before starting any step, read the following project context files in full:
 - Do not use allow-all CORS or wildcard origins (`*`) in any configuration that reaches production.
 - Do not log passwords, tokens, or secrets at any log level.
 - Do not commit `.env` files or real credentials at any point — `.env` is in `.gitignore` and must stay there.
-- Never inject production secrets through CI environment variables — they belong in `/opt/clicknback/.env` on the VPS, placed manually once with `chmod 600`.
+- Never inject production secrets through CI environment variables — they belong in `/home/clicknback/app/.env` on the VPS, placed manually once with `chmod 600`.
 - Do not add dependencies to `pyproject.toml` without flagging the addition for human review before proceeding.
 - Do not modify `app/core/errors/handlers.py` or the global error response shape.
 - The application container must run as a non-root user — do not omit the `USER` instruction from the Dockerfile.
@@ -94,7 +94,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 22 — Nginx virtual host + Certbot TLS (manual, on VPS)
 - [x] Step 23 — Manual API kill switch (Nginx, on VPS)
 - [x] Step 24 — Verify blog coexistence on VPS (manual, on VPS)
-- [ ] Step 25 — Database backup and nightly reseed cron jobs (manual, on VPS)
+- [x] Step 25 — Database backup and nightly reseed cron jobs (manual, on VPS)
 - [ ] Step 26 — Document rollback procedure in deployment-plan.md
 - [ ] Step 27 — Document production log access in deployment-plan.md
 - [ ] Step 28 — Update `docs/design/deployment-plan.md`
@@ -183,7 +183,7 @@ Without this file, Docker's build context includes every file in the repo, which
 
 ## Phase 4 — Production Secrets Management *(generic)*
 
-9. **Establish a static secrets strategy for the VPS.** The `.env` file with production values is placed manually on the VPS at `/opt/clicknback/.env` once, with `chmod 600` and owned by the deploy user.
+9. **Establish a static secrets strategy for the VPS.** The `.env` file with production values is placed manually on the VPS at `/home/clicknback/app/.env` once, with `chmod 600` and owned by the deploy user.
 
 The CD pipeline never writes or touches this file — it only pulls the new image and restarts compose. This is the correct separation of concerns: secrets are an operational concern, not a deployment artifact. Documenting this explicitly prevents the anti-pattern of injecting secrets through CI environment variables directly into `docker compose up`, which would make secrets visible in CI logs.
 
@@ -454,7 +454,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     ```bash
     docker pull ghcr.io/jerosanchez/clicknback:latest
-    docker compose -f /opt/clicknback/docker-compose.yml up -d --no-build --remove-orphans
+    docker compose -f /home/clicknback/app/docker-compose.yml up -d --no-build --remove-orphans
     ```
 
     The `--remove-orphans` flag removes the `migrate` container from the previous deploy, preventing stale one-shot containers from accumulating. After `up -d`, the job polls `GET https://clicknback.com/health/ready` with `curl --retry 10 --retry-delay 3 --fail` as the post-deploy health check: if the app does not become ready within ~30 seconds, the job fails and the team is notified via GitHub's native failure notification.
@@ -463,7 +463,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 ## Phase 9 — VPS Setup *(project-specific — manual one-time steps)*
 
-> **⚙️ Project-specific phase.** This phase reflects the exact setup for this project: DigitalOcean VPS, `/opt/clicknback/` deploy path, `clicknback.com` domain, Nginx + Certbot TLS, and coexistence with a Hugo blog. Adapt or drop steps that do not apply to a different deployment target.
+> **⚙️ Project-specific phase.** This phase reflects the exact setup for this project: DigitalOcean VPS, `/home/clicknback/app/` deploy path, `clicknback.com` domain, Nginx + Certbot TLS, and coexistence with a Hugo blog. Adapt or drop steps that do not apply to a different deployment target.
 
 
 19. **Build and push the initial image to ghcr.io** (run from your local machine — the CD pipeline has not run yet so there is no image in the registry to pull):
@@ -736,36 +736,43 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 24. **Blog coexistence**: the Hugo container already runs on the VPS and is reached via the `jerosanchez.com` `server_name` block in Nginx. The ClickNBack app gets its own block for `clicknback.com` on a different `APP_PORT`. Both blocks are served by the same Nginx process — no port conflicts, no changes to the blog config needed. Both domains share the same TLS infrastructure managed by Certbot.
 
-25. **Database backup and nightly reseed cron jobs**: add the following entries to the deploy user's crontab (`crontab -e`):
+
+25. **Database backup and nightly reseed cron jobs**: move all logic into version-controlled scripts under `scripts/` in the repo. This allows maintenance and review of backup, cleanup, and reseed logic without editing the crontab directly. Add the following entries to the deploy user's crontab (`crontab -e`):
 
     ```bash
     # 03:00 — back up the database before wiping it
-    0 3 * * * docker exec clicknback-db pg_dump -U $POSTGRES_USER $POSTGRES_DB | gzip > /opt/clicknback/backups/clicknback-$(date +\%F).sql.gz
+    0 3 * * * /home/clicknback/app/scripts/backup-db.sh
 
     # 03:01 — remove backups older than 7 days
-    1 3 * * * find /opt/clicknback/backups/ -name "*.sql.gz" -mtime +7 -delete
+    1 3 * * * /home/clicknback/app/scripts/cleanup-backups.sh
 
     # 03:05 — reset and reseed the database for a fresh demo state
-    5 3 * * * docker exec -i clicknback-db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" && docker compose -f /opt/clicknback/docker-compose.yml run --rm migrate && docker exec -i clicknback-db psql -U $POSTGRES_USER -d $POSTGRES_DB < /opt/clicknback/seeds/all.sql
+    5 3 * * * /home/clicknback/app/scripts/reseed-db.sh
     ```
 
-    The backup runs first (03:00) so a restorable snapshot always exists before the wipe. The 5-minute gap gives the backup time to complete. The reseed sequence is three operations: drop and recreate the public schema (wipes all data), run migrations to restore the schema structure, then load `seeds/all.sql`. This gives every recruiter or reviewer a clean, consistent demo state each morning without requiring a manual reset. Even for a demo system, losing the database due to an accidental volume deletion or VPS snapshot failure is an avoidable incident — the backup cron is the minimum responsible baseline regardless of the nightly reset.
+    - All scripts are executable and live in `/home/clicknback/app/scripts/`.
+    - Each script loads environment variables from `.env` as needed.
+    - The backup script creates a gzipped dump in `backups/` with the current date.
+    - The cleanup script deletes backups older than 7 days.
+    - The reseed script drops and recreates the public schema, runs migrations, and loads `seed.sql`.
+
+    This approach ensures all operational logic is versioned, reviewable, and easily updated. The backup runs first (03:00) so a restorable snapshot always exists before the wipe. The 5-minute gap gives the backup time to complete. The reseed sequence is three operations: drop and recreate the public schema (wipes all data), run migrations to restore the schema structure, then load `seed.sql`. This gives every recruiter or reviewer a clean, consistent demo state each morning without requiring a manual reset. Even for a demo system, losing the database due to an accidental volume deletion or VPS snapshot failure is an avoidable incident — the backup cron is the minimum responsible baseline regardless of the nightly reset.
 
 26. **Rollback procedure** (documented in `docs/design/deployment-plan.md`): every deploy pushes a `sha-<commit>` image to ghcr.io. To roll back to the previous version:
 
     ```bash
-    # On the VPS
+    # On the VPS, as the clicknback user
+    cd /home/clicknback/app
     docker pull ghcr.io/jerosanchez/clicknback:sha-<previous-commit>
-    export APP_IMAGE=ghcr.io/jerosanchez/clicknback:sha-<previous-commit>
-    docker compose -f /opt/clicknback/docker-compose.yml up -d --no-build --remove-orphans
+    APP_IMAGE=ghcr.io/jerosanchez/clicknback:sha-<previous-commit> docker compose -f /home/clicknback/app/docker-compose.yml up -d --no-build --remove-orphans
     ```
 
-    If the rollback also requires a schema downgrade: `docker compose run --rm migrate alembic downgrade -1` before restarting the app. The rollback SHA can be found in the GitHub Actions run history or via `docker images | grep clicknback`. Document this as a runbook section, not left implicit.
+    If the rollback also requires a schema downgrade: `docker compose -f /home/clicknback/app/docker-compose.yml run --rm migrate alembic downgrade -1` before restarting the app. The rollback SHA can be found in the GitHub Actions run history or via `docker images | grep clicknback`. Document this as a runbook section, not left implicit.
 
 27. **Production log access** (documented as a runbook one-liner):
 
     ```bash
-    ssh deploy@<VPS_HOST> "docker compose -f /opt/clicknback/docker-compose.yml logs -f clicknback-app"
+    ssh clicknback@<VPS_HOST> "docker compose -f /home/clicknback/app/docker-compose.yml logs -f clicknback-app"
     ```
 
     Application logs flow to stdout (as configured by `app/core/logging.py`), Docker captures them, and this command tails them remotely in real time. No log agent is required for a demo system. Document this in the deployment plan so the team knows how to diagnose a production issue without guessing.
