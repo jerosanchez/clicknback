@@ -67,6 +67,7 @@ When resuming work after a break, read the **Progress** section first to identif
 
 ---
 
+
 ## Progress
 
 - [x] Step 1 — API version prefix `/api/v1/`
@@ -87,17 +88,19 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 16 — Update `.github/workflows/ci.yml` (coverage + security jobs)
 - [x] Step 17 — Add `.github/dependabot.yml`
 - [x] Step 18 — Create `.github/workflows/cd.yml`
-- [ ] Step 19 — Initial VPS provisioning (manual, on VPS)
-- [ ] Step 20 — First-deploy seeding (manual, on VPS)
-- [ ] Step 21 — Nginx virtual host + Certbot TLS (manual, on VPS)
-- [ ] Step 22 — Verify blog coexistence on VPS (manual, on VPS)
-- [ ] Step 23 — Database backup and nightly reseed cron jobs (manual, on VPS)
-- [ ] Step 24 — Document rollback procedure in deployment-plan.md
-- [ ] Step 25 — Document production log access in deployment-plan.md
-- [ ] Step 26 — Update `docs/design/deployment-plan.md`
-- [ ] Step 27 — Update `docs/agents/quality-gates.md`
-- [ ] Step 28 — Update `README.md`
-- [ ] Step 29 — Update `.env.example`
+- [x] Step 19 — Build and push initial image to ghcr.io (manual, local)
+- [ ] Step 20 — Initial VPS provisioning (manual, on VPS)
+- [ ] Step 21 — First-deploy seeding (manual, on VPS)
+- [ ] Step 22 — Nginx virtual host + Certbot TLS (manual, on VPS)
+- [ ] Step 23 — Manual API kill switch (Nginx, on VPS)
+- [ ] Step 24 — Verify blog coexistence on VPS (manual, on VPS)
+- [ ] Step 25 — Database backup and nightly reseed cron jobs (manual, on VPS)
+- [ ] Step 26 — Document rollback procedure in deployment-plan.md
+- [ ] Step 27 — Document production log access in deployment-plan.md
+- [ ] Step 28 — Update `docs/design/deployment-plan.md`
+- [ ] Step 29 — Update `docs/agents/quality-gates.md`
+- [ ] Step 30 — Update `README.md`
+- [ ] Step 31 — Update `.env.example`
 
 ---
 
@@ -208,30 +211,30 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
       Paste the entire output (including the `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----` lines) as the secret value.
 
-   1. **Create the `deploy` user on the VPS** (do this when you perform Step 20 — initial VPS provisioning). DigitalOcean droplets only have `root` by default; running deployments as root is a security risk. SSH in as root first, then run:
+   1. **Create the `clicknback` user on the VPS** (do this when you perform Step 20 — initial VPS provisioning). DigitalOcean droplets only have `root` by default; running deployments as root is a security risk. SSH in as root first, then run:
 
       ```bash
       # Create the user with a home directory and bash shell
-      useradd --create-home --shell /bin/bash deploy
+      useradd --create-home --shell /bin/bash clicknback
 
-      # Allow the deploy user to run Docker commands without sudo
-      usermod -aG docker deploy
+      # Allow the clicknback user to run Docker commands without sudo
+      usermod -aG docker clicknback
 
-      # Create the .ssh directory for the deploy user
-      mkdir -p /home/deploy/.ssh
-      chmod 700 /home/deploy/.ssh
-      chown deploy:deploy /home/deploy/.ssh
+      # Create the .ssh directory for the clicknback user
+      mkdir -p /home/clicknback/.ssh
+      chmod 700 /home/clicknback/.ssh
+      chown clicknback:clicknback /home/clicknback/.ssh
       ```
 
    1. **Add the public key to the VPS** (immediately after creating the user in the previous step):
 
       ```bash
       # Still running as root on the VPS
-      cat >> /home/deploy/.ssh/authorized_keys << 'EOF'
+      cat >> /home/clicknback/.ssh/authorized_keys << 'EOF'
       <paste the contents of ~/.ssh/clicknback_deploy.pub here>
       EOF
-      chmod 600 /home/deploy/.ssh/authorized_keys
-      chown deploy:deploy /home/deploy/.ssh/authorized_keys
+      chmod 600 /home/clicknback/.ssh/authorized_keys
+      chown clicknback:clicknback /home/clicknback/.ssh/authorized_keys
       ```
 
       You can get the public key contents with `cat ~/.ssh/clicknback_deploy.pub` on your local machine.
@@ -241,7 +244,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
       | Secret | Where to get the value | Example |
       | --- | --- | --- |
       | `VPS_HOST` | IP address or hostname of your DigitalOcean VPS | `123.45.67.89` |
-      | `VPS_USER` | SSH username you will use for deployments | `deploy` |
+      | `VPS_USER` | SSH username you will use for deployments | `clicknback` |
       | `VPS_SSH_KEY` | Contents of `~/.ssh/clicknback_deploy` (step 2 above) | *(multiline PEM block)* |
 
    All three secrets can and should be added now.
@@ -249,7 +252,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
    **Verify the key works** before relying on it in CI (do this after Step 20 when the VPS is provisioned):
 
    ```bash
-   ssh -i ~/.ssh/clicknback_deploy deploy@<VPS_HOST> echo "SSH OK"
+   ssh -i ~/.ssh/clicknback_deploy clicknback@<VPS_HOST> echo "SSH OK"
    ```
 
    The output must be `SSH OK` with no password prompt.
@@ -462,9 +465,45 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 > **⚙️ Project-specific phase.** This phase reflects the exact setup for this project: DigitalOcean VPS, `/opt/clicknback/` deploy path, `clicknback.com` domain, Nginx + Certbot TLS, and coexistence with a Hugo blog. Adapt or drop steps that do not apply to a different deployment target.
 
-19. **Initial VPS provisioning**: create `/opt/clicknback/`, place `docker-compose.yml` and `.env` (with production values, `chmod 600`). Add the deploy user to the `docker` group (`sudo usermod -aG docker deploy`). Create the shared Docker network: `docker network create clicknback-nw`. Log in to ghcr.io: `docker login ghcr.io -u jerosanchez -p <PAT>` (use a Personal Access Token with `read:packages` scope). This bootstrapping only happens once — all subsequent deploys are automated via CD.
 
-20. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database:
+19. **Build and push the initial image to ghcr.io** (run from your local machine — the CD pipeline has not run yet so there is no image in the registry to pull):
+
+    1. Authenticate to ghcr.io:
+       - `echo <PAT> | docker login ghcr.io -u jerosanchez --password-stdin`
+       - Use a Personal Access Token with `write:packages` and `read:packages` scopes.
+
+    2. Build the image with the `latest` tag:
+       - `docker build -t ghcr.io/jerosanchez/clicknback:latest .`
+
+    3. Push to ghcr.io:
+       - `docker push ghcr.io/jerosanchez/clicknback:latest`
+
+    4. Verify the image appears in your GitHub packages at `https://github.com/users/jerosanchez/packages/container/package/clicknback`.
+
+    From this point on, every merge to `main` will rebuild and push via the CD pipeline automatically.
+
+20. **Initial VPS provisioning** (perform these substeps manually on the VPS):
+
+     1. Create the application directory:
+         - `mkdir -p /home/clicknback/app/`
+
+     2. Place your `docker-compose.yml` and production `.env` file in `/home/clicknback/app/`.
+         - Set correct permissions: `chmod 600 /home/clicknback/app/.env`
+
+     3. Generate a secure random OAUTH_HASH_KEY for production:
+         - Run: `openssl rand -hex 32`
+         - Use the output as your OAUTH_HASH_KEY in the production `.env` file. Never reuse your development key in production.
+
+     4. Add the `clicknback` user to the `docker` group (if not done already when created the user in Step 10):
+         - `sudo usermod -aG docker clicknback`
+
+     5. Create the shared Docker network:
+         - `docker network create clicknback-nw`
+
+     6. Log in to GitHub Container Registry:
+         - `docker login ghcr.io -u jerosanchez -p <PAT>` (use a Personal Access Token with `read:packages` scope)
+
+21. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database:
 
     ```bash
     docker exec -i clicknback-db psql -U $POSTGRES_USER -d $POSTGRES_DB < /opt/clicknback/seeds/all.sql
@@ -472,7 +511,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     Before running this, ensure `seeds/all.sql` includes a hardcoded demo admin user (e.g., `admin@clicknback.com` / `demo1234` with `admin` role). This user is the entry point for testers who need to exercise admin-only endpoints. The credentials will be documented in the README. The nightly cron (Step 23) re-runs this same seed file every morning, so the first-deploy seeding and the nightly reset use the same source of truth.
 
-21. **Nginx virtual host** (`/etc/nginx/sites-available/clicknback.com`): `server_name clicknback.com www.clicknback.com;`, `proxy_pass http://127.0.0.1:${APP_PORT};`, with `proxy_set_header` blocks for `Host`, `X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto`. Run `sudo certbot --nginx -d clicknback.com -d www.clicknback.com` for automatic TLS. Add an A record for `clicknback.com` → VPS IP and a CNAME for `www`.
+22. **Nginx virtual host** (`/etc/nginx/sites-available/clicknback.com`): `server_name clicknback.com www.clicknback.com;`, `proxy_pass http://127.0.0.1:${APP_PORT};`, with `proxy_set_header` blocks for `Host`, `X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto`. Run `sudo certbot --nginx -d clicknback.com -d www.clicknback.com` for automatic TLS. Add an A record for `clicknback.com` → VPS IP and a CNAME for `www`.
 
     Also add rate limiting to protect the unauthenticated endpoints (login and registration) from abuse. Define a rate limit zone in the `http` block of `/etc/nginx/nginx.conf`:
 
@@ -491,9 +530,29 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     This allows bursts of up to 3 requests per IP before rate-limiting kicks in, which is enough for legitimate demo use without enabling brute-force or registration spam. Nginx acts as the TLS terminator, reverse proxy, and first-line abuse guard — the app itself never deals with certificates or rate limiting.
 
-22. **Blog coexistence**: the Hugo container already runs on the VPS and is reached via the `jerosanchez.com` `server_name` block in Nginx. The ClickNBack app gets its own block for `clicknback.com` on a different `APP_PORT`. Both blocks are served by the same Nginx process — no port conflicts, no changes to the blog config needed. Both domains share the same TLS infrastructure managed by Certbot.
+23. **Manual API kill switch (Nginx, on VPS)**: To allow instant manual shutdown of all API access in case of emergency (e.g., DDoS, abuse, runaway costs), add a file-based kill switch to the Nginx config. When the file `/opt/clicknback/api_off` exists, Nginx will return a 404 for all API requests, bypassing the app entirely. To activate, SSH into the VPS and run `touch /opt/clicknback/api_off`; to restore, run `rm /opt/clicknback/api_off` and reload Nginx.
 
-23. **Database backup and nightly reseed cron jobs**: add the following entries to the deploy user's crontab (`crontab -e`):
+    **Nginx config snippet (inside the `server` block for clicknback.com):**
+
+    ```nginx
+    location ~ ^/api/ {
+        if (-f /opt/clicknback/api_off) {
+            return 404;
+        }
+        proxy_pass http://127.0.0.1:${APP_PORT};
+    }
+    ```
+
+    **Usage:**
+    - To disable all API access: `sudo touch /opt/clicknback/api_off && sudo systemctl reload nginx`
+    - To re-enable: `sudo rm /opt/clicknback/api_off && sudo systemctl reload nginx`
+
+    This mechanism is robust even under heavy load, as it operates at the Nginx level and does not require app or Docker changes. Document this in the deployment plan and README for operational clarity.
+
+
+24. **Blog coexistence**: the Hugo container already runs on the VPS and is reached via the `jerosanchez.com` `server_name` block in Nginx. The ClickNBack app gets its own block for `clicknback.com` on a different `APP_PORT`. Both blocks are served by the same Nginx process — no port conflicts, no changes to the blog config needed. Both domains share the same TLS infrastructure managed by Certbot.
+
+25. **Database backup and nightly reseed cron jobs**: add the following entries to the deploy user's crontab (`crontab -e`):
 
     ```bash
     # 03:00 — back up the database before wiping it
@@ -508,7 +567,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     The backup runs first (03:00) so a restorable snapshot always exists before the wipe. The 5-minute gap gives the backup time to complete. The reseed sequence is three operations: drop and recreate the public schema (wipes all data), run migrations to restore the schema structure, then load `seeds/all.sql`. This gives every recruiter or reviewer a clean, consistent demo state each morning without requiring a manual reset. Even for a demo system, losing the database due to an accidental volume deletion or VPS snapshot failure is an avoidable incident — the backup cron is the minimum responsible baseline regardless of the nightly reset.
 
-24. **Rollback procedure** (documented in `docs/design/deployment-plan.md`): every deploy pushes a `sha-<commit>` image to ghcr.io. To roll back to the previous version:
+26. **Rollback procedure** (documented in `docs/design/deployment-plan.md`): every deploy pushes a `sha-<commit>` image to ghcr.io. To roll back to the previous version:
 
     ```bash
     # On the VPS
@@ -519,7 +578,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     If the rollback also requires a schema downgrade: `docker compose run --rm migrate alembic downgrade -1` before restarting the app. The rollback SHA can be found in the GitHub Actions run history or via `docker images | grep clicknback`. Document this as a runbook section, not left implicit.
 
-25. **Production log access** (documented as a runbook one-liner):
+27. **Production log access** (documented as a runbook one-liner):
 
     ```bash
     ssh deploy@<VPS_HOST> "docker compose -f /opt/clicknback/docker-compose.yml logs -f clicknback-app"
@@ -531,18 +590,18 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 ## Phase 10 — Documentation *(generic)*
 
-26. **Update `docs/design/deployment-plan.md`**: reflect the full production architecture — Dockerfile two-stage build, ghcr.io image registry, `clicknback.com` domain, Nginx reverse proxy with Certbot, CD on merge to main, migration container pattern, secrets strategy, backup cron, nightly reseed schedule, rollback runbook, and log access one-liner.
+28. **Update `docs/design/deployment-plan.md`**: reflect the full production architecture — Dockerfile two-stage build, ghcr.io image registry, `clicknback.com` domain, Nginx reverse proxy with Certbot, CD on merge to main, migration container pattern, secrets strategy, backup cron, nightly reseed schedule, rollback runbook, and log access one-liner.
 
-27. **Update `docs/agents/quality-gates.md`**: add `make coverage`, `make security`, and `pre-commit run --all-files` to the mandatory gate sequence, document the coverage grading scale, note the one-time `pre-commit install` setup required for local development, and explain the CI job order (`lint` → `test` → `coverage` → `security`).
+29. **Update `docs/agents/quality-gates.md`**: add `make coverage`, `make security`, and `pre-commit run --all-files` to the mandatory gate sequence, document the coverage grading scale, note the one-time `pre-commit install` setup required for local development, and explain the CI job order (`lint` → `test` → `coverage` → `security`).
 
-28. **Update `README.md`**: add the following sections:
+30. **Update `README.md`**: add the following sections:
 
     - **"Try the Live API"** — place this near the top, before any local setup instructions. Include: the base URL (`https://clicknback.com`), a direct link to the interactive Swagger UI (`https://clicknback.com/docs`), demo credentials for the admin user (`admin@clicknback.com` / `demo1234`) to access admin-only endpoints, a note that anyone can also self-register via `POST /api/v1/users` for a personal account, a note that the database resets nightly at 03:00 UTC so any data created will not persist, and a short etiquette line — "This is a shared demo environment; please be considerate." Keep this section to ~8 lines — Swagger covers endpoint details.
     - **"Running with Docker"** — `make up` starts the full stack (DB + migrations + app).
     - **"Development"** — `make dev` for local hot-reload without Docker.
     - **"Production"** — pointer to `docs/design/deployment-plan.md` for the full runbook.
 
-29. **Update `.env.example`**: add `APP_PORT` (e.g., `8001`), `APP_IMAGE` (e.g., `ghcr.io/jerosanchez/clicknback:latest`), and a comment explaining the static secrets strategy.
+31. **Update `.env.example`**: add `APP_PORT` (e.g., `8001`), `APP_IMAGE` (e.g., `ghcr.io/jerosanchez/clicknback:latest`), and a comment explaining the static secrets strategy.
 
 ---
 
