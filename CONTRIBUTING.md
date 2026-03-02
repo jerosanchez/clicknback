@@ -121,6 +121,24 @@ make db-reset    # Rollback migrations, apply fresh migrations, seed data
 make clean       # Remove .venv, __pycache__, coverage reports, etc.
 ```
 
+## Navigating the Code
+
+The application lives under `app/`. Every domain is a self-contained module (e.g., `app/users/`, `app/merchants/`) that follows the same layered structure:
+
+- `api.py` — HTTP routing only: receives requests, calls the service, maps exceptions to responses
+- `services.py` — business logic orchestration; no HTTP knowledge; fully injectable and unit-testable
+- `policies.py` — pure functions enforcing individual business rules; raise domain exceptions on violation
+- `repositories.py` — data access behind an ABC; the concrete implementation uses SQLAlchemy
+- `models.py`, `schemas.py` — ORM models and Pydantic request/response schemas respectively
+- `exceptions.py`, `errors.py` — domain exceptions and module-level HTTP error codes
+- `composition.py` — wires concrete implementations together for FastAPI `Depends()`
+
+Cross-cutting infrastructure (config, DB session factory, JWT, logging, error builders) lives in `app/core/`.
+
+Tests mirror the module structure under `tests/`. The `conftest.py` at the root provides factory fixtures used across all test suites.
+
+For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/project-context.md](docs/agents/project-context.md).
+
 ## Architecture & Design Decisions
 
 This project follows a modular monolith architecture with clear separation of concerns. Key architectural decisions are documented as Architecture Decision Records (ADRs) in the [`docs/adr/`](docs/adr/) directory.
@@ -147,6 +165,10 @@ make security   # Bandit scan — must exit 0 before pushing
 If you have completed the one-time `pre-commit install` step (see Initial Setup above), Git runs these checks automatically before every commit.
 
 Refer to `docs/agents/quality-gates.md` for the full gate sequence and coverage grading scale.
+
+## Production Deployment
+
+The full production architecture, deployment pipeline, secrets strategy, rollback procedure, and operational runbooks are documented in [docs/design/deployment-plan.md](docs/design/deployment-plan.md).
 
 ## Database Migrations
 

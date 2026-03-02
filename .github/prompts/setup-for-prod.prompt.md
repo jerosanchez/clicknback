@@ -99,7 +99,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 27 — Document production log access in deployment-plan.md
 - [x] Step 28 — Update `docs/design/deployment-plan.md`
 - [x] Step 29 — Update `docs/agents/quality-gates.md`
-- [ ] Step 30 — Update `README.md`
+- [x] Step 30 — Update `README.md`
 - [ ] Step 31 — Update `.env.example`
 
 ---
