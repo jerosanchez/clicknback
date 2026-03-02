@@ -212,8 +212,7 @@ Application secrets (`DATABASE_URL`, `OAUTH_HASH_KEY`, etc.) never enter GitHub.
 
 ## 9. Rollback Procedure
 
-Every CD deploy pushes two image tags to `ghcr.io`: `latest` (convenience alias) and
-`sha-<commit>` (exact traceability). To roll back to any previous version:
+Every CD deploy pushes two image tags to `ghcr.io`: `latest` (convenience alias) and `sha-<commit>` (exact traceability). To roll back to any previous version:
 
 ```bash
 # On the VPS, as the clicknback user
@@ -223,12 +222,9 @@ APP_IMAGE=ghcr.io/jerosanchez/clicknback:sha-<previous-commit> \
   docker compose -f /home/clicknback/app/docker-compose.yml up -d --no-build --remove-orphans
 ```
 
-**Finding the previous SHA:** check the GitHub Actions run history for the last
-successful `build-push` job, or run `docker images | grep clicknback` on the VPS to
-list locally cached images.
+**Finding the previous SHA:** check the GitHub Actions run history for the last successful `build-push` job, or run `docker images | grep clicknback` on the VPS to list locally cached images.
 
-**If a schema downgrade is also required**, run the Alembic downgrade before restarting
-the app:
+**If a schema downgrade is also required**, run the Alembic downgrade before restarting the app:
 
 ```bash
 docker compose -f /home/clicknback/app/docker-compose.yml \
@@ -241,13 +237,11 @@ Then re-run the `up` command above to start the app against the downgraded schem
 
 ## 10. Production Log Access
 
-Application logs are written to stdout and captured by Docker. To tail them live from
-any machine with SSH access to the VPS:
+Application logs are written to stdout and captured by Docker. To tail them live from any machine with SSH access to the VPS:
 
 ```bash
 ssh clicknback@<VPS_HOST> \
   "docker compose -f /home/clicknback/app/docker-compose.yml logs -f clicknback-app"
 ```
 
-No log agent or external service is required for a demo system. Logs include all
-FastAPI request traces and application-level events emitted by `app/core/logging.py`.
+No log agent or external service is required for a demo system. Logs include all FastAPI request traces and application-level events emitted by `app/core/logging.py`.
