@@ -89,11 +89,11 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 17 — Add `.github/dependabot.yml`
 - [x] Step 18 — Create `.github/workflows/cd.yml`
 - [x] Step 19 — Build and push initial image to ghcr.io (manual, local)
-- [ ] Step 20 — Initial VPS provisioning (manual, on VPS)
-- [ ] Step 21 — First-deploy seeding (manual, on VPS)
-- [ ] Step 22 — Nginx virtual host + Certbot TLS (manual, on VPS)
-- [ ] Step 23 — Manual API kill switch (Nginx, on VPS)
-- [ ] Step 24 — Verify blog coexistence on VPS (manual, on VPS)
+- [x] Step 20 — Initial VPS provisioning (manual, on VPS)
+- [x] Step 21 — First-deploy seeding (manual, on VPS)
+- [x] Step 22 — Nginx virtual host + Certbot TLS (manual, on VPS)
+- [x] Step 23 — Manual API kill switch (Nginx, on VPS)
+- [x] Step 24 — Verify blog coexistence on VPS (manual, on VPS)
 - [ ] Step 25 — Database backup and nightly reseed cron jobs (manual, on VPS)
 - [ ] Step 26 — Document rollback procedure in deployment-plan.md
 - [ ] Step 27 — Document production log access in deployment-plan.md
@@ -678,24 +678,60 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     For a demo system, the Nginx rate limits and connection caps are sufficient to prevent abuse while allowing normal use. The manual API kill switch (Step 23) provides an emergency off button if needed.
 
-23. **Manual API kill switch (Nginx, on VPS)**: To allow instant manual shutdown of all API access in case of emergency (e.g., DDoS, abuse, runaway costs), add a file-based kill switch to the Nginx config. When the file `/opt/clicknback/api_off` exists, Nginx will return a 404 for all API requests, bypassing the app entirely. To activate, SSH into the VPS and run `touch /opt/clicknback/api_off`; to restore, run `rm /opt/clicknback/api_off` and reload Nginx.
+23. **Manual API kill switch (Nginx, on VPS)**: To allow instant manual shutdown of all API access in case of emergency (e.g., DDoS, abuse, runaway costs), add a file-based kill switch to the Nginx config. When the file `/home/clicknback/app/api_off` exists, Nginx will return a 404 for all API requests, bypassing the app entirely. To activate, SSH into the VPS (as `root`) and run `bash /home/clicknback/app/api-off.sh`; to restore, run `bash /home/clicknback/app/api-on.sh`.
 
-    **Nginx config snippet (inside the `server` block for clicknback.com):**
+    **Nginx config snippet (inside the `server` block for all locations for clicknback.com):**
 
     ```nginx
     location ~ ^/api/ {
-        if (-f /opt/clicknback/api_off) {
+        if (-f /home/clicknback/app/api_off) {
             return 404;
         }
-        proxy_pass http://127.0.0.1:${APP_PORT};
+        ...
     }
     ```
 
+    - Copy scripts `api-off.sh` and `api-on.sh` to `/home/clicknback/app/` on the VPS and give right permissions:
+
+        ```
+        sudo chown root:root api-off.sh api-on.sh
+        chmod 700 api-off.sh api-on.sh
+        ```
+
+     These scripts create or remove the `api_off` file and reload Nginx automatically. Set permissions: `chmod 700 /home/clicknback/app/api-off.sh /home/clicknback/app/api-on.sh`.
+
     **Usage:**
-    - To disable all API access: `sudo touch /opt/clicknback/api_off && sudo systemctl reload nginx`
-    - To re-enable: `sudo rm /opt/clicknback/api_off && sudo systemctl reload nginx`
+    - Before using the scripts, always test the Nginx config:
+      ```bash
+      sudo nginx -t
+      ```
+      If the output is 'syntax is ok' and 'test is successful', you can safely reload or restart Nginx.
+    - To reload Nginx (apply config changes without dropping connections):
+      ```bash
+      sudo systemctl reload nginx
+      ```
+    - To restart Nginx (fully stop and start the service):
+      ```bash
+      sudo systemctl restart nginx
+      ```
+    - To disable all API access: `bash /home/clicknback/app/api-off.sh`
+    - To re-enable: `bash /home/clicknback/app/api-on.sh`
+
+    These scripts are version-controlled and safer than manual commands. They create/remove the kill switch file and reload Nginx automatically.
 
     This mechanism is robust even under heavy load, as it operates at the Nginx level and does not require app or Docker changes. Document this in the deployment plan and README for operational clarity.
+
+    **Permissions Note:**
+    - Nginx must be able to traverse and read the kill switch file. Set directory permissions as follows:
+    ```bash
+    chmod o+rx /home /home/clicknback /home/clicknback/app
+    ```
+    - The file itself should be readable by others (e.g., `-rw-r--r--`).
+    - After creating/removing the file, always reload Nginx:
+    ```bash
+    sudo nginx -t
+    sudo systemctl reload nginx
+    ```
 
 
 24. **Blog coexistence**: the Hugo container already runs on the VPS and is reached via the `jerosanchez.com` `server_name` block in Nginx. The ClickNBack app gets its own block for `clicknback.com` on a different `APP_PORT`. Both blocks are served by the same Nginx process — no port conflicts, no changes to the blog config needed. Both domains share the same TLS infrastructure managed by Certbot.
