@@ -37,18 +37,7 @@ To close a step:
 3. Propose a commit message.
 4. **Wait for explicit human approval before executing `git commit`.**
 
----
-
-## Feature Specification
-
-> **Fill this section in before handing to the AI.**
-
-- **Functional spec:** `docs/specs/functional/<!-- e.g. purchases/PU-01-purchase-ingestion.md -->`
-- **Domain module:** `app/<!-- e.g. purchases -->/` *(must already exist; run `create-module.prompt.md` first if not)*
-- **Model changes (if any):** `<!-- e.g. none / add nullable column X to the existing table -->`
-- **Notes:** `<!-- Anything not covered by the FR or that overrides it -->`
-
-Read the functional spec in full before proceeding. Derive endpoints, HTTP methods, auth requirements, business rules, constraints, and all acceptance scenarios from it. The BDD scenarios in the spec map directly to the tests in Step 11 — every Given/When/Then must have a corresponding test case.
+**Commit message style:** Write a single summary line. Add a body only when it carries genuine value — a non-obvious rationale, a constraint that isn't self-evident from the diff, or a trade-off worth preserving. Never list files or restate what the diff already shows.
 
 ---
 

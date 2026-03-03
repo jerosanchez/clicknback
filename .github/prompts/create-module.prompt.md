@@ -27,43 +27,7 @@ Also read at least one existing module for structural reference:
 
 Complete all steps, then commit once. Stage all changes and show a `git diff --staged` summary. Propose a single commit message for the entire scaffold but do not execute `git commit` until the human explicitly approves.
 
----
-
-## Module Specification
-
-> **Fill this section in before handing to the AI.**
-
-- **Module name:** `<!-- e.g. offers -->`
-- **Module path:** `app/<!-- e.g. offers -->/`
-- **Description:** `<!-- What domain problem does this module solve? -->`
-- **Entities and their fields:**
-
-  ```
-  <!-- e.g.
-  Offer:
-    id: UUID (PK)
-    merchant_id: UUID (FK → merchants.id)
-    title: str
-    cashback_percentage: float
-    active: bool (default true)
-    created_at: datetime (server default)
-  -->
-  ```
-
-- **Planned endpoints (names only, for stub file naming):**
-
-  ```
-  <!-- e.g.
-  POST   /api/v1/offers
-  GET    /api/v1/offers
-  GET    /api/v1/offers/{id}
-  PATCH  /api/v1/offers/{id}
-  DELETE /api/v1/offers/{id}
-  -->
-  ```
-
-- **Relations:** `<!-- FK constraints, cascade rules -->`
-- **Open questions:** `<!-- Anything unresolved that requires human input before the AI can proceed -->`
+**Commit message style:** Write a single summary line. Add a body only when it carries genuine value — a non-obvious rationale, a constraint that isn't self-evident from the diff, or a trade-off worth preserving. Never list files or restate what the diff already shows.
 
 ---
 

@@ -19,9 +19,11 @@ _As an admin, I want to create cashback offers for merchants so that I can defin
 
 - Associated merchant must exist and be active
 - Cashback amount must be positive (percentage or fixed)
+- Cashback amount (percentage) should not exceed the maximum (20%)
 - Start date must be before or equal to end date
 - Monthly cap per user must be positive
 - Valid dates must be in the future (or current date for start)
+- Only one active offer per merchant
 
 ---
 
@@ -38,23 +40,47 @@ _As an admin, I want to create cashback offers for merchants so that I can defin
 **When** the system checks authorization
 **Then** access is denied
 
-**Scenario:** Admin creates offer with invalid date range
-**Given** I am an authenticated admin user
-**And** I attempt to create an offer where end date is before start date
-**When** the API validates the input
-**Then** the request is rejected with a date validation error
-
 **Scenario:** Admin creates offer for non-existent merchant
 **Given** I am an authenticated admin user
 **And** I attempt to create an offer referencing a non-existent merchant
 **When** the system validates the merchant reference
 **Then** an error is returned indicating merchant not found
 
-**Scenario:** Admin creates offer with invalid cashback configuration
+**Scenario:** Admin creates offer for non-active merchant
 **Given** I am an authenticated admin user
-**And** I attempt to create an offer with zero or negative cashback amount
+**And** I attempt to create an offer referencing a non-active merchant
+**When** the system validates the merchant reference
+**Then** an error is returned indicating merchant is not active
+
+**Scenario:** Admin creates offer with invalid date range (start date)
+**Given** I am an authenticated admin user
+**And** I attempt to create an offer where start date is not today or future
+**When** the API validates the input
+**Then** the request is rejected with a date validation error
+
+**Scenario:** Admin creates offer with invalid date range (end date)
+**Given** I am an authenticated admin user
+**And** I attempt to create an offer where end date is before start date
+**When** the API validates the input
+**Then** the request is rejected with a date validation error
+
+**Scenario:** Admin creates offer with invalid cashback configuration (fixed amount)
+**Given** I am an authenticated admin user
+**And** I attempt to create an offer with zero or negative fixed amount
 **When** the API validates the input
 **Then** the request is rejected with a validation error
+
+**Scenario:** Admin creates offer with invalid cashback configuration (percentage)
+**Given** I am an authenticated admin user
+**And** I attempt to create an offer with zero, negative or greater than 20.0%
+**When** the API validates the input
+**Then** the request is rejected with a validation error
+
+**Scenario**: Admin attempts to create a new offer for a merchant with an existing active offer
+**Given** I am an authenticated admin user
+**And** the merchant already has an active offer
+**When** I submit a request to create a new offer for that merchant
+**Then** the system rejects the request with a validation error indicating only one active offer is allowed per merchant
 
 ---
 
@@ -81,6 +107,14 @@ An admin successfully creates a new cashback offer
 4. System finds user does not have admin role.
 5. System returns `HTTP 403 Forbidden`.
 
+#### Merchant Not Active
+
+1. Admin submits offer for a merchant that exists but is not active.
+2. System verifies admin role.
+3. System validates merchant status.
+4. System detects merchant is not active.
+5. System rejects the request with a validation error indicating the merchant must be active.
+
 #### Invalid Date Range
 
 1. Admin submits offer with end date before start date.
@@ -104,6 +138,14 @@ An admin successfully creates a new cashback offer
 3. System validates offer configuration.
 4. System detects invalid cashback amount.
 5. System rejects the request with validation error.
+
+#### Merchant Already Has Active Offer
+
+1. Admin submits offer for a merchant that already has an active offer.
+2. System verifies admin role.
+3. System validates offer configuration.
+4. System detects the merchant already has an active offer.
+5. System rejects the request with a validation error indicating only one active offer is allowed per merchant.
 
 ## API Contract
 
