@@ -1,1 +1,55 @@
-from pydantic import BaseModel  # noqa: F401
+from datetime import date
+from enum import Enum
+from typing import Any, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, model_validator
+
+
+class CashbackTypeEnum(str, Enum):
+    percent = "percent"
+    fixed = "fixed"
+
+
+class OfferCreate(BaseModel):
+    merchant_id: UUID
+    cashback_type: CashbackTypeEnum
+    cashback_value: float
+    start_date: date
+    end_date: date
+    monthly_cap: float
+
+
+class OfferOut(BaseModel):
+    id: UUID
+    merchant_id: UUID
+    cashback_type: CashbackTypeEnum
+    cashback_value: float
+    status: Literal["active", "inactive"]
+
+    model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_orm(cls, data: Any) -> Any:
+        """Map ORM model fields (percentage/fixed_amount/active) to API contract
+        fields (cashback_type/cashback_value/status) when building from an ORM
+        instance. Dicts that already carry the API-contract keys are passed through
+        unchanged."""
+        if hasattr(data, "percentage"):
+            return {
+                "id": data.id,
+                "merchant_id": data.merchant_id,
+                "cashback_type": (
+                    CashbackTypeEnum.fixed
+                    if data.fixed_amount is not None
+                    else CashbackTypeEnum.percent
+                ),
+                "cashback_value": (
+                    data.fixed_amount
+                    if data.fixed_amount is not None
+                    else data.percentage
+                ),
+                "status": "active" if data.active else "inactive",
+            }
+        return data
