@@ -63,4 +63,26 @@ INSERT INTO offers (id, merchant_id, percentage, fixed_amount, start_date, end_d
         'b2c3d4e5-f6a7-4890-abcd-ef1234567890',
         'c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f',  -- UrbanMart
         2.0, NULL, '2025-01-01', '2025-12-31', 15.0, FALSE
-    );
+    ),
+    -- Additional active offers – enough to exceed default page_size (20) for pagination testing
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000001', 'c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f', 2.0, NULL, '2026-03-01', '2026-12-31', 15.0, TRUE),   -- UrbanMart (new active)
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000002', 'd4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a', 4.0, NULL, '2026-01-01', '2026-12-31', 40.0, TRUE),   -- MegaGoods
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000003', 'e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b', 2.5, NULL, '2026-01-01', '2026-12-31', 25.0, TRUE),   -- ElectroHub
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000004', 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c', 6.0, NULL, '2026-02-01', '2026-12-31', 60.0, TRUE),   -- TechZone
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000005', 'a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d', 1.5, NULL, '2026-01-01', '2026-12-31', 10.0, TRUE),   -- FreshMarket
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000006', 'b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e', 8.0, NULL, '2026-01-15', '2026-12-31', 80.0, TRUE),   -- StyleHub
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000007', 'c9d0e1f2-a3b4-4c5d-6e7f-8a9b0c1d2e3f', 3.0, NULL, '2026-01-01', '2026-12-31', 30.0, TRUE),   -- HomePlus
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000008', 'd0e1f2a3-b4c5-4d6e-7f8a-9b0c1d2e3f4a', 5.5, NULL, '2026-02-01', '2026-12-31', 55.0, TRUE),   -- SportsPro
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000009', 'e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b', 7.0, NULL, '2026-01-01', '2026-12-31', 70.0, TRUE),   -- BeautyWell
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000010', 'f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c', 4.5, NULL, '2026-01-01', '2026-12-31', 45.0, TRUE),   -- GadgetWorld
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000011', 'a3b4c5d6-e7f8-4a9b-0c1d-2e3f4a5b6c7d', 2.0, NULL, '2026-03-01', '2026-12-31', 20.0, TRUE),   -- FoodiesFresh
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000012', 'b4c5d6e7-f8a9-4b0c-1d2e-3f4a5b6c7d8e', 6.5, NULL, '2026-01-01', '2026-12-31', 65.0, TRUE),   -- TravelGear
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000013', 'c5d6e7f8-a9b0-4c1d-2e3f-4a5b6c7d8e9f', 3.5, NULL, '2026-01-01', '2026-12-31', 35.0, TRUE),   -- PetParadise
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000014', 'd6e7f8a9-b0c1-4d2e-3f4a-5b6c7d8e9f0a', 1.0, NULL, '2026-02-01', '2026-12-31', 10.0, TRUE),   -- BookHaven
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000015', 'e7f8a9b0-c1d2-4e3f-4a5b-6c7d8e9f0a1b', 9.0, NULL, '2026-01-01', '2026-12-31', 90.0, TRUE),   -- FitnessPeak
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000016', 'f8a9b0c1-d2e3-4f4a-5b6c-7d8e9f0a1b2c', 2.5, NULL, '2026-01-01', '2026-12-31', 25.0, TRUE),   -- GreenGrocer
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000017', 'a9b0c1d2-e3f4-4a5b-6c7d-8e9f0a1b2c3d', 4.0, NULL, '2026-03-01', '2026-12-31', 40.0, TRUE),   -- ToyLand
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000018', 'b0c1d2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e', 10.0, NULL, '2026-01-01', '2026-12-31', 100.0, TRUE), -- JewelryBox
+    -- Inactive offers on inactive merchants – for testing the status=inactive filter
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000019', 'a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 15.0, NULL, '2025-01-01', '2025-12-31', 150.0, FALSE), -- LuxWatches (inactive merchant)
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000020', 'b6c7d8e9-f0a1-4b2c-3d4e-5f6a7b8c9d0e', 12.0, NULL, '2025-01-01', '2025-12-31', 120.0, FALSE); -- VintageVault (inactive merchant)
