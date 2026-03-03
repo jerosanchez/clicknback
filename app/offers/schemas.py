@@ -25,6 +25,9 @@ class OfferOut(BaseModel):
     merchant_id: UUID
     cashback_type: CashbackTypeEnum
     cashback_value: float
+    start_date: date
+    end_date: date
+    monthly_cap_per_user: float
     status: Literal["active", "inactive"]
 
     model_config = {"from_attributes": True}
@@ -50,6 +53,16 @@ class OfferOut(BaseModel):
                     if data.fixed_amount is not None
                     else data.percentage
                 ),
+                "start_date": data.start_date,
+                "end_date": data.end_date,
+                "monthly_cap_per_user": data.monthly_cap_per_user,
                 "status": "active" if data.active else "inactive",
             }
         return data
+
+
+class PaginatedOffersOut(BaseModel):
+    items: list[OfferOut]
+    total: int
+    page: int
+    page_size: int
