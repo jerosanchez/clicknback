@@ -192,8 +192,8 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 ### Testing Scope
 
 ✅ Status codes match `fastapi.status` constants
-✅ Response body maps model fields correctly
-✅ Domain exceptions → correct HTTP status + error code
+✅ Response body maps **every** field in the response schema correctly — the success test must assert each field individually, not just the status code
+✅ Domain exceptions → correct HTTP status + error code — a single parametrized test must enumerate **every** exception the endpoint can raise; no exception may be omitted
 ✅ Unhandled exceptions → 500
 ✅ Non-admin (403) — verifies the endpoint calls the correct admin-guarded dependency
 ✅ Query/path parameter constraint validation — endpoints with `ge`/`le` constraints must have boundary value tests covering both valid and invalid sides
@@ -207,8 +207,8 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 2. `client` fixture — overrides all FastAPI dependencies, yields `TestClient`, clears overrides
 3. Module-level `_input_data()` function — returns a plain `dict` (not a fixture, no `@pytest.fixture`)
 4. Module-level assertion helpers — `_assert_*_response`, `_assert_error_payload`
-5. Success test
-6. Parametrized exceptions test (status codes + codes only)
+5. Success test — asserts **every** field in the response schema through a `_assert_*_response` helper; stub the service to return a factory-built model instance and verify the full field mapping (id, all value fields, all derived/computed fields such as `status`)
+6. Parametrized exceptions test — one entry per exception the endpoint can raise, including the generic unhandled `Exception` → 500 case; **every** exception listed in `api.py` must appear; checks status code + error code only
 7. Individual detail tests for each domain exception (full error body)
 8. Boundary value tests for any endpoint with constrained query/path params (two parametrized tests — valid and invalid)
 
@@ -251,7 +251,7 @@ def non_admin_client(
     app.dependency_overrides.clear()
 
 
-def test_endpoint_returns_403_on_non_admin(
+def test_endpoint_enforces_admin_user(
     non_admin_client: TestClient,
 ) -> None:
     # Act
@@ -326,7 +326,8 @@ Use a **fixture** (from `conftest.py`) when the input data must be derived from 
 
 - [ ] `client` fixture yields, calls `app.dependency_overrides.clear()` after yield
 - [ ] Authenticated endpoints override `get_current_admin_user`
-- [ ] One parametrized test covers status code + code for all exceptions
+- [ ] Success test asserts **every** field in the response schema through a `_assert_*_response` helper — field mapping must be complete, not just the status code
+- [ ] One parametrized test covers status code + error code for **every** exception the endpoint can raise (inspect `api.py` to enumerate them all); no exception may be omitted
 - [ ] Non-admin (403) scenario uses a `non_admin_client` fixture with a descriptive test name (`test_*_returns_403_on_non_admin`); do **not** add a separate unauthenticated (401) test per endpoint
 - [ ] No test verifies that query/path params are forwarded to the service (covered implicitly by success tests)
 - [ ] One **separate** test per domain exception verifying full error detail shape

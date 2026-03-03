@@ -50,15 +50,7 @@ To close a step:
 3. Propose a commit message.
 4. **Wait for explicit human approval before executing `git commit`.**
 
----
-
-## Test Specification
-
-> **Fill this section in before handing to the AI.**
-
-- **Functional spec:** `docs/specs/functional/<!-- e.g. purchases/PU-01-purchase-ingestion.md -->`
-- **Domain module:** `app/<!-- e.g. purchases -->/`
-- **Notes:** `<!-- Anything not covered by the spec or that overrides it -->`
+**Commit message style:** Write a single summary line. Add a body only when it carries genuine value — a non-obvious rationale, a constraint that isn't self-evident from the diff, or a trade-off worth preserving. Never list files or restate what the diff already shows.
 
 ---
 
@@ -90,3 +82,8 @@ Implement `tests/<module>/test_<module>_services.py`. Use constructor injection 
 ### Step 5 — Write API tests
 
 Implement `tests/<module>/test_<module>_api.py`. Use `TestClient` with `app.dependency_overrides` to replace the service. Test every HTTP response code — successful responses, domain exception mappings, auth failures (401, 403), and validation errors (422). Then close the step per the Commit Protocol above.
+
+When writing API tests, the following two tests are **mandatory** for every endpoint that returns a response body:
+
+1. **All-fields success-response test** — stub the service to return a factory-built model instance and assert **every** field in the response schema individually (id, all value fields, all derived/computed fields such as `status`). Assertions must be extracted into a `_assert_*_response` helper.
+2. **Exhaustive parametrized exception test** — inspect `api.py` to enumerate every exception handler; include one parametrize entry per exception (including the generic `Exception` → 500 fallback). No exception may be omitted. The parametrized test checks status code + error code only; separate tests cover full error-body detail.

@@ -27,7 +27,7 @@ def merchant_service_mock() -> Mock:
 
 @pytest.fixture
 def client(merchant_service_mock: Mock) -> Generator[TestClient, None, None]:
-    def mock_get_db():
+    def mock_get_db() -> Generator[Mock, None, None]:
         yield Mock()
 
     app.dependency_overrides[get_db] = mock_get_db
@@ -77,6 +77,14 @@ def _assert_cashback_percentage_error_response(
     assert data["error"]["code"] == ErrorCode.VALIDATION_ERROR
     assert data["error"]["details"]["field"] == "default_cashback_percentage"
     assert data["error"]["details"]["reason"] == str(exc)
+
+
+def _assert_merchant_not_found_error_response(
+    data: dict[str, Any], merchant_id: str
+) -> None:
+    assert data["error"]["code"] == ErrorCode.NOT_FOUND
+    assert data["error"]["details"]["resource_type"] == "merchant"
+    assert data["error"]["details"]["resource_id"] == merchant_id
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -139,7 +147,7 @@ def test_create_merchant_returns_error_on_exception(
     _assert_error_payload(response.json(), expected_code)
 
 
-def test_create_merchant_returns_403_on_non_admin(
+def test_create_merchant_enforces_admin_user(
     non_admin_client: TestClient,
     merchant_factory: Callable[..., Merchant],
     merchant_input_data: Callable[[Merchant], dict[str, Any]],
@@ -200,8 +208,10 @@ def test_list_merchants_returns_200_on_success(
     data = response.json()
     assert data["total"] == 3
     assert data["page"] == 1
-    assert data["page_size"] == 20
+    assert data["page_size"] == settings.default_page_size
     assert len(data["items"]) == 3
+    for i, merchant in enumerate(merchants):
+        _assert_merchant_out_response(data["items"][i], merchant)
 
 
 def test_list_merchants_returns_200_on_empty_results(
@@ -249,7 +259,7 @@ def test_list_merchants_returns_error_on_exception(
     _assert_error_payload(response.json(), expected_code)
 
 
-def test_list_merchants_returns_403_on_non_admin(
+def test_list_merchants_enforces_admin_user(
     non_admin_client: TestClient,
 ) -> None:
     # Act
@@ -338,7 +348,45 @@ def test_set_merchant_status_returns_200_with_updated_status(
     assert data["status"] == target_status
 
 
-def test_set_merchant_status_returns_404_when_merchant_not_found(
+@pytest.mark.parametrize(
+    "exception,expected_status,expected_code",
+    [
+        (
+            MerchantNotFoundException("00000000-0000-0000-0000-000000000000"),
+            status.HTTP_404_NOT_FOUND,
+            ErrorCode.NOT_FOUND,
+        ),
+        (
+            Exception("Something broke"),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+        ),
+    ],
+)
+def test_set_merchant_status_returns_error_on_exception(
+    client: TestClient,
+    merchant_service_mock: Mock,
+    merchant_factory: Callable[..., Merchant],
+    exception: Exception,
+    expected_status: int,
+    expected_code: ErrorCode,
+) -> None:
+    # Arrange
+    merchant = merchant_factory()
+    merchant_service_mock.set_merchant_status.side_effect = exception
+
+    # Act
+    response = client.patch(
+        f"/api/v1/merchants/{merchant.id}/status",
+        json={"status": "active"},
+    )
+
+    # Assert
+    assert response.status_code == expected_status
+    _assert_error_payload(response.json(), expected_code)
+
+
+def test_set_merchant_status_returns_404_with_details_on_merchant_not_found(
     client: TestClient,
     merchant_service_mock: Mock,
 ) -> None:
@@ -356,10 +404,10 @@ def test_set_merchant_status_returns_404_when_merchant_not_found(
 
     # Assert
     assert response.status_code == status.HTTP_404_NOT_FOUND
-    _assert_error_payload(response.json(), ErrorCode.NOT_FOUND)
+    _assert_merchant_not_found_error_response(response.json(), not_found_merchant_id)
 
 
-def test_set_merchant_status_returns_403_on_non_admin(
+def test_set_merchant_status_enforces_admin_user(
     non_admin_client: TestClient,
     merchant_factory: Callable[..., Merchant],
 ) -> None:
@@ -391,23 +439,3 @@ def test_set_merchant_status_returns_422_on_invalid_status_value(
 
     # Assert
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-
-
-def test_set_merchant_status_returns_500_on_unexpected_error(
-    client: TestClient,
-    merchant_service_mock: Mock,
-    merchant_factory: Callable[..., Merchant],
-) -> None:
-    # Arrange
-    merchant = merchant_factory()
-    merchant_service_mock.set_merchant_status.side_effect = Exception("Something broke")
-
-    # Act
-    response = client.patch(
-        f"/api/v1/merchants/{merchant.id}/status",
-        json={"status": "active"},
-    )
-
-    # Assert
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    _assert_error_payload(response.json(), ErrorCode.INTERNAL_SERVER_ERROR)

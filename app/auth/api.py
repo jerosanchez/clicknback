@@ -10,10 +10,14 @@ from app.core.database import get_db
 from app.core.errors.builders import authentication_error, internal_server_error
 from app.core.logging import logging
 
-router = APIRouter(prefix="/auth")
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login",
+    response_model=Token,
+    description="Authenticate a user and return an access token.",
+)
 async def login(
     login_data: Login,
     auth_service: AuthService = Depends(get_auth_service),

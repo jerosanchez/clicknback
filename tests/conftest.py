@@ -1,8 +1,10 @@
+from datetime import date
 from typing import Any, Callable
 
 import pytest
 
 from app.merchants.models import Merchant
+from app.offers.models import Offer
 from app.users.models import User
 
 
@@ -56,6 +58,44 @@ def merchant_input_data() -> Callable[[Merchant], dict[str, Any]]:
             "name": merchant.name,
             "default_cashback_percentage": merchant.default_cashback_percentage,
             "active": merchant.active,
+        }
+
+    return _build
+
+
+@pytest.fixture
+def offer_factory() -> Callable[..., Offer]:
+    def _make_offer(**kwargs: Any) -> Offer:
+        defaults: dict[str, Any] = {
+            "id": "f0e1d2c3-b4a5-4678-9012-3456789abcde",
+            "merchant_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "percentage": 10.0,
+            "fixed_amount": None,
+            "start_date": date(2026, 3, 1),
+            "end_date": date(2026, 12, 31),
+            "monthly_cap_per_user": 50.0,
+            "active": True,
+        }
+        defaults.update(kwargs)
+        return Offer(**defaults)
+
+    return _make_offer
+
+
+@pytest.fixture
+def offer_input_data() -> Callable[[Offer], dict[str, Any]]:
+    def _build(offer: Offer) -> dict[str, Any]:
+        cashback_type = "fixed" if offer.fixed_amount is not None else "percent"
+        cashback_value = (
+            offer.fixed_amount if offer.fixed_amount is not None else offer.percentage
+        )
+        return {
+            "merchant_id": offer.merchant_id,
+            "cashback_type": cashback_type,
+            "cashback_value": cashback_value,
+            "start_date": offer.start_date.isoformat(),
+            "end_date": offer.end_date.isoformat(),
+            "monthly_cap": offer.monthly_cap_per_user,
         }
 
     return _build
