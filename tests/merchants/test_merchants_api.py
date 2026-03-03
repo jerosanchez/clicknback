@@ -139,7 +139,7 @@ def test_create_merchant_returns_error_on_exception(
     _assert_error_payload(response.json(), expected_code)
 
 
-def test_create_merchant_returns_403_on_non_admin(
+def test_create_merchant_enforces_admin_user(
     non_admin_client: TestClient,
     merchant_factory: Callable[..., Merchant],
     merchant_input_data: Callable[[Merchant], dict[str, Any]],
@@ -249,7 +249,7 @@ def test_list_merchants_returns_error_on_exception(
     _assert_error_payload(response.json(), expected_code)
 
 
-def test_list_merchants_returns_403_on_non_admin(
+def test_list_merchants_enforces_admin_user(
     non_admin_client: TestClient,
 ) -> None:
     # Act
@@ -359,7 +359,7 @@ def test_set_merchant_status_returns_404_when_merchant_not_found(
     _assert_error_payload(response.json(), ErrorCode.NOT_FOUND)
 
 
-def test_set_merchant_status_returns_403_on_non_admin(
+def test_set_merchant_status_enforces_admin_user(
     non_admin_client: TestClient,
     merchant_factory: Callable[..., Merchant],
 ) -> None:
