@@ -50,15 +50,7 @@ To close a step:
 3. Propose a commit message.
 4. **Wait for explicit human approval before executing `git commit`.**
 
----
-
-## Test Specification
-
-> **Fill this section in before handing to the AI.**
-
-- **Functional spec:** `docs/specs/functional/<!-- e.g. purchases/PU-01-purchase-ingestion.md -->`
-- **Domain module:** `app/<!-- e.g. purchases -->/`
-- **Notes:** `<!-- Anything not covered by the spec or that overrides it -->`
+**Commit message style:** Write a single summary line. Add a body only when it carries genuine value — a non-obvious rationale, a constraint that isn't self-evident from the diff, or a trade-off worth preserving. Never list files or restate what the diff already shows.
 
 ---
 
