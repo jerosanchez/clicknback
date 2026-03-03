@@ -43,7 +43,7 @@ up: ## Start development environment
 	@if ! docker network ls --format '{{.Name}}' | grep -wq clicknback-nw; then \
 		docker network create clicknback-nw; \
 	fi
-	docker compose up -d
+	docker compose up -d --build
 
 down: ## Stop development environment
 	docker compose down

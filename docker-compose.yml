@@ -33,7 +33,8 @@ services:
     restart: "no"
 
   clicknback-app:
-    image: "${APP_IMAGE}"
+    build:
+      context: .
     env_file:
       - .env
     environment:
@@ -47,15 +48,6 @@ services:
         condition: service_completed_successfully
     networks:
       - clicknback-nw
-    healthcheck:
-      test:
-        - "CMD-SHELL"
-        - >-
-          python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
     restart: unless-stopped
 
 volumes:
