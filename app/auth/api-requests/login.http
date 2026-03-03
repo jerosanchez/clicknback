@@ -1,11 +1,11 @@
-@baseUrl = http://localhost:8000/api/v1
+@baseUrl = http://localhost:8001/api/v1
 
 ### Happy path: valid credentials
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "alice@example.com",
+  "email": "alice@clicknback.com",
   "password": "Str0ng!Pass"
 }
 
@@ -23,7 +23,7 @@ POST {{baseUrl}}/login
 Content-Type: application/json
 
 {
-  "email": "alice@example.com",
+  "email": "alice@clicknback.com",
   "password": "wrongpassword"
 }
 
