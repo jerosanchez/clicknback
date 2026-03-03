@@ -17,10 +17,15 @@ from app.users.exceptions import (
 from app.users.schemas import UserCreate, UserOut
 from app.users.services import UserService
 
-router = APIRouter(prefix="/users")
+router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    description="Create a new user account.",
+)
 async def create_user(
     create_data: UserCreate,
     user_service: UserService = Depends(get_user_service),

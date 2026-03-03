@@ -28,10 +28,14 @@ from app.merchants.schemas import (
 from app.merchants.services import MerchantService
 from app.users.models import User
 
-router = APIRouter(prefix="/merchants")
+router = APIRouter(prefix="/merchants", tags=["merchants"])
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    description="Create a new merchant with a default cashback percentage.",
+)
 def create_merchant(
     create_data: MerchantCreate,
     merchant_service: MerchantService = Depends(get_merchant_service),
@@ -65,7 +69,11 @@ def create_merchant(
     return new_merchant
 
 
-@router.get("/", status_code=status.HTTP_200_OK)
+@router.get(
+    "/",
+    status_code=status.HTTP_200_OK,
+    description="List merchants with pagination and optional active status filtering.",
+)
 def list_merchants(
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
     page_size: int = Query(
@@ -97,7 +105,11 @@ def list_merchants(
     )
 
 
-@router.patch("/{merchant_id}/status", status_code=status.HTTP_200_OK)
+@router.patch(
+    "/{merchant_id}/status",
+    status_code=status.HTTP_200_OK,
+    description="Activate or deactivate a merchant.",
+)
 def set_merchant_status(
     merchant_id: str,
     update_data: MerchantStatusUpdate,
