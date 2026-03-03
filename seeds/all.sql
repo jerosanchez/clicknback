@@ -1,12 +1,18 @@
 -- seeds/all.sql
 
--- Hashed passwords corresponds to string "Str0ng!Pass"
+-- Users
+-- Includes both regular users and admins, with active status to test filtering.
+-- Hashed passwords corresponds to literal string "Str0ng!Pass"
 INSERT INTO users (id, email, hashed_password, role, active, created_at) VALUES
     ('b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'alice@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'user', TRUE, NOW()),
     ('c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'bob@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'user', TRUE, NOW()),
     ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 'carol@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'admin', TRUE, NOW()),
     ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1b', 'jero@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'admin', TRUE, NOW());
 
+-- Merchants
+-- Active merchants with a variety of cashback percentages to test sorting and filtering,
+-- as well as enough entries to test pagination.
+-- Inactive merchants are included to test the active=false filter.
 INSERT INTO merchants (id, name, default_cashback_percentage, active) VALUES
     -- Additional merchants (active) – enough to exercise pagination (default page_size = 20)
     ('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'Shoply',        5.0,  TRUE),
@@ -37,3 +43,24 @@ INSERT INTO merchants (id, name, default_cashback_percentage, active) VALUES
     ('a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 'LuxWatches',    15.0, FALSE),
     ('b6c7d8e9-f0a1-4b2c-3d4e-5f6a7b8c9d0e', 'VintageVault',  12.0, FALSE),
     ('c7d8e9f0-a1b2-4c3d-4e5f-6a7b8c9d0e1f', 'NightOwl Electronics', 8.5, FALSE);
+
+-- Offers
+-- Active percent offer on an active merchant (Shoply)
+INSERT INTO offers (id, merchant_id, percentage, fixed_amount, start_date, end_date, monthly_cap_per_user, active) VALUES
+    (
+        'f0e1d2c3-b4a5-4678-9012-3456789abcde',
+        'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',  -- Shoply
+        5.0, NULL, '2026-01-01', '2026-12-31', 50.0, TRUE
+    ),
+    -- Active fixed offer on QuickCart
+    (
+        'a1b2c3d4-e5f6-4789-0abc-def012345678',
+        'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e',  -- QuickCart
+        0.0, 3.00, '2026-02-01', '2026-11-30', 20.0, TRUE
+    ),
+    -- Inactive (deactivated) offer on UrbanMart – leaves UrbanMart free for a new offer
+    (
+        'b2c3d4e5-f6a7-4890-abcd-ef1234567890',
+        'c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f',  -- UrbanMart
+        2.0, NULL, '2025-01-01', '2025-12-31', 15.0, FALSE
+    );
