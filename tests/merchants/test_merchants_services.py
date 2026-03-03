@@ -77,7 +77,7 @@ def test_create_merchant_raises_on_name_already_exists(
         merchant_service.create_merchant(data, db)
 
 
-def test_create_merchant_raises_on_invalid_cashback_percentage(
+def test_create_merchant_enforces_cashback_percentage_validity_policy(
     merchant_service: MerchantService,
     enforce_cashback_percentage_validity: Mock,
     merchant_repository: Mock,
