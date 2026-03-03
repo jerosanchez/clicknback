@@ -42,6 +42,7 @@ def _assert_user_out_response(data: dict[str, Any], user: User) -> None:
     assert data["email"] == user.email
     assert data["role"] == user.role
     assert data["active"] == user.active
+    assert data["created_at"] is not None
 
 
 def _assert_error_payload(data: dict[str, Any], expected_code: str) -> None:
