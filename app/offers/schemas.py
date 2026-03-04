@@ -20,6 +20,9 @@ class OfferCreate(BaseModel):
     monthly_cap: float
 
 
+# --- OfferOut
+
+
 class OfferOut(BaseModel):
     id: UUID
     merchant_id: UUID
@@ -63,6 +66,26 @@ class OfferOut(BaseModel):
 
 class PaginatedOffersOut(BaseModel):
     items: list[OfferOut]
+    total: int
+    page: int
+    page_size: int
+
+
+# --- ActiveOfferOut
+
+
+class ActiveOfferOut(BaseModel):
+    id: UUID
+    merchant_name: str
+    cashback_type: CashbackTypeEnum
+    cashback_value: float
+    monthly_cap: float
+    start_date: date
+    end_date: date
+
+
+class PaginatedActiveOffersOut(BaseModel):
+    offers: list[ActiveOfferOut]
     total: int
     page: int
     page_size: int
