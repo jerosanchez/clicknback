@@ -123,21 +123,13 @@ make clean       # Remove .venv, __pycache__, coverage reports, etc.
 
 ## Navigating the Code
 
-The application lives under `app/`. Every domain is a self-contained module (e.g., `app/users/`, `app/merchants/`) that follows the same layered structure:
-
-- `api.py` — HTTP routing only: receives requests, calls the service, maps exceptions to responses
-- `services.py` — business logic orchestration; no HTTP knowledge; fully injectable and unit-testable
-- `policies.py` — pure functions enforcing individual business rules; raise domain exceptions on violation
-- `repositories.py` — data access behind an ABC; the concrete implementation uses SQLAlchemy
-- `models.py`, `schemas.py` — ORM models and Pydantic request/response schemas respectively
-- `exceptions.py`, `errors.py` — domain exceptions and module-level HTTP error codes
-- `composition.py` — wires concrete implementations together for FastAPI `Depends()`
+The application lives under `app/`. Every domain is a self-contained module (e.g., `app/users/`, `app/merchants/`) that follows the same layered structure: `api` (HTTP routing), `services` (business logic), `policies` (pure business rules), `repositories` (data access), `models`, `schemas`, `exceptions`, `errors`, and `composition` (dependency wiring).
 
 Cross-cutting infrastructure (config, DB session factory, JWT, logging, error builders) lives in `app/core/`.
 
 Tests mirror the module structure under `tests/`. The `conftest.py` at the root provides factory fixtures used across all test suites.
 
-For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/project-context.md](docs/agents/project-context.md).
+For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/feature-guide.md](docs/agents/feature-guide.md). For guidelines on how to organize and split files as a module grows, see [docs/agents/code-organization.md](docs/agents/code-organization.md).
 
 ## Architecture & Design Decisions
 

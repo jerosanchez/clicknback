@@ -52,6 +52,11 @@ tests/
         test_merchants_api.py
         test_merchants_policies.py
         test_merchants_services.py
+    offers/
+        test_offers_admin_api.py        # mirrors app/offers/api/admin.py
+        test_offers_public_api.py       # mirrors app/offers/api/public.py
+        test_offers_policies.py
+        test_offers_services.py
     users/
         test_users_api.py
         test_users_policies.py
@@ -59,7 +64,9 @@ tests/
 ```
 
 **Rule:** `tests/{module}/test_{module_name}_{layer}.py`
-Maps exactly to `app/{module}/{layer}.py` — e.g., `tests/users/test_users_services.py` ↔ `app/users/services.py`.
+Maps exactly to the source file it exercises: `app/{module}/{layer}.py` → `test_{module}_{layer}.py`. When `{layer}` is itself a package (e.g., `api/admin.py`), the test file name encodes the sub-module: `test_{module}_{sub_module}_{layer}.py` — e.g., `test_offers_admin_api.py` mirrors `app/offers/api/admin.py`.
+
+See `docs/agents/code-organization.md` §6 for the full naming table.
 
 ---
 
@@ -208,7 +215,7 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 3. Module-level `_input_data()` function — returns a plain `dict` (not a fixture, no `@pytest.fixture`)
 4. Module-level assertion helpers — `_assert_*_response`, `_assert_error_payload`
 5. Success test — asserts **every** field in the response schema through a `_assert_*_response` helper; stub the service to return a factory-built model instance and verify the full field mapping (id, all value fields, all derived/computed fields such as `status`)
-6. Parametrized exceptions test — one entry per exception the endpoint can raise, including the generic unhandled `Exception` → 500 case; **every** exception listed in `api.py` must appear; checks status code + error code only
+6. Parametrized exceptions test — one entry per exception the endpoint can raise, including the generic unhandled `Exception` → 500 case; **every** exception listed in the api module must appear; checks status code + error code only
 7. Individual detail tests for each domain exception (full error body)
 8. Boundary value tests for any endpoint with constrained query/path params (two parametrized tests — valid and invalid)
 
@@ -320,14 +327,14 @@ def _login_input_data() -> dict[str, Any]:
 
 Use a **fixture** (from `conftest.py`) when the input data must be derived from a model object created by a factory — e.g., `user_input_data(user)`. Check `conftest.py` first; if a `{model}_input_data` fixture for the model you need already exists, inject and use it directly.
 
-**Canonical example:** `tests/users/test_users_api.py` — read this file before writing a new API test. `tests/merchants/test_merchants_api.py` and `tests/auth/test_auth_api.py` follow the exact same structure.
+**Canonical example:** `tests/users/test_users_api.py` — read this file before writing a new API test. `tests/merchants/test_merchants_api.py` and `tests/auth/test_auth_api.py` follow the exact same structure. When the module uses a split `api/` package (e.g., `offers`), the canonical examples are `tests/offers/test_offers_admin_api.py` and `tests/offers/test_offers_public_api.py`.
 
 ### API Test Checklist
 
 - [ ] `client` fixture yields, calls `app.dependency_overrides.clear()` after yield
 - [ ] Authenticated endpoints override `get_current_admin_user`
 - [ ] Success test asserts **every** field in the response schema through a `_assert_*_response` helper — field mapping must be complete, not just the status code
-- [ ] One parametrized test covers status code + error code for **every** exception the endpoint can raise (inspect `api.py` to enumerate them all); no exception may be omitted
+- [ ] One parametrized test covers status code + error code for **every** exception the endpoint can raise (inspect the api module file to enumerate them all); no exception may be omitted
 - [ ] Non-admin (403) scenario uses a `non_admin_client` fixture with a descriptive test name (`test_*_returns_403_on_non_admin`); do **not** add a separate unauthenticated (401) test per endpoint
 - [ ] No test verifies that query/path params are forwarded to the service (covered implicitly by success tests)
 - [ ] One **separate** test per domain exception verifying full error detail shape

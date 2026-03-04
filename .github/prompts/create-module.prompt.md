@@ -8,6 +8,7 @@ Before writing any code, read the following files in full:
 
 - `docs/agents/project-context.md` — domain model and system purpose
 - `docs/agents/feature-guide.md` — module anatomy, layer responsibilities, coding conventions
+- `docs/agents/code-organization.md` — when and how to split files as a module grows
 
 Also read at least one existing module for structural reference:
 
@@ -48,7 +49,7 @@ Create `app/<module>/` with the following files:
 - `exceptions.py` — empty
 - `errors.py` — stub: `class ErrorCode(str, Enum): pass`
 - `composition.py` — stub: `get_<entity>_service()` factory that instantiates `<Entity>Service` with a concrete `<Entity>Repository()`
-- `api.py` — stub: `router = APIRouter(prefix="/api/v1")` with no registered routes
+- `api.py` — stub: `router = APIRouter(prefix="/api/v1")` with no registered routes (this will become `api/` if the module grows; see `docs/agents/code-organization.md`)
 - `api-requests/.gitkeep` — empty file to track the directory in git
 
 ### Step 2 — ORM model
