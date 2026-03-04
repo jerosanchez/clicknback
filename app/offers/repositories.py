@@ -76,7 +76,7 @@ class OfferRepository(OfferRepositoryABC):
 
         # Overlap condition: offer validity window intersects [date_from, date_to]
         # Technically, to apply an overlap date range strategy is business logic and
-        # should be in a service layer, but for simplicity we put it here
+        # should be in the service layer, but for simplicity we put it here (for now)
         if date_from is not None:
             query = query.filter(Offer.end_date >= date_from)
         if date_to is not None:
