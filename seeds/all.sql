@@ -85,4 +85,10 @@ INSERT INTO offers (id, merchant_id, percentage, fixed_amount, start_date, end_d
     ('c3d4e5f6-a7b8-4c9d-1111-000000000018', 'b0c1d2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e', 10.0, NULL, '2026-01-01', '2026-12-31', 100.0, TRUE), -- JewelryBox
     -- Inactive offers on inactive merchants – for testing the status=inactive filter
     ('c3d4e5f6-a7b8-4c9d-1111-000000000019', 'a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 15.0, NULL, '2025-01-01', '2025-12-31', 150.0, FALSE), -- LuxWatches (inactive merchant)
-    ('c3d4e5f6-a7b8-4c9d-1111-000000000020', 'b6c7d8e9-f0a1-4b2c-3d4e-5f6a7b8c9d0e', 12.0, NULL, '2025-01-01', '2025-12-31', 120.0, FALSE); -- VintageVault (inactive merchant)
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000020', 'b6c7d8e9-f0a1-4b2c-3d4e-5f6a7b8c9d0e', 12.0, NULL, '2025-01-01', '2025-12-31', 120.0, FALSE), -- VintageVault (inactive merchant)
+    -- Active-flagged but EXPIRED offer on AutoParts Plus (end_date before today = 2026-03-04)
+    -- This row must NOT appear in GET /offers/active even though active=TRUE
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000021', 'c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f', 1.5, NULL, '2026-01-01', '2026-02-28', 15.0, TRUE),   -- AutoParts Plus (expired)
+    -- Active-flagged but FUTURE offer on KidsCloset (start_date after today = 2026-03-04)
+    -- This row must NOT appear in GET /offers/active even though active=TRUE
+    ('c3d4e5f6-a7b8-4c9d-1111-000000000022', 'd2e3f4a5-b6c7-4d8e-9f0a-1b2c3d4e5f6a', 5.0, NULL, '2100-04-01', '2100-12-31', 50.0, TRUE);  -- KidsCloset (future)

@@ -67,6 +67,23 @@ class OfferService:
         )
         return offer
 
+    def _map_to_domain_offer(self, data: dict[str, Any]) -> Offer:
+        if data["cashback_type"] == CashbackTypeEnum.percent:
+            percentage = data["cashback_value"]
+            fixed_amount = None
+        else:
+            percentage = 0.0
+            fixed_amount = data["cashback_value"]
+
+        return Offer(
+            merchant_id=str(data["merchant_id"]),
+            percentage=percentage,
+            fixed_amount=fixed_amount,
+            start_date=data["start_date"],
+            end_date=data["end_date"],
+            monthly_cap_per_user=data["monthly_cap"],
+        )
+
     def list_offers(
         self,
         page: int,
@@ -87,19 +104,11 @@ class OfferService:
             date_to=date_to,
         )
 
-    def _map_to_domain_offer(self, data: dict[str, Any]) -> Offer:
-        if data["cashback_type"] == CashbackTypeEnum.percent:
-            percentage = data["cashback_value"]
-            fixed_amount = None
-        else:
-            percentage = 0.0
-            fixed_amount = data["cashback_value"]
-
-        return Offer(
-            merchant_id=str(data["merchant_id"]),
-            percentage=percentage,
-            fixed_amount=fixed_amount,
-            start_date=data["start_date"],
-            end_date=data["end_date"],
-            monthly_cap_per_user=data["monthly_cap"],
-        )
+    def list_active_offers(
+        self,
+        page: int,
+        page_size: int,
+        today: date,
+        db: Session,
+    ) -> tuple[list[tuple[Offer, str]], int]:
+        return self.offer_repository.list_active_offers(db, page, page_size, today)

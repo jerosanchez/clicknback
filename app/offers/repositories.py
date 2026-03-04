@@ -5,6 +5,10 @@ from sqlalchemy.orm import Query, Session
 
 from app.offers.models import Offer
 
+# Imported lazily inside methods to avoid circular imports at module load time;
+# declared here for annotation purposes only.
+_MerchantName = str
+
 
 class OfferRepositoryABC(ABC):
     @abstractmethod
@@ -26,6 +30,16 @@ class OfferRepositoryABC(ABC):
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> tuple[list[Offer], int]:
+        pass
+
+    @abstractmethod
+    def list_active_offers(
+        self,
+        db: Session,
+        page: int,
+        page_size: int,
+        today: date,
+    ) -> tuple[list[tuple[Offer, str]], int]:
         pass
 
 
@@ -71,3 +85,33 @@ class OfferRepository(OfferRepositoryABC):
         total = query.count()
         items = query.offset((page - 1) * page_size).limit(page_size).all()
         return items, total
+
+    def list_active_offers(
+        self,
+        db: Session,
+        page: int,
+        page_size: int,
+        today: date,
+    ) -> tuple[list[tuple[Offer, str]], int]:
+        from app.merchants.models import Merchant  # local import to avoid circular deps
+
+        # We are coupling to the Merchants module by using the Merchant model and joining on it here.
+        # Besides, we are facing a potential circular import issue since the Offers module might be imported
+        # by Merchants module (e.g. to check for active offers for a merchant).
+        # TODO: Eventually we might want Offers and Merchants to be separate services,
+        # so we should ideally not have direct imports or DB joins between them.
+        # For now, we will keep it simple and just be mindful of the coupling and circular import issues.
+
+        query = (
+            db.query(Offer, Merchant.name)
+            .join(Merchant, Offer.merchant_id == Merchant.id)
+            .filter(
+                Offer.active.is_(True),
+                Merchant.active.is_(True),
+                Offer.start_date <= today,
+                Offer.end_date >= today,
+            )
+        )
+        total = query.count()
+        rows = query.offset((page - 1) * page_size).limit(page_size).all()
+        return [(offer, name) for offer, name in rows], total
