@@ -271,3 +271,52 @@ def test_create_offer_maps_fixed_type_correctly(
     # Assert
     assert result.fixed_amount == fixed_value
     assert result.percentage == 0.0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OfferService.list_offers
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "num_items,expected_total,active_filter",
+    [
+        (3, 3, None),  # multiple items, no filter
+        (0, 0, None),  # empty result, no filter
+        (1, 1, True),  # active filter applied
+        (2, 2, False),  # inactive filter applied
+    ],
+)
+def test_list_offers_returns_repository_result_on_call(
+    offer_service: OfferService,
+    offer_repository_mock: Mock,
+    offer_factory: Callable[..., Offer],
+    num_items: int,
+    expected_total: int,
+    active_filter: bool | None,
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    offers = [
+        offer_factory(id=f"f0e1d2c3-b4a5-4678-{i:04d}-3456789abcde")
+        for i in range(num_items)
+    ]
+    offer_repository_mock.list_offers.return_value = (offers, expected_total)
+
+    # Act
+    items, total = offer_service.list_offers(
+        page=1,
+        page_size=20,
+        active=active_filter,
+        merchant_id=None,
+        date_from=None,
+        date_to=None,
+        db=db,
+    )
+
+    # Assert
+    assert items == offers
+    assert total == expected_total
+    offer_repository_mock.list_offers.assert_called_once_with(
+        db, 1, 20, active=active_filter, merchant_id=None, date_from=None, date_to=None
+    )

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import date
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query, Session
 
 from app.offers.models import Offer
 
@@ -54,13 +54,15 @@ class OfferRepository(OfferRepositoryABC):
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> tuple[list[Offer], int]:
-        query = db.query(Offer)
+        query: Query[Offer] = db.query(Offer)
         if active is not None:
             query = query.filter(Offer.active == active)
         if merchant_id is not None:
             query = query.filter(Offer.merchant_id == merchant_id)
 
         # Overlap condition: offer validity window intersects [date_from, date_to]
+        # Technically, to apply an overlap date range strategy is business logic and
+        # should be in a service layer, but for simplicity we put it here
         if date_from is not None:
             query = query.filter(Offer.end_date >= date_from)
         if date_to is not None:
