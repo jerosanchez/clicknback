@@ -116,10 +116,12 @@ This structure supports independent development of features while maintaining tr
 Within each module, a strict layering is enforced:
 
 ```text
-HTTP (api.py) → Business Logic (services.py + policies.py) → Data Access (repositories.py) → Database
+HTTP (api.py or api/) → Business Logic (services.py + policies.py) → Data Access (repositories.py) → Database
 ```
 
 Each layer only depends on the layer directly below it. HTTP concepts (status codes, request/response bodies) never leak into the service layer. Database concerns never leak into the API layer.
+
+As a module grows, any layer file may be replaced by a package of the same name. For the full organization strategy see `docs/agents/code-organization.md`.
 
 ### Project Structure
 

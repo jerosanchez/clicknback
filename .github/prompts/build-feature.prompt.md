@@ -8,6 +8,7 @@ Before writing any code, read the following files in full:
 
 - `docs/agents/project-context.md` — domain model and system purpose
 - `docs/agents/feature-guide.md` — module anatomy, layer responsibilities, coding conventions
+- `docs/agents/code-organization.md` — when and how to split large files; naming conventions for split packages and their tests
 - `docs/agents/testing-guidelines.md` — test structure, patterns, and what to test at each level
 - `docs/agents/quality-gates.md` — mandatory quality gate sequence
 - `docs/design/architecture-overview.md` — system structure and module boundaries
@@ -69,9 +70,11 @@ Add the method(s) for this feature to `<Entity>Service`. Orchestrate policy chec
 
 Update `get_<entity>_service()` if new dependencies (e.g., a second repository or an external client) are required by this feature. No changes needed if the existing factory already covers it.
 
-### Step 7 — `api.py`: HTTP router
+### Step 7 — `api.py` (or `api/`): HTTP router
 
 Add one route handler per endpoint. Each handler: declares request/response schemas and status codes; resolves dependencies via `Depends()`; calls the service; catches each domain exception and converts it with the appropriate `core/errors/builders.py` factory; catches bare `Exception` last, logs at `ERROR`, and raises `internal_server_error()`. Never put business logic here.
+
+If `api.py` already exceeds ~200 lines or this feature introduces a clearly distinct endpoint group (e.g., public vs. admin), consult `docs/agents/code-organization.md` §3 and split into an `api/` package before adding new routes.
 
 For list responses with nested items, use explicit `model_validate()` conversion:
 
