@@ -100,4 +100,4 @@ The full index is at [`docs/design/adr-index.md`](docs/design/adr-index.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, development workflow, and code quality requirements.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, development workflow, code quality requirements, and code organization guidelines.
