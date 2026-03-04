@@ -320,3 +320,10 @@ def test_list_offers_returns_repository_result_on_call(
     offer_repository_mock.list_offers.assert_called_once_with(
         db, 1, 20, active=active_filter, merchant_id=None, date_from=None, date_to=None
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OfferService.list_active_offers
+# ──────────────────────────────────────────────────────────────────────────────
+
+# It is a simple forwarding method to the repository, no tests required.
