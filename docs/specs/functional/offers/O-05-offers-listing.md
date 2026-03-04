@@ -20,7 +20,7 @@ _As an admin, I want to view a list of all offers with their status so that I ca
 - Results must be paginated
 - Default page size should be appropriate (e.g., 20 items)
 - Offer status information must be included
-- Support filtering by status, merchant, or date range if applicable
+- Support filtering by status, merchant, or date range
 
 ---
 
@@ -31,6 +31,21 @@ _As an admin, I want to view a list of all offers with their status so that I ca
 **And** offers exist in the system
 **When** the authorization is verified
 **Then** a paginated list of offers with status information is returned
+
+**Scenario:** Admin filters offer list by status
+**Given** I am an authenticated admin user
+**When** the request includes a valid `status` filter (`active` or `inactive`)
+**Then** only offers matching that status are returned
+
+**Scenario:** Admin filters offer list by merchant
+**Given** I am an authenticated admin user
+**When** the request includes a valid `merchant_id` filter
+**Then** only offers belonging to that merchant are returned
+
+**Scenario:** Admin filters offer list by date range
+**Given** I am an authenticated admin user
+**When** the request includes `date_from` and/or `date_to` filters
+**Then** only offers whose validity window overlaps the specified date range are returned
 
 **Scenario:** Non-admin user attempts to list offers
 **Given** I am an authenticated non-admin user
@@ -53,6 +68,16 @@ _As an admin, I want to view a list of all offers with their status so that I ca
 **When** the request contains invalid pagination parameters (e.g., negative page number)
 **Then** a validation error is returned
 
+**Scenario:** Admin provides an invalid status filter value
+**Given** I am an authenticated admin user
+**When** the request contains a `status` filter value not in `[active, inactive]`
+**Then** a validation error is returned identifying the invalid status value
+
+**Scenario:** Admin provides an inverted date range
+**Given** I am an authenticated admin user
+**When** the request contains `date_from` that is after `date_to`
+**Then** a validation error is returned identifying the invalid date range
+
 ---
 
 ## Use Cases
@@ -61,10 +86,11 @@ _As an admin, I want to view a list of all offers with their status so that I ca
 
 An authenticated admin successfully retrieves offer list
 
-1. Admin requests offer list.
+1. Admin requests offer list (optionally with `status`, `merchant_id`, `date_from`, or `date_to` filters).
 2. System verifies admin authentication and role.
-3. System retrieves paginated offer records with status.
-4. System returns offer list.
+3. System validates all filter values.
+4. System retrieves paginated offer records matching the applied filters.
+5. System returns paginated offer list with status and validity information.
 
 ### Sad Paths
 
@@ -88,7 +114,7 @@ An authenticated admin successfully retrieves offer list
 1. Admin requests offer list.
 2. System verifies admin role.
 3. System retrieves offer records from database.
-4. System finds no offers exist.
+4. System finds no offers exist (or none match the applied filters).
 5. System returns empty paginated list.
 
 #### Invalid Pagination Parameters
@@ -98,6 +124,22 @@ An authenticated admin successfully retrieves offer list
 3. System validates pagination parameters.
 4. System detects invalid values (e.g., negative page number or oversized page size).
 5. System rejects the request with validation error.
+
+#### Invalid Status Filter Value
+
+1. Admin requests offer list with a `status` value that is not `active` or `inactive`.
+2. System verifies admin role.
+3. System validates query parameters.
+4. System detects the unrecognised status value.
+5. System rejects the request with `HTTP 400 Bad Request` and a validation error identifying the `status` field.
+
+#### Invalid Date Range (date_from after date_to)
+
+1. Admin requests offer list with `date_from` set after `date_to`.
+2. System verifies admin role.
+3. System validates query parameters.
+4. System detects that `date_from` is after `date_to`.
+5. System rejects the request with `HTTP 400 Bad Request` and a validation error identifying the `date_from` field.
 
 ## API Contract
 

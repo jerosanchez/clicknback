@@ -1,6 +1,10 @@
-from fastapi import APIRouter, Depends, status
+from datetime import date
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.current_user import get_current_admin_user
 from app.core.database import get_db
 from app.core.errors.builders import (
@@ -23,7 +27,7 @@ from app.offers.exceptions import (
     MerchantNotActiveException,
     PastOfferStartDateException,
 )
-from app.offers.schemas import OfferCreate, OfferOut
+from app.offers.schemas import OfferCreate, OfferOut, PaginatedOffersOut
 from app.offers.services import OfferService
 from app.users.models import User
 
@@ -146,3 +150,107 @@ def create_offer(
         raise internal_server_error()
 
     return OfferOut.model_validate(new_offer)
+
+
+_VALID_STATUS_VALUES = {"active", "inactive"}
+
+
+@router.get(
+    "/",
+    status_code=status.HTTP_200_OK,
+    description=(
+        "List all offers with pagination and optional filtering by status,"
+        " merchant, or validity date range."
+    ),
+)
+def list_offers(
+    page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
+    page_size: int = Query(
+        default=settings.default_page_size,
+        ge=1,
+        le=settings.max_page_size,
+        description=f"Number of results per page (max {settings.max_page_size}).",
+    ),
+    status_filter: str | None = Query(
+        default=None,
+        alias="status",
+        description="Filter by offer status: active or inactive.",
+    ),
+    merchant_id: UUID | None = Query(
+        default=None,
+        description="Filter offers belonging to a specific merchant.",
+    ),
+    date_from: date | None = Query(
+        default=None,
+        description="Return offers whose validity window ends on or after this date (YYYY-MM-DD).",
+    ),
+    date_to: date | None = Query(
+        default=None,
+        description="Return offers whose validity window starts on or before this date (YYYY-MM-DD).",
+    ),
+    offer_service: OfferService = Depends(get_offer_service),
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_admin_user),
+) -> PaginatedOffersOut:
+    _validate_offer_query_params(status_filter, date_from, date_to)
+
+    try:
+        items, total = offer_service.list_offers(
+            page,
+            page_size,
+            _map_to_active(status_filter),
+            merchant_id,
+            date_from,
+            date_to,
+            db,
+        )
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while listing offers.",
+            extra={"error": str(e)},
+        )
+        raise internal_server_error()
+
+    return PaginatedOffersOut(
+        items=[OfferOut.model_validate(item) for item in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+def _validate_offer_query_params(
+    status_filter: str | None,
+    date_from: date | None,
+    date_to: date | None,
+) -> None:
+    violations: list[dict[str, str]] = []
+    if status_filter is not None and status_filter not in _VALID_STATUS_VALUES:
+        violations.append(
+            {
+                "field": "status",
+                "reason": "Status must be one of: active, inactive.",
+            }
+        )
+    if date_from is not None and date_to is not None and date_from > date_to:
+        violations.append(
+            {
+                "field": "date_from",
+                "reason": f"date_from ({date_from}) must not be after date_to ({date_to}).",
+            }
+        )
+    if violations:
+        raise validation_error(
+            code=ErrorCode.VALIDATION_ERROR,
+            message="Invalid query parameters.",
+            details=violations,
+        )
+
+
+def _map_to_active(status_filter: str | None) -> bool | None:
+    if status_filter == "active":
+        return True
+    elif status_filter == "inactive":
+        return False
+    else:
+        return None

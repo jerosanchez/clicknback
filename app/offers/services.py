@@ -1,5 +1,6 @@
 from datetime import date
 from typing import Any, Callable
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -65,6 +66,26 @@ class OfferService:
             extra={"offer_id": offer.id, "merchant_id": offer.merchant_id},
         )
         return offer
+
+    def list_offers(
+        self,
+        page: int,
+        page_size: int,
+        active: bool | None,
+        merchant_id: UUID | None,
+        date_from: date | None,
+        date_to: date | None,
+        db: Session,
+    ) -> tuple[list[Offer], int]:
+        return self.offer_repository.list_offers(
+            db,
+            page,
+            page_size,
+            active=active,
+            merchant_id=str(merchant_id) if merchant_id is not None else None,
+            date_from=date_from,
+            date_to=date_to,
+        )
 
     def _map_to_domain_offer(self, data: dict[str, Any]) -> Offer:
         if data["cashback_type"] == CashbackTypeEnum.percent:

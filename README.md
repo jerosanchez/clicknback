@@ -48,7 +48,7 @@ The system is intentionally small in surface area but deep in engineering rigor.
 | Merchant Activation | Merchants | 🟢 done |
 | **Offer Management** | | |
 | Offer Creation | Offers | 🟢 planned |
-| Offers Listing | Offers | ⚪ planned |
+| Offers Listing | Offers | 🟢 planned |
 | Active Offers Listing | Offers | ⚪ planned |
 | Offer Activation | Offers | ⚪ planned |
 | Offer Details | Offers | ⚪ planned |
