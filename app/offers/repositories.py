@@ -5,9 +5,19 @@ from sqlalchemy.orm import Query, Session
 
 from app.offers.models import Offer
 
+# We are coupling to the Merchants module by using the Merchant model and joining on it here.
+# Besides, we are facing a potential circular import issue since the Offers module might be imported
+# by Merchants module (e.g. to check for active offers for a merchant).
+
 # Imported lazily inside methods to avoid circular imports at module load time;
-# declared here for annotation purposes only.
+# declared here for documentation purposes only.
 _MerchantName = str
+
+# TODO: Eventually we might want Offers and Merchants to be separate services, so we should ideally
+# not have direct imports or DB joins between their corresponding DB tables.
+# We can implement a client-service pattern or use domain events for cross-module interactions
+# if we decide to split them in the future (with performance considerations).
+# For now, we will keep it simple and just be mindful of the coupling and circular import issues.
 
 
 class OfferRepositoryABC(ABC):
@@ -44,6 +54,12 @@ class OfferRepositoryABC(ABC):
         page_size: int,
         today: date,
     ) -> tuple[list[tuple[Offer, str]], int]:
+        pass
+
+    @abstractmethod
+    def get_offer_with_merchant_name(
+        self, db: Session, offer_id: str
+    ) -> tuple[Offer, str, bool] | None:
         pass
 
     @abstractmethod
@@ -104,14 +120,11 @@ class OfferRepository(OfferRepositoryABC):
         page_size: int,
         today: date,
     ) -> tuple[list[tuple[Offer, str]], int]:
-        from app.merchants.models import Merchant  # local import to avoid circular deps
+        from app.merchants.models import (
+            Merchant,  # local import to avoid potential circular deps
+        )
 
-        # We are coupling to the Merchants module by using the Merchant model and joining on it here.
-        # Besides, we are facing a potential circular import issue since the Offers module might be imported
-        # by Merchants module (e.g. to check for active offers for a merchant).
-        # TODO: Eventually we might want Offers and Merchants to be separate services,
-        # so we should ideally not have direct imports or DB joins between them.
-        # For now, we will keep it simple and just be mindful of the coupling and circular import issues.
+        # IMPORTANT: See note on coupling and circular import issues at the top of the file.
 
         query = (
             db.query(Offer, Merchant.name)
@@ -126,6 +139,26 @@ class OfferRepository(OfferRepositoryABC):
         total = query.count()
         rows = query.offset((page - 1) * page_size).limit(page_size).all()
         return [(offer, name) for offer, name in rows], total
+
+    def get_offer_with_merchant_name(
+        self, db: Session, offer_id: str
+    ) -> tuple[Offer, str, bool] | None:
+        from app.merchants.models import (
+            Merchant,  # local import to avoid potential circular deps
+        )
+
+        # IMPORTANT: See note on coupling and circular import issues at the top of the file.
+
+        row = (
+            db.query(Offer, Merchant.name, Merchant.active)
+            .join(Merchant, Offer.merchant_id == Merchant.id)
+            .filter(Offer.id == offer_id)
+            .first()
+        )
+        if row is None:
+            return None
+        offer, merchant_name, merchant_active = row
+        return offer, merchant_name, merchant_active
 
     def update_offer_status(self, db: Session, offer: Offer, active: bool) -> Offer:
         offer.active = active

@@ -21,6 +21,8 @@ class OfferService:
         enforce_monthly_cap_validity: Callable[[float], None],
         enforce_merchant_is_active: Callable[[str, bool], None],
         enforce_no_active_offer_exists: Callable[[str, bool], None],
+        enforce_offer_visibility: Callable[[str, bool, bool], None],
+        enforce_offer_merchant_visibility: Callable[[str, str, bool, bool], None],
         offer_repository: OfferRepositoryABC,
         merchant_repository: MerchantRepositoryABC,
     ):
@@ -29,6 +31,8 @@ class OfferService:
         self.enforce_monthly_cap_validity = enforce_monthly_cap_validity
         self.enforce_merchant_is_active = enforce_merchant_is_active
         self.enforce_no_active_offer_exists = enforce_no_active_offer_exists
+        self.enforce_offer_visibility = enforce_offer_visibility
+        self.enforce_offer_merchant_visibility = enforce_offer_merchant_visibility
         self.offer_repository = offer_repository
         self.merchant_repository = merchant_repository
 
@@ -113,6 +117,27 @@ class OfferService:
         db: Session,
     ) -> tuple[list[tuple[Offer, str]], int]:
         return self.offer_repository.list_active_offers(db, page, page_size, today)
+
+    def get_offer_details(
+        self,
+        offer_id: str,
+        is_admin: bool,
+        db: Session,
+    ) -> tuple[Offer, str]:
+        result = self.offer_repository.get_offer_with_merchant_name(db, offer_id)
+        if result is None:
+            logger.debug(
+                "Offer details not found.",
+                extra={"offer_id": offer_id},
+            )
+            raise OfferNotFoundException(offer_id)
+
+        offer, merchant_name, merchant_active = result
+        self.enforce_offer_visibility(offer_id, offer.active, is_admin)
+        self.enforce_offer_merchant_visibility(
+            offer_id, str(offer.merchant_id), merchant_active, is_admin
+        )
+        return offer, merchant_name
 
     def set_offer_status(self, offer_id: str, active: bool, db: Session) -> Offer:
         offer = self.offer_repository.get_offer_by_id(db, offer_id)

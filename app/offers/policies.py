@@ -3,6 +3,8 @@ from datetime import date
 from app.core.config import settings
 from app.offers.exceptions import (
     ActiveOfferAlreadyExistsException,
+    InactiveMerchantForOfferException,
+    InactiveOfferException,
     InvalidCashbackValueException,
     InvalidDateRangeException,
     InvalidMonthlyCapException,
@@ -52,3 +54,15 @@ def enforce_merchant_is_active(merchant_id: str, is_active: bool) -> None:
 def enforce_no_active_offer_exists(merchant_id: str, has_active_offer: bool) -> None:
     if has_active_offer:
         raise ActiveOfferAlreadyExistsException(merchant_id)
+
+
+def enforce_offer_visibility(offer_id: str, is_active: bool, is_admin: bool) -> None:
+    if not is_admin and not is_active:
+        raise InactiveOfferException(offer_id)
+
+
+def enforce_offer_merchant_visibility(
+    offer_id: str, merchant_id: str, merchant_active: bool, is_admin: bool
+) -> None:
+    if not is_admin and not merchant_active:
+        raise InactiveMerchantForOfferException(offer_id, merchant_id)
