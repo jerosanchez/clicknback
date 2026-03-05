@@ -1,14 +1,15 @@
 <!-- markdownlint-disable MD041 -->
+
+![ClickNBack banner](/docs/clicknback-banner.png)
+
 ![CI](https://github.com/jerosanchez/clicknback/actions/workflows/ci.yml/badge.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?logo=fastapi)
+[![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 ![status: early development](https://img.shields.io/badge/status-early%20development-orange)
 <!-- markdownlint-enable MD041 -->
 
-# ClickNBack – Backend Engineering Demo
-
-**A production-grade cashback platform backend built to demonstrate senior-level Python engineering.**
-
-Built with **Python 3.13** | **FastAPI** | **PostgreSQL** | **SQLAlchemy** | **Alembic** | **pytest**
+**A production-grade cashback platform backend built to showcase senior-level Python engineering.**
 
 ---
 
@@ -16,7 +17,13 @@ Built with **Python 3.13** | **FastAPI** | **PostgreSQL** | **SQLAlchemy** | **A
 
 ClickNBack models how a real cashback application works: users earn rewards on purchases at partner merchants. The platform ingests purchase events, calculates cashback, manages user wallets (pending, available, and paid balances), and processes withdrawals.
 
-The system is intentionally small in surface area but deep in engineering rigor. It is not a tutorial or scaffold — it is a working backend demonstrating the kind of decisions, tradeoffs, and discipline expected in a production codebase.
+A complete [glossary](/docs/specs/domain-glossary.md) and [product spec documents](/docs/specs/) are available to better understand the business domain.
+
+The system is intentionally small in surface area but deep in engineering rigor. It is not a tutorial or scaffold — it is a working backend continuously deployed to a real VPS, publicly accessible (see the [Try the Live API](#try-the-live-api) section below), demonstrating the kind of decisions, tradeoffs, and discipline expected in a production codebase.
+
+If you want to understand this particular business domain and test the system end-to-end without reading all the documentation, you can also [explore the workflows](#explore-the-workflows) directly from your VS Code using a curated series of step by step, extensively commented HTTP request files.
+
+Product specs are still evolving, see the [feature roadmap](#feature-roadmap) to see an up-to-date feature availability status.
 
 ---
 
@@ -34,44 +41,74 @@ The system is intentionally small in surface area but deep in engineering rigor.
 
 ---
 
-## Feature Progress
+## Feature Roadmap
+
+Last updated: 2026.03.05
+
+_Status legend:_
+
+- 🟢 done: Fully implemented and available
+- ⚪ backlog: Queued for development, expected in the short-term
+- ⚫ planned: Feature is considered for future development, timing is uncertain
 
 | Feature | Domain | Status |
 | --- | --- | --- |
 | **Authentication** | | |
 | User Login | Auth | 🟢 done |
+| User Logout | Auth | ⚫ planned |
 | **User Management** | | |
 | User Registration | Users | 🟢 done |
+| User Details (profile) | Users | ⚫ planned |
+| User Listing | Users | ⚫ planned |
+| User Update | Users | ⚫ planned |
+| User Deletion | Users | ⚫ planned |
 | **Merchant Management** | | |
 | Merchant Creation | Merchants | 🟢 done |
 | Merchants Listing | Merchants | 🟢 done |
 | Merchant Activation | Merchants | 🟢 done |
+| Merchant Details | Merchants | ⚫ planned |
+| Merchant Update | Merchants | ⚫ planned |
+| Merchant Deletion | Merchants | ⚫ planned |
 | **Offer Management** | | |
 | Offer Creation | Offers | 🟢 done |
 | Offers Listing | Offers | 🟢 done |
 | Active Offers Listing | Offers | 🟢 done |
 | Offer Activation | Offers | 🟢 done |
 | Offer Details | Offers | 🟢 done |
+| Offer Update | Offers | ⚫ planned |
+| Offer Deletion | Offers | ⚫ planned |
 | **Purchase & Cashback** | | |
-| Purchase Ingestion (Webhook) | Purchases | ⚪ planned |
-| Purchase Confirmation | Purchases | ⚪ planned |
-| Purchase Details | Purchases | ⚪ planned |
-| Purchases Listing | Purchases | ⚪ planned |
-| Cashback Calculation Engine | Purchases | ⚪ planned |
-| Purchase Reversal | Purchases | ⚪ planned |
+| Purchase Ingestion (Webhook) | Purchases | ⚪ backlog |
+| Purchase Confirmation | Purchases | ⚪ backlog |
+| Purchase Details | Purchases | ⚪ backlog |
+| Purchases Listing | Purchases | ⚪ backlog |
+| Cashback Calculation Engine | Purchases | ⚪ backlog |
+| Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
-| Wallet Summary | Wallets | ⚪ planned |
-| Wallet Transactions Listing | Wallets | ⚪ planned |
+| Wallet Summary | Wallets | ⚪ backlog |
+| Wallet Transactions Listing | Wallets | ⚪ backlog |
 | **Payouts** | | |
-| Payout Request (Withdrawal) | Payouts | ⚪ planned |
-| Payout Processing | Payouts | ⚪ planned |
-| Payouts Listing | Payouts | ⚪ planned |
+| Payout Request (Withdrawal) | Payouts | ⚪ backlog |
+| Payout Processing | Payouts | ⚪ backlog |
+| Payouts Listing | Payouts | ⚪ backlog |
+| **Notifications** | | |
+| Purchase Creation Notification | Notifications | ⚫ planned |
+| Purchase Confirmation Notification | Notifications | ⚫ planned |
+| Purchase Reversal Notification | Notifications | ⚫ planned |
+| Payout Processing Notification | Notifications | ⚫ planned |
+| **AI & Augmented Features** | | |
+| Fraud Scoring | AI | ⚫ planned |
+| Smart Offer Recommendations | AI | ⚫ planned |
+| Automated FAQ/Support Chatbot | AI | ⚫ planned |
+| Fraud Pattern Detection | AI | ⚫ planned |
+| Personalized Cashback Insights | AI | ⚫ planned |
+| Natural Language Query for Admins | AI | ⚫ planned |
 
 ---
 
 ## Try the Live API
 
-The API is continuosly deployed at **<https://clicknback.com>** No setup required.
+The API is continuosly deployed at **<https://clicknback.com>**. No setup required.
 
 - **Interactive docs (Swagger UI):** <https://clicknback.com/docs>
 - **Demo admin credentials:** `carol@clicknback.com` / `Str0ng!Pass` — use these to access admin-only endpoints
@@ -79,6 +116,27 @@ The API is continuosly deployed at **<https://clicknback.com>** No setup require
 - **Nightly reset:** the database resets every night at 03:00 UTC — any data you create will not persist
 - **Rate limits:** login and registration are capped at 5 requests/min per IP; all other endpoints at 60 requests/min per IP — you will get a `429` if you exceed these
 - _This is a shared demo environment; please be considerate._
+
+---
+
+## Explore the Workflows
+
+If you want to understand the business domain and test the system end-to-end without reading all the documentation, start here:
+
+**[End-to-End Workflows guide](docs/specs/workflows/end-to-end-workflows.md)** — a plain-language walkthrough of the four main business flows, explained from the user's perspective: admin setup, offer discovery, purchase & cashback, and wallet & payouts.
+
+The guide comes with ready-to-run `.http` request sequences (compatible with the [VS Code REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension) that target the live API and can be executed step-by-step to simulate each workflow manually:
+
+| File | Workflow | Status |
+| --- | --- | --- |
+| [`01-admin-platform-setup.http`](docs/specs/workflows/http/01-admin-platform-setup.http) | Create and activate a merchant and an offer | 🟢 live |
+| [`02-user-discovery.http`](docs/specs/workflows/http/02-user-discovery.http) | Register, log in, and browse active offers | 🟢 live |
+| [`03-purchase-and-cashback.http`](docs/specs/workflows/http/03-purchase-and-cashback.http) | Ingest a purchase, confirm it, verify cashback | ⚪ backlog |
+| [`04-wallet-and-payout.http`](docs/specs/workflows/http/04-wallet-and-payout.http) | Check wallet balances and process a withdrawal | ⚪ backlog |
+
+_The backlog files document the intended API surface for upcoming features — useful for understanding the domain model even before the endpoints are implemented._
+
+_No local installation required, the requests hit the public API directly._
 
 ---
 

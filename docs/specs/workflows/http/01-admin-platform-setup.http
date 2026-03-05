@@ -1,0 +1,166 @@
+### ClickNBack — Workflow 1: Admin Platform Setup
+###
+### Goal: Create and activate a merchant, then create and activate an offer.
+### Role: Admin
+###
+### Prerequisites:
+###   - None. Use the demo admin account below, or replace with your own admin credentials.
+###
+### How to run:
+###   1. Open this file in VS Code with the REST Client extension installed.
+###   2. Run each request in order by clicking "Send Request" above each block.
+###   3. Copy IDs from the responses into the variables below (or use REST Client's
+###      request chaining — see comments on each step).
+###
+### Live API: https://clicknback.com
+### Docs:     https://clicknback.com/docs
+
+@baseUrl = https://clicknback.com
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — Login as admin
+#
+# Expected: 200 OK with an access_token.
+# Copy the access_token value and set @adminToken below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name adminLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+
+###
+
+# Set the token from step 1.
+# In VS Code REST Client you can use: @adminToken = {{adminLogin.response.body.access_token}}
+# Or paste the token manually after running the request above.
+@adminToken = PASTE_ACCESS_TOKEN_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2 — Create a merchant
+#
+# Creates a new merchant in INACTIVE state (default).
+# Expected: 201 Created with the new merchant's id.
+# Copy the `id` value and set @merchantId below.
+#
+# Business rules:
+#   - default_cashback_percentage is a fallback; actual cashback is driven by offers.
+#   - The merchant starts inactive — it must be explicitly activated (step 3).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name createMerchant
+POST {{baseUrl}}/api/v1/merchants
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Demo Store",
+  "default_cashback_percentage": 5.0,
+  "active": false
+}
+
+
+###
+
+@merchantId = PASTE_MERCHANT_ID_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3 — Activate the merchant
+#
+# Expected: 200 OK with id and status: "active".
+# After this, the merchant appears in active merchant listings.
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/api/v1/merchants/{{merchantId}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "active"
+}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4 — Create an offer for the merchant
+#
+# Creates a cashback offer starting today, valid for 30 days.
+# Expected: 201 Created with the new offer's id and status: "inactive".
+# Copy the `id` value and set @offerId below.
+#
+# Business rules:
+#   - cashback_type: "percent" or "fixed"
+#   - For "percent", cashback_value is the percentage (e.g., 5.0 = 5%)
+#   - For "fixed", cashback_value is a monetary amount (e.g., 2.00 = €2.00)
+#   - monthly_cap is the maximum cashback a user can earn from this offer per calendar month
+#   - start_date must be today or a future date
+#   - A merchant can have only ONE active offer at a time
+#   - The offer starts inactive — it must be explicitly activated (step 5)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name createOffer
+POST {{baseUrl}}/api/v1/offers
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "merchant_id": "{{merchantId}}",
+  "cashback_type": "percent",
+  "cashback_value": 5.0,
+  "start_date": "2026-03-05",
+  "end_date": "2026-04-05",
+  "monthly_cap": 20.00
+}
+
+
+###
+
+@offerId = PASTE_OFFER_ID_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 5 — Activate the offer
+#
+# Expected: 200 OK with id and status: "active".
+# After this, the offer appears in GET /api/v1/offers/active for all logged-in users.
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/api/v1/offers/{{offerId}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "active"
+}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VERIFICATION — List merchants and confirm the new one appears
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/merchants?active=true&page=1&page_size=10
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VERIFICATION — List all offers (admin view, paginated)
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/offers?page=1&page_size=10
+Authorization: Bearer {{adminToken}}
