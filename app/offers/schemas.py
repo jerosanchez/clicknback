@@ -1,14 +1,24 @@
 from datetime import date
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, model_validator
+
+# --- ENUMS ---
+
+
+class OfferStatusEnum(str, Enum):
+    active = "active"
+    inactive = "inactive"
 
 
 class CashbackTypeEnum(str, Enum):
     percent = "percent"
     fixed = "fixed"
+
+
+# --- POST /offers/
 
 
 class OfferCreate(BaseModel):
@@ -20,7 +30,7 @@ class OfferCreate(BaseModel):
     monthly_cap: float
 
 
-# --- OfferOut
+# --- GET /offers/
 
 
 class OfferOut(BaseModel):
@@ -31,7 +41,7 @@ class OfferOut(BaseModel):
     start_date: date
     end_date: date
     monthly_cap_per_user: float
-    status: Literal["active", "inactive"]
+    status: OfferStatusEnum
 
     model_config = {"from_attributes": True}
 
@@ -71,7 +81,7 @@ class PaginatedOffersOut(BaseModel):
     page_size: int
 
 
-# --- ActiveOfferOut
+# --- GET /offers/active
 
 
 class ActiveOfferOut(BaseModel):
@@ -89,3 +99,15 @@ class PaginatedActiveOffersOut(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# --- PATCH /offers/{id}/status
+
+
+class OfferStatusUpdate(BaseModel):
+    status: OfferStatusEnum
+
+
+class OfferStatusOut(BaseModel):
+    id: UUID
+    status: OfferStatusEnum

@@ -52,3 +52,9 @@ class PastOfferStartDateException(Exception):
             " Start date must be today or a future date."
         )
         self.start_date = start_date
+
+
+class OfferNotFoundException(Exception):
+    def __init__(self, offer_id: str):
+        super().__init__(f"Offer with ID '{offer_id}' does not exist.")
+        self.offer_id = offer_id
