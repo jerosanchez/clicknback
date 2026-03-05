@@ -1,14 +1,15 @@
 <!-- markdownlint-disable MD041 -->
+
+![ClickNBack banner](/docs/clicknback-banner.png)
+
 ![CI](https://github.com/jerosanchez/clicknback/actions/workflows/ci.yml/badge.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?logo=fastapi)
+[![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 ![status: early development](https://img.shields.io/badge/status-early%20development-orange)
 <!-- markdownlint-enable MD041 -->
 
-# ClickNBack – Backend Engineering Demo
-
-**A production-grade cashback platform backend built to demonstrate senior-level Python engineering.**
-
-Built with **Python 3.13** | **FastAPI** | **PostgreSQL** | **SQLAlchemy** | **Alembic** | **pytest**
+**A production-grade cashback platform backend built to showcase senior-level Python engineering.**
 
 ---
 
@@ -16,7 +17,11 @@ Built with **Python 3.13** | **FastAPI** | **PostgreSQL** | **SQLAlchemy** | **A
 
 ClickNBack models how a real cashback application works: users earn rewards on purchases at partner merchants. The platform ingests purchase events, calculates cashback, manages user wallets (pending, available, and paid balances), and processes withdrawals.
 
-The system is intentionally small in surface area but deep in engineering rigor. It is not a tutorial or scaffold — it is a working backend demonstrating the kind of decisions, tradeoffs, and discipline expected in a production codebase.
+A complete [glossary](/docs/specs/domain-glossary.md) and [product spec documents](/docs/specs/) are available to better understand the business domain.
+
+The system is intentionally small in surface area but deep in engineering rigor. It is not a tutorial or scaffold — it is a working backend continuously deployed to a real VPS (usually several times a day), publicly accessible (see the [Try the Live API](#try-the-live-api) section below), demonstrating the kind of decisions, tradeoffs, and discipline expected in a production codebase.
+
+_Product specs are still evolving, so you might expect advanced features geting into the roadmap in the future._
 
 ---
 
@@ -34,7 +39,9 @@ The system is intentionally small in surface area but deep in engineering rigor.
 
 ---
 
-## Feature Progress
+## Feature Roadmap
+
+Last updated: 2026.03.05
 
 | Feature | Domain | Status |
 | --- | --- | --- |
