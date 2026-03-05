@@ -101,6 +101,22 @@ class PaginatedActiveOffersOut(BaseModel):
     page_size: int
 
 
+# --- GET /offers/{id}
+
+
+class OfferDetailsOut(BaseModel):
+    id: UUID
+    merchant_name: str
+    cashback_type: CashbackTypeEnum
+    cashback_value: float
+    monthly_cap: float
+    start_date: date
+    end_date: date
+    status: OfferStatusEnum
+
+    model_config = {"from_attributes": True}
+
+
 # --- PATCH /offers/{id}/status
 
 

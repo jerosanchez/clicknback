@@ -5,6 +5,8 @@ import pytest
 from app.core.config import settings
 from app.offers.exceptions import (
     ActiveOfferAlreadyExistsException,
+    InactiveMerchantForOfferException,
+    InactiveOfferException,
     InvalidCashbackValueException,
     InvalidDateRangeException,
     InvalidMonthlyCapException,
@@ -17,10 +19,13 @@ from app.offers.policies import (
     enforce_merchant_is_active,
     enforce_monthly_cap_validity,
     enforce_no_active_offer_exists,
+    enforce_offer_merchant_visibility,
+    enforce_offer_visibility,
 )
 from app.offers.schemas import CashbackTypeEnum
 
 MERCHANT_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+OFFER_ID = "f4b0c442-98fc-1c14-9afb-4c4e6c2e2a8c"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -163,4 +168,77 @@ def test_enforce_no_active_offer_exists_raises_on_existing_active_offer() -> Non
     # Act & Assert
     with pytest.raises(ActiveOfferAlreadyExistsException) as exc_info:
         enforce_no_active_offer_exists(MERCHANT_ID, has_active_offer=True)
+    assert exc_info.value.merchant_id == MERCHANT_ID
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# enforce_offer_visibility
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_enforce_offer_visibility_raises_nothing_on_active_offer_for_non_admin() -> (
+    None
+):
+    # Act & Assert
+    enforce_offer_visibility(OFFER_ID, is_active=True, is_admin=False)
+
+
+def test_enforce_offer_visibility_raises_nothing_on_active_offer_for_admin() -> None:
+    # Act & Assert
+    enforce_offer_visibility(OFFER_ID, is_active=True, is_admin=True)
+
+
+def test_enforce_offer_visibility_raises_nothing_on_inactive_offer_for_admin() -> None:
+    # Act & Assert
+    enforce_offer_visibility(OFFER_ID, is_active=False, is_admin=True)
+
+
+def test_enforce_offer_visibility_raises_on_inactive_offer_for_non_admin() -> None:
+    # Act & Assert
+    with pytest.raises(InactiveOfferException) as exc_info:
+        enforce_offer_visibility(OFFER_ID, is_active=False, is_admin=False)
+    assert exc_info.value.offer_id == OFFER_ID
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# enforce_offer_merchant_visibility
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_enforce_offer_merchant_visibility_raises_nothing_on_active_merchant_for_non_admin() -> (
+    None
+):
+    # Act & Assert
+    enforce_offer_merchant_visibility(
+        OFFER_ID, MERCHANT_ID, merchant_active=True, is_admin=False
+    )
+
+
+def test_enforce_offer_merchant_visibility_raises_nothing_on_active_merchant_for_admin() -> (
+    None
+):
+    # Act & Assert
+    enforce_offer_merchant_visibility(
+        OFFER_ID, MERCHANT_ID, merchant_active=True, is_admin=True
+    )
+
+
+def test_enforce_offer_merchant_visibility_raises_nothing_on_inactive_merchant_for_admin() -> (
+    None
+):
+    # Act & Assert
+    enforce_offer_merchant_visibility(
+        OFFER_ID, MERCHANT_ID, merchant_active=False, is_admin=True
+    )
+
+
+def test_enforce_offer_merchant_visibility_raises_on_inactive_merchant_for_non_admin() -> (
+    None
+):
+    # Act & Assert
+    with pytest.raises(InactiveMerchantForOfferException) as exc_info:
+        enforce_offer_merchant_visibility(
+            OFFER_ID, MERCHANT_ID, merchant_active=False, is_admin=False
+        )
+    assert exc_info.value.offer_id == OFFER_ID
     assert exc_info.value.merchant_id == MERCHANT_ID

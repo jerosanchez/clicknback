@@ -10,6 +10,8 @@ from app.merchants.models import Merchant
 from app.merchants.repository import MerchantRepositoryABC
 from app.offers.exceptions import (
     ActiveOfferAlreadyExistsException,
+    InactiveMerchantForOfferException,
+    InactiveOfferException,
     InvalidCashbackValueException,
     InvalidDateRangeException,
     InvalidMonthlyCapException,
@@ -48,6 +50,16 @@ def enforce_no_active_offer_exists_mock() -> Mock:
 
 
 @pytest.fixture
+def enforce_offer_visibility_mock() -> Mock:
+    return Mock()
+
+
+@pytest.fixture
+def enforce_offer_merchant_visibility_mock() -> Mock:
+    return Mock()
+
+
+@pytest.fixture
 def offer_repository_mock() -> Mock:
     return create_autospec(OfferRepositoryABC)
 
@@ -64,6 +76,8 @@ def offer_service(
     enforce_monthly_cap_validity_mock: Mock,
     enforce_merchant_is_active_mock: Mock,
     enforce_no_active_offer_exists_mock: Mock,
+    enforce_offer_visibility_mock: Mock,
+    enforce_offer_merchant_visibility_mock: Mock,
     offer_repository_mock: Mock,
     merchant_repository_mock: Mock,
 ) -> OfferService:
@@ -73,6 +87,8 @@ def offer_service(
         enforce_monthly_cap_validity=enforce_monthly_cap_validity_mock,
         enforce_merchant_is_active=enforce_merchant_is_active_mock,
         enforce_no_active_offer_exists=enforce_no_active_offer_exists_mock,
+        enforce_offer_visibility=enforce_offer_visibility_mock,
+        enforce_offer_merchant_visibility=enforce_offer_merchant_visibility_mock,
         offer_repository=offer_repository_mock,
         merchant_repository=merchant_repository_mock,
     )
@@ -374,3 +390,135 @@ def test_set_offer_status_raises_on_offer_not_found(
         offer_service.set_offer_status(missing_offer_id, True, db)
 
     assert exc_info.value.offer_id == missing_offer_id
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OfferService.get_offer_details
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_get_offer_details_returns_offer_and_merchant_name_on_success(
+    offer_service: OfferService,
+    offer_repository_mock: Mock,
+    offer_factory: Callable[..., Offer],
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    offer = offer_factory(active=True)
+    merchant_name = "Shoply"
+    merchant_active = True
+    offer_repository_mock.get_offer_with_merchant_name.return_value = (
+        offer,
+        merchant_name,
+        merchant_active,
+    )
+
+    # Act
+    result_offer, result_merchant_name = offer_service.get_offer_details(
+        offer.id, is_admin=False, db=db
+    )
+
+    # Assert
+    assert result_offer == offer
+    assert result_merchant_name == merchant_name
+
+
+def test_get_offer_details_raises_on_offer_not_found(
+    offer_service: OfferService,
+    offer_repository_mock: Mock,
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    missing_offer_id = "00000000-0000-0000-0000-000000000000"
+    offer_repository_mock.get_offer_with_merchant_name.return_value = None
+
+    # Act & Assert
+    with pytest.raises(OfferNotFoundException) as exc_info:
+        offer_service.get_offer_details(missing_offer_id, is_admin=False, db=db)
+
+    assert exc_info.value.offer_id == missing_offer_id
+
+
+def test_get_offer_details_enforces_offer_visibility_policy(
+    offer_service: OfferService,
+    offer_repository_mock: Mock,
+    enforce_offer_visibility_mock: Mock,
+    offer_factory: Callable[..., Offer],
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    inactive_offer = offer_factory(active=False)
+    offer_repository_mock.get_offer_with_merchant_name.return_value = (
+        inactive_offer,
+        "Shoply",
+        True,
+    )
+    enforce_offer_visibility_mock.side_effect = InactiveOfferException(
+        inactive_offer.id
+    )
+
+    # Act & Assert
+    with pytest.raises(InactiveOfferException):
+        offer_service.get_offer_details(inactive_offer.id, is_admin=False, db=db)
+
+
+def test_get_offer_details_enforces_offer_merchant_visibility_policy(
+    offer_service: OfferService,
+    offer_repository_mock: Mock,
+    enforce_offer_merchant_visibility_mock: Mock,
+    offer_factory: Callable[..., Offer],
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    offer = offer_factory(active=True)
+    inactive_merchant_name = "LuxWatches"
+    inactive_merchant_active = False
+    offer_repository_mock.get_offer_with_merchant_name.return_value = (
+        offer,
+        inactive_merchant_name,
+        inactive_merchant_active,
+    )
+    enforce_offer_merchant_visibility_mock.side_effect = (
+        InactiveMerchantForOfferException(offer.id, offer.merchant_id)
+    )
+
+    # Act & Assert
+    with pytest.raises(InactiveMerchantForOfferException):
+        offer_service.get_offer_details(offer.id, is_admin=False, db=db)
+
+
+def test_get_offer_details_admin_calls_policies_with_is_admin_true(
+    offer_service: OfferService,
+    offer_repository_mock: Mock,
+    enforce_offer_visibility_mock: Mock,
+    enforce_offer_merchant_visibility_mock: Mock,
+    offer_factory: Callable[..., Offer],
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    inactive_offer = offer_factory(active=False)
+    inactive_merchant_active = False
+    offer_repository_mock.get_offer_with_merchant_name.return_value = (
+        inactive_offer,
+        "LuxWatches",
+        inactive_merchant_active,
+    )
+    # Policies do NOT raise (mock default) — admin bypass is implemented inside policies
+
+    # Act
+    result_offer, result_merchant_name = offer_service.get_offer_details(
+        inactive_offer.id, is_admin=True, db=db
+    )
+
+    # Assert
+    enforce_offer_visibility_mock.assert_called_once_with(
+        inactive_offer.id, inactive_offer.active, True
+    )
+    enforce_offer_merchant_visibility_mock.assert_called_once_with(
+        inactive_offer.id,
+        str(inactive_offer.merchant_id),
+        inactive_merchant_active,
+        True,
+    )
+    assert result_offer == inactive_offer
+    assert result_merchant_name == "LuxWatches"

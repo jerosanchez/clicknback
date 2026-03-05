@@ -18,10 +18,8 @@ _As an authenticated user, I want to view detailed information about a specific 
 ### Offer Constraints
 
 - Offer must exist
-- Offer must be active
-- Associated merchant must be active
-
----
+- Offer must be active (unless requester is an admin)
+- Associated merchant must be active (unless requester is an admin)
 
 ## BDD Acceptance Criteria
 
@@ -30,6 +28,13 @@ _As an authenticated user, I want to view detailed information about a specific 
 **And** the offer exists and is active
 **When** the authorization is verified and offer exists
 **Then** the complete offer information is returned
+
+**Scenario:** Admin views inactive offer or offer with inactive merchant
+**Given** I am an authenticated admin user
+**And** the offer exists (regardless of active status)
+**And** the associated merchant exists (regardless of active status)
+**When** the authorization is verified and offer exists
+**Then** the complete offer information is returned, even if the offer or merchant is inactive
 
 **Scenario:** Unauthenticated user attempts to view offer details
 **Given** I am not authenticated
@@ -42,7 +47,7 @@ _As an authenticated user, I want to view detailed information about a specific 
 **Then** a not found error is returned
 
 **Scenario:** User attempts to view inactive offer
-**Given** I am an authenticated user
+**Given** I am an authenticated user (not admin)
 **And** the offer is inactive
 **When** the system checks offer status
 **Then** access is denied or a not found error is returned
@@ -61,6 +66,14 @@ An authenticated user successfully views offer details
 4. System verifies offer is active.
 5. System verifies merchant is active.
 6. System returns full offer information.
+
+Admin views inactive offer or offer with inactive merchant
+
+1. Admin requests offer details by ID.
+2. System verifies admin authentication.
+3. System retrieves offer record (regardless of active status).
+4. System retrieves associated merchant (regardless of active status).
+5. System returns full offer information, even if offer or merchant is inactive.
 
 ### Sad Paths
 
@@ -86,7 +99,7 @@ Unauthenticated Request
 3. System retrieves offer record.
 4. System checks offer active status.
 5. System finds offer is inactive.
-6. System denies access or returns not found error.
+6. System denies access or returns not found error (unless requester is admin).
 
 #### Inactive Merchant
 
@@ -95,7 +108,7 @@ Unauthenticated Request
 3. System retrieves offer record.
 4. System checks associated merchant status.
 5. System finds merchant is inactive.
-6. System denies access or returns not found error.
+6. System denies access or returns not found error (unless requester is admin).
 
 ## API Contract
 

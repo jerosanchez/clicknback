@@ -58,3 +58,19 @@ class OfferNotFoundException(Exception):
     def __init__(self, offer_id: str):
         super().__init__(f"Offer with ID '{offer_id}' does not exist.")
         self.offer_id = offer_id
+
+
+class InactiveOfferException(Exception):
+    def __init__(self, offer_id: str):
+        super().__init__(f"Offer with ID '{offer_id}' is not active.")
+        self.offer_id = offer_id
+
+
+class InactiveMerchantForOfferException(Exception):
+    def __init__(self, offer_id: str, merchant_id: str):
+        super().__init__(
+            f"The merchant '{merchant_id}' associated with offer '{offer_id}'"
+            " is not active."
+        )
+        self.offer_id = offer_id
+        self.merchant_id = merchant_id
