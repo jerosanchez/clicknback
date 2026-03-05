@@ -50,7 +50,7 @@ The system is intentionally small in surface area but deep in engineering rigor.
 | Offer Creation | Offers | 🟢 done |
 | Offers Listing | Offers | 🟢 done |
 | Active Offers Listing | Offers | 🟢 done |
-| Offer Activation | Offers | ⚪ planned |
+| Offer Activation | Offers | 🟢 done |
 | Offer Details | Offers | ⚪ planned |
 | **Purchase & Cashback** | | |
 | Purchase Ingestion (Webhook) | Purchases | ⚪ planned |
@@ -71,7 +71,7 @@ The system is intentionally small in surface area but deep in engineering rigor.
 
 ## Try the Live API
 
-The API is deployed at **<https://clicknback.com>**. No setup required.
+The API is continuosly deployed at **<https://clicknback.com>** No setup required.
 
 - **Interactive docs (Swagger UI):** <https://clicknback.com/docs>
 - **Demo admin credentials:** `carol@clicknback.com` / `Str0ng!Pass` — use these to access admin-only endpoints
