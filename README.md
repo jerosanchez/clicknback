@@ -51,7 +51,7 @@ The system is intentionally small in surface area but deep in engineering rigor.
 | Offers Listing | Offers | 🟢 done |
 | Active Offers Listing | Offers | 🟢 done |
 | Offer Activation | Offers | 🟢 done |
-| Offer Details | Offers | ⚪ planned |
+| Offer Details | Offers | 🟢 done |
 | **Purchase & Cashback** | | |
 | Purchase Ingestion (Webhook) | Purchases | ⚪ planned |
 | Purchase Confirmation | Purchases | ⚪ planned |
