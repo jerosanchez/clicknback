@@ -96,4 +96,6 @@ INSERT INTO offers (id, merchant_id, percentage, fixed_amount, start_date, end_d
     -- Active offer on OutdoorEscape – targeted by set-offer-status.http (deactivate scenario)
     ('c1d2e3f4-0000-0000-0001-000000000001', 'f4a5b6c7-d8e9-4f0a-1b2c-3d4e5f6a7b8c', 3.0, NULL, '2026-01-01', '2026-12-31', 30.0, TRUE),   -- OutdoorEscape active
     -- Inactive offer on ChefSupplies – targeted by set-offer-status.http (activate scenario)
-    ('c1d2e3f4-0000-0000-0002-000000000002', 'e3f4a5b6-c7d8-4e9f-0a1b-2c3d4e5f6a7b', 2.0, NULL, '2026-01-01', '2026-12-31', 20.0, FALSE);  -- ChefSupplies inactive
+    ('c1d2e3f4-0000-0000-0002-000000000002', 'e3f4a5b6-c7d8-4e9f-0a1b-2c3d4e5f6a7b', 2.0, NULL, '2026-01-01', '2026-12-31', 20.0, FALSE),  -- ChefSupplies inactive
+    -- Active offer on LuxWatches (inactive merchant) – for GET /offers/{id} inactive-merchant smoke test
+    ('d0000001-0000-0000-0000-000000000001', 'a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 5.0, NULL, '2026-01-01', '2026-12-31', 50.0, TRUE);  -- LuxWatches (inactive merchant)
