@@ -43,36 +43,64 @@ _Product specs are still evolving, so you might expect advanced features geting 
 
 Last updated: 2026.03.05
 
+_Status legend:_
+
+- 🟢 done: Fully implemented and available
+- ⚪ backlog: Queued for development, expected in the short-term
+- ⚫ planned: Feature is considered for future development, timing is uncertain
+
 | Feature | Domain | Status |
 | --- | --- | --- |
 | **Authentication** | | |
 | User Login | Auth | 🟢 done |
+| User Logout | Auth | ⚫ planned |
 | **User Management** | | |
 | User Registration | Users | 🟢 done |
+| User Details (profile) | Users | ⚫ planned |
+| User Listing | Users | ⚫ planned |
+| User Update | Users | ⚫ planned |
+| User Deletion | Users | ⚫ planned |
 | **Merchant Management** | | |
 | Merchant Creation | Merchants | 🟢 done |
 | Merchants Listing | Merchants | 🟢 done |
 | Merchant Activation | Merchants | 🟢 done |
+| Merchant Details | Merchants | ⚫ planned |
+| Merchant Update | Merchants | ⚫ planned |
+| Merchant Deletion | Merchants | ⚫ planned |
 | **Offer Management** | | |
 | Offer Creation | Offers | 🟢 done |
 | Offers Listing | Offers | 🟢 done |
 | Active Offers Listing | Offers | 🟢 done |
 | Offer Activation | Offers | 🟢 done |
 | Offer Details | Offers | 🟢 done |
+| Offer Update | Offers | ⚫ planned |
+| Offer Deletion | Offers | ⚫ planned |
 | **Purchase & Cashback** | | |
-| Purchase Ingestion (Webhook) | Purchases | ⚪ planned |
-| Purchase Confirmation | Purchases | ⚪ planned |
-| Purchase Details | Purchases | ⚪ planned |
-| Purchases Listing | Purchases | ⚪ planned |
-| Cashback Calculation Engine | Purchases | ⚪ planned |
-| Purchase Reversal | Purchases | ⚪ planned |
+| Purchase Ingestion (Webhook) | Purchases | ⚪ backlog |
+| Purchase Confirmation | Purchases | ⚪ backlog |
+| Purchase Details | Purchases | ⚪ backlog |
+| Purchases Listing | Purchases | ⚪ backlog |
+| Cashback Calculation Engine | Purchases | ⚪ backlog |
+| Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
-| Wallet Summary | Wallets | ⚪ planned |
-| Wallet Transactions Listing | Wallets | ⚪ planned |
+| Wallet Summary | Wallets | ⚪ backlog |
+| Wallet Transactions Listing | Wallets | ⚪ backlog |
 | **Payouts** | | |
-| Payout Request (Withdrawal) | Payouts | ⚪ planned |
-| Payout Processing | Payouts | ⚪ planned |
-| Payouts Listing | Payouts | ⚪ planned |
+| Payout Request (Withdrawal) | Payouts | ⚪ backlog |
+| Payout Processing | Payouts | ⚪ backlog |
+| Payouts Listing | Payouts | ⚪ backlog |
+| **Notifications** | | |
+| Purchase Creation Notification | Notifications | ⚫ planned |
+| Purchase Confirmation Notification | Notifications | ⚫ planned |
+| Purchase Reversal Notification | Notifications | ⚫ planned |
+| Payout Processing Notification | Notifications | ⚫ planned |
+| **AI & Augmented Features** | | |
+| Fraud Scoring | AI | ⚫ planned |
+| Smart Offer Recommendations | AI | ⚫ planned |
+| Automated FAQ/Support Chatbot | AI | ⚫ planned |
+| Fraud Pattern Detection | AI | ⚫ planned |
+| Personalized Cashback Insights | AI | ⚫ planned |
+| Natural Language Query for Admins | AI | ⚫ planned |
 
 ---
 
