@@ -1,0 +1,104 @@
+### ClickNBack — Workflow 2: User Registration and Offer Discovery
+###
+### Goal: Register as a new user, log in, and browse active cashback offers.
+### Role: Anonymous → User
+###
+### Prerequisites:
+###   - At least one active merchant with an active offer must exist.
+###     Run 01-admin-platform-setup.http first, or rely on the demo data
+###     that is pre-seeded in the live environment.
+###
+### Live API: https://clicknback.com
+### Docs:     https://clicknback.com/docs
+
+@baseUrl = https://clicknback.com
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — Register a new user account
+#
+# Expected: 201 Created with the new user's id, email, role ("user"), and created_at.
+#
+# Business rules:
+#   - Email must be unique in the system
+#   - Password complexity: min 8 chars, at least one uppercase, one lowercase,
+#     one digit, and one special character (!@#$%^&* etc.)
+#   - The account is active immediately — no email verification required
+#
+# Note: The live environment is rate-limited to 5 registration requests/min per IP.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name registerUser
+POST {{baseUrl}}/api/v1/users
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Alice1234!"
+}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2 — Log in with the new credentials
+#
+# Expected: 200 OK with an access_token and token_type: "bearer".
+# Copy the access_token and set @userToken below.
+#
+# Note: The live environment is rate-limited to 5 login requests/min per IP.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name userLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Alice1234!"
+}
+
+
+###
+
+# Set the token from step 2.
+@userToken = PASTE_ACCESS_TOKEN_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3 — Browse currently active offers
+#
+# Expected: 200 OK with a paginated list of offers that are:
+#   - offer.active = true
+#   - merchant.active = true
+#   - today falls within [start_date, end_date]
+#
+# Each offer shows: id, merchant_name, cashback_type, cashback_value,
+# monthly_cap, start_date, end_date.
+#
+# Use page / page_size to paginate through results.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/offers/active?page=1&page_size=10
+Authorization: Bearer {{userToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4 — View the details of a specific offer
+#
+# Paste an offer id from the list above.
+# Expected: 200 OK with the full offer object including cashback_type,
+# cashback_value, monthly_cap_per_user, start_date, end_date, and status.
+#
+# Business rule: a user can only fetch details for active offers.
+# Fetching an inactive offer returns 403 Forbidden.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@offerId = PASTE_OFFER_ID_FROM_STEP_3_HERE
+
+GET {{baseUrl}}/api/v1/offers/{{offerId}}
+Authorization: Bearer {{userToken}}

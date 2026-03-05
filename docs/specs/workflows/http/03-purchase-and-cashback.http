@@ -1,0 +1,192 @@
+### ClickNBack — Workflow 3: Purchase Ingestion and Cashback Calculation
+###
+### Goal: Simulate a purchase event from an external merchant system,
+###       confirm it, and verify that cashback is calculated and credited.
+### Roles: Admin (ingestion + confirmation), User (viewing results)
+###
+### Prerequisites:
+###   - An active merchant with an active offer exists (run 01-admin-platform-setup.http).
+###   - A registered user exists (run 02-user-discovery.http).
+###
+### ⚪ STATUS: These endpoints are BACKLOG — fully specified but not yet implemented.
+###    This file documents the intended API surface so you can understand the
+###    domain model and prepare integration tests ahead of time.
+###
+### Live API: https://clicknback.com
+### Docs:     https://clicknback.com/docs
+
+@baseUrl = https://clicknback.com
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — Login as admin
+#
+# The purchase ingestion endpoint is authenticated (system/admin role).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name adminLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+
+###
+
+@adminToken = PASTE_ADMIN_TOKEN_HERE
+@merchantId = PASTE_MERCHANT_ID_FROM_WORKFLOW_1_HERE
+@userId     = PASTE_USER_ID_FROM_WORKFLOW_2_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2 — Ingest a purchase (webhook call from external merchant system)
+#
+# Expected: 201 Created with status: "pending" and cashback_amount: 0.
+# Copy the `id` value and set @purchaseId below.
+#
+# Business rules:
+#   - This endpoint is IDEMPOTENT: submitting the same external_id twice
+#     returns the existing purchase — no duplicate is created.
+#   - The purchase starts in "pending" state; cashback is not calculated yet.
+#   - external_id is the merchant's own transaction ID (any unique string).
+#   - amount is in the currency specified (EUR in this demo).
+#
+# Try idempotency: send this request twice — the second call returns the
+# existing purchase with 200 OK instead of 201 Created.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name ingestPurchase
+POST {{baseUrl}}/api/v1/purchases
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "external_id": "txn_demo_001",
+  "user_id": "{{userId}}",
+  "merchant_id": "{{merchantId}}",
+  "amount": 100.00,
+  "currency": "EUR"
+}
+
+
+###
+
+@purchaseId = PASTE_PURCHASE_ID_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2b — Test idempotency: send the SAME purchase again
+#
+# Expected: the existing purchase is returned unchanged. No duplicate is created.
+# The cashback is not double-counted.
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/api/v1/purchases
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "external_id": "txn_demo_001",
+  "user_id": "{{userId}}",
+  "merchant_id": "{{merchantId}}",
+  "amount": 100.00,
+  "currency": "EUR"
+}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3 — Confirm the purchase
+#
+# Transitions the purchase from "pending" → "confirmed".
+# Expected: 200 OK. At this point:
+#   1. The system finds the active offer for this merchant on the purchase date.
+#   2. Calculates cashback (e.g., 5% of €100 = €5.00), subject to monthly_cap.
+#   3. Credits the user's wallet with a "pending" cashback transaction.
+#
+# If no active offer existed for this merchant on the purchase date, cashback = 0.
+#
+# Business rule: once confirmed, a purchase cannot be re-confirmed. Use the
+# reverse endpoint (step 6) to undo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/api/v1/purchases/{{purchaseId}}/confirm
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4 — Login as the user to view their purchase history
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name userLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Alice1234!"
+}
+
+
+###
+
+@userToken = PASTE_USER_TOKEN_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 5 — List the user's purchases
+#
+# Expected: paginated list of purchases with status, amount, and cashback_amount.
+# Confirmed purchases show the calculated cashback.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/users/{{userId}}/purchases?page=1&page_size=10
+Authorization: Bearer {{userToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 5b — View a specific purchase's details
+#
+# Expected: full purchase object including cashback_amount, status, and
+# the offer details that were applied.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/purchases/{{purchaseId}}
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 6 (optional) — Reverse a purchase
+#
+# Use this to simulate a refund or fraud reversal.
+# Expected: purchase transitions to "reversed" state.
+# Cashback that was credited is clawed back from the user's wallet.
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/api/v1/purchases/{{purchaseId}}/reverse
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADMIN VIEW — List all purchases (admin only, paginated)
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/purchases?page=1&page_size=10
+Authorization: Bearer {{adminToken}}

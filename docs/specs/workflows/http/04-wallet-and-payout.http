@@ -1,0 +1,210 @@
+### ClickNBack — Workflow 4: Wallet Summary and Payout
+###
+### Goal: Check a user's cashback wallet and request a withdrawal (payout).
+###       An admin then processes the payout.
+### Roles: User (wallet + payout request), Admin (payout processing)
+###
+### Prerequisites:
+###   - A confirmed purchase with cashback > 0 exists for the user
+###     (run 03-purchase-and-cashback.http through step 3).
+###
+### ⚪ STATUS: These endpoints are BACKLOG — fully specified but not yet implemented.
+###    This file documents the intended API surface so you can understand the
+###    domain model and prepare integration tests ahead of time.
+###
+### Live API: https://clicknback.com
+### Docs:     https://clicknback.com/docs
+
+@baseUrl = https://clicknback.com
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — Login as the user
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name userLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "Alice1234!"
+}
+
+
+###
+
+@userToken = PASTE_USER_TOKEN_HERE
+@userId    = PASTE_USER_ID_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2 — View wallet summary
+#
+# Expected: 200 OK with three balance fields:
+#   - pending:   cashback earned from confirmed purchases, not yet withdrawable
+#   - available: cashback the user can withdraw right now
+#   - paid:      total already paid out in past payouts
+#
+# The sum pending + available represents the user's total unrealised cashback.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/users/{{userId}}/wallet
+Authorization: Bearer {{userToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3 — List wallet transactions
+#
+# Expected: a paginated ledger of cashback credits (from purchase confirmations)
+# and debits (from payout requests and reversals).
+# Each transaction shows: type, amount, status, and a reference to the
+# source purchase or payout.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/users/{{userId}}/wallet/transactions?page=1&page_size=10
+Authorization: Bearer {{userToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4 — Request a payout (withdrawal)
+#
+# Expected: 201 Created with a payout record in "pending" state.
+# Copy the `id` value and set @payoutId below.
+#
+# Business rules:
+#   - amount must be <= available balance
+#   - A payout cannot exceed the user's available balance
+#   - Funds move to a "processing" state until an admin approves or rejects
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name requestPayout
+POST {{baseUrl}}/api/v1/users/{{userId}}/payouts
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "amount": 5.00
+}
+
+
+###
+
+@payoutId = PASTE_PAYOUT_ID_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4b — Verify wallet after payout request
+#
+# Expected: available balance decreases by the requested amount.
+# The funds are now in "processing" state (not yet reflected in "paid").
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/users/{{userId}}/wallet
+Authorization: Bearer {{userToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 5 — Login as admin to process the payout
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name adminLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+
+###
+
+@adminToken = PASTE_ADMIN_TOKEN_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 6 — List all pending payouts (admin view)
+#
+# Expected: paginated list of payout requests waiting for processing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/payouts?status=pending&page=1&page_size=10
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 7a — Approve the payout
+#
+# Expected: 200 OK. Funds move from "processing" to "paid".
+# The user's paid balance increases.
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/api/v1/payouts/{{payoutId}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "approved"
+}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 7b — (Alternative) Reject the payout
+#
+# Expected: 200 OK. Funds are returned to the user's available balance.
+# Use this to simulate a failed or reversed withdrawal.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# PATCH {{baseUrl}}/api/v1/payouts/{{payoutId}}/status
+# Content-Type: application/json
+# Authorization: Bearer {{adminToken}}
+#
+# {
+#   "status": "rejected"
+# }
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 8 — Verify wallet balances after payout processing
+#
+# Expected (after approval):
+#   - available: unchanged or 0 if fully withdrawn
+#   - paid:      increased by the payout amount
+#
+# Expected (after rejection):
+#   - available: restored to pre-request value
+#   - paid:      unchanged
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/users/{{userId}}/wallet
+Authorization: Bearer {{userToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# USER VIEW — List the user's own payout history
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/users/{{userId}}/payouts?page=1&page_size=10
+Authorization: Bearer {{userToken}}
