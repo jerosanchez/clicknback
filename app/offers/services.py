@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.logging import logger
 from app.merchants.exceptions import MerchantNotFoundException
 from app.merchants.repository import MerchantRepositoryABC
+from app.offers.exceptions import OfferNotFoundException
 from app.offers.models import Offer
 from app.offers.repositories import OfferRepositoryABC
 from app.offers.schemas import CashbackTypeEnum
@@ -112,3 +113,19 @@ class OfferService:
         db: Session,
     ) -> tuple[list[tuple[Offer, str]], int]:
         return self.offer_repository.list_active_offers(db, page, page_size, today)
+
+    def set_offer_status(self, offer_id: str, active: bool, db: Session) -> Offer:
+        offer = self.offer_repository.get_offer_by_id(db, offer_id)
+        if offer is None:
+            logger.debug(
+                "Offer not found for status update.",
+                extra={"offer_id": offer_id},
+            )
+            raise OfferNotFoundException(offer_id)
+
+        updated = self.offer_repository.update_offer_status(db, offer, active)
+        logger.info(
+            "Offer status updated.",
+            extra={"offer_id": offer_id, "active": active},
+        )
+        return updated

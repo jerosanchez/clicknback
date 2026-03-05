@@ -45,7 +45,7 @@ Do not test repository implementations directly (thin DB wrappers). Do not test 
 Each step that produces code is a **separate commit**. Do not begin the next step until the current step's commit is approved and executed by the human.
 
 To close a step:
-1. Run `make lint && make format && make test` — all must pass.
+1. Run `make lint && make test && make coverage && make security` — all must pass.
 2. Stage the changes and output `git diff --staged`.
 3. Propose a commit message.
 4. **Wait for explicit human approval before executing `git commit`.**

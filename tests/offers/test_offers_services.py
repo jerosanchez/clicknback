@@ -14,6 +14,7 @@ from app.offers.exceptions import (
     InvalidDateRangeException,
     InvalidMonthlyCapException,
     MerchantNotActiveException,
+    OfferNotFoundException,
 )
 from app.offers.models import Offer
 from app.offers.repositories import OfferRepositoryABC
@@ -327,3 +328,49 @@ def test_list_offers_returns_repository_result_on_call(
 # ──────────────────────────────────────────────────────────────────────────────
 
 # It is a simple forwarding method to the repository, no tests required.
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OfferService.set_offer_status
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "target_active",
+    [True, False],
+    ids=["activate", "deactivate"],
+)
+def test_set_offer_status_returns_updated_offer(
+    offer_service: OfferService,
+    offer_repository_mock: Mock,
+    offer_factory: Callable[..., Offer],
+    target_active: bool,
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    existing = offer_factory(active=not target_active)
+    updated = offer_factory(active=target_active)
+    offer_repository_mock.get_offer_by_id.return_value = existing
+    offer_repository_mock.update_offer_status.return_value = updated
+
+    # Act
+    result = offer_service.set_offer_status(existing.id, target_active, db)
+
+    # Assert
+    assert result == updated
+
+
+def test_set_offer_status_raises_on_offer_not_found(
+    offer_service: OfferService,
+    offer_repository_mock: Mock,
+) -> None:
+    # Arrange
+    db = Mock(spec=Session)
+    missing_offer_id = "00000000-0000-0000-0000-000000000000"
+    offer_repository_mock.get_offer_by_id.return_value = None
+
+    # Act & Assert
+    with pytest.raises(OfferNotFoundException) as exc_info:
+        offer_service.set_offer_status(missing_offer_id, True, db)
+
+    assert exc_info.value.offer_id == missing_offer_id

@@ -25,9 +25,17 @@ from app.offers.exceptions import (
     InvalidDateRangeException,
     InvalidMonthlyCapException,
     MerchantNotActiveException,
+    OfferNotFoundException,
     PastOfferStartDateException,
 )
-from app.offers.schemas import OfferCreate, OfferOut, PaginatedOffersOut
+from app.offers.schemas import (
+    OfferCreate,
+    OfferOut,
+    OfferStatusEnum,
+    OfferStatusOut,
+    OfferStatusUpdate,
+    PaginatedOffersOut,
+)
 from app.offers.services import OfferService
 from app.users.models import User
 
@@ -254,3 +262,41 @@ def _map_to_active(status_filter: str | None) -> bool | None:
         return False
     else:
         return None
+
+
+@router.patch(
+    "/{offer_id}/status",
+    status_code=status.HTTP_200_OK,
+    description="Activate or deactivate an offer.",
+)
+def set_offer_status(
+    offer_id: str,
+    update_data: OfferStatusUpdate,
+    offer_service: OfferService = Depends(get_offer_service),
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_admin_user),
+) -> OfferStatusOut:
+    active = update_data.status == "active"
+    try:
+        updated = offer_service.set_offer_status(offer_id, active, db)
+
+    except OfferNotFoundException as exc:
+        raise not_found_error(
+            message=str(exc),
+            details={
+                "resource_type": "offer",
+                "resource_id": offer_id,
+            },
+        )
+
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while updating offer status.",
+            extra={"error": str(e)},
+        )
+        raise internal_server_error()
+
+    return OfferStatusOut(
+        id=UUID(offer_id),
+        status=OfferStatusEnum.active if updated.active else OfferStatusEnum.inactive,
+    )

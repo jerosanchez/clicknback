@@ -159,23 +159,7 @@ Flake8 checks Python style and correctness. Common violations:
 
 **Do not add `# noqa` suppression comments** unless the violation is a genuine false-positive and the reason is documented inline.
 
-### 4.3 `isort` / `black` Failures
-
-Both are fully automated. The fix is always:
-
-```bash
-make format
-```
-
-Then re-run `make lint` to confirm the files are now clean. Typical root causes:
-
-- Imports added in the wrong section (stdlib, third-party, local).
-- Long import lines that need splitting.
-- Trailing commas or spacing inconsistencies.
-
-Never manually reorder imports or reformat code to match black's output — let the tool do it.
-
-### 4.4 Test Failures
+### 4.3 Test Failures
 
 Test failures require understanding the root cause before acting. Follow this decision tree:
 
@@ -201,7 +185,7 @@ Test fails
 
 If a test reveals that the intended behavior is genuinely ambiguous, implement the behavior that best satisfies the feature specification and update the test to document it explicitly.
 
-### 4.5 Import / Syntax Errors
+### 4.4 Import / Syntax Errors
 
 If `pytest` fails at collection time (before any test runs), there is likely a Python syntax error or a broken import. Identify the file from the traceback and fix it directly. Rerun `make test` to confirm collection succeeds.
 
@@ -212,7 +196,7 @@ Common causes:
 - A class or function referenced before it is defined.
 - A typo in an import path.
 
-### 4.6 Migration / Model Drift
+### 4.5 Migration / Model Drift
 
 If tests fail because of a missing column or table, the ORM model was changed but no Alembic migration was generated. Fix by:
 
@@ -258,10 +242,7 @@ If, upon running the quality gates, failures are detected that pre-date the curr
 
 ```bash
 # Run all quality gates (full sequence)
-make lint && make format && make test && make coverage && make security
-
-# Fix formatting, then re-lint
-make format && make lint
+make lint && make test && make coverage && make security
 
 # Run only tests (useful mid-fix iteration)
 make test

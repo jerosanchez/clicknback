@@ -16,6 +16,10 @@ class OfferRepositoryABC(ABC):
         pass
 
     @abstractmethod
+    def get_offer_by_id(self, db: Session, offer_id: str) -> Offer | None:
+        pass
+
+    @abstractmethod
     def has_active_offer_for_merchant(self, db: Session, merchant_id: str) -> bool:
         pass
 
@@ -42,6 +46,10 @@ class OfferRepositoryABC(ABC):
     ) -> tuple[list[tuple[Offer, str]], int]:
         pass
 
+    @abstractmethod
+    def update_offer_status(self, db: Session, offer: Offer, active: bool) -> Offer:
+        pass
+
 
 class OfferRepository(OfferRepositoryABC):
     def add_offer(self, db: Session, offer: Offer) -> Offer:
@@ -49,6 +57,9 @@ class OfferRepository(OfferRepositoryABC):
         db.commit()
         db.refresh(offer)
         return offer
+
+    def get_offer_by_id(self, db: Session, offer_id: str) -> Offer | None:
+        return db.query(Offer).filter(Offer.id == offer_id).first()
 
     def has_active_offer_for_merchant(self, db: Session, merchant_id: str) -> bool:
         return (
@@ -115,3 +126,9 @@ class OfferRepository(OfferRepositoryABC):
         total = query.count()
         rows = query.offset((page - 1) * page_size).limit(page_size).all()
         return [(offer, name) for offer, name in rows], total
+
+    def update_offer_status(self, db: Session, offer: Offer, active: bool) -> Offer:
+        offer.active = active
+        db.commit()
+        db.refresh(offer)
+        return offer

@@ -71,4 +71,4 @@ app.include_router(<module>_api.router)
 
 ### Step 5 — Quality gates
 
-Run `make lint && make format && make test`. The scaffold must pass with zero failures. Fix any import or style issues before proposing the commit.
+Run `make lint && make test && make coverage && make security`. The scaffold must pass with zero failures. Fix any import or style issues before proposing the commit.

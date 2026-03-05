@@ -33,7 +33,7 @@ Before writing any code, read the following files in full:
 Each step that produces code or files is a **separate commit**. Do not begin the next step until the current step's commit is approved and executed by the human.
 
 To close a step:
-1. Run `make lint && make format && make test` — all must pass.
+1. Run `make lint && make test && make coverage && make security` — all must pass.
 2. Stage the changes and output `git diff --staged`.
 3. Propose a commit message.
 4. **Wait for explicit human approval before executing `git commit`.**
@@ -105,4 +105,4 @@ Once all `.http` smoke tests are passing, use `write-tests.prompt.md` to write t
 
 ### Step 12 — Quality gates and commit
 
-Run `make lint && make format && make test`. Fix all failures. Run `make coverage` and confirm the grade is at least ✅ Approved. Then stage all changes from this step, propose a commit message, and wait for human approval before executing `git commit`.
+Run `make lint && make test && make coverage && make security`. Fix all failures. Run `make coverage` and confirm the grade is at least ✅ Approved. Then stage all changes from this step, propose a commit message, and wait for human approval before executing `git commit`.
