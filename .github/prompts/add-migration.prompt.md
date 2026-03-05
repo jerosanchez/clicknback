@@ -93,7 +93,7 @@ If the specification includes a data migration (backfilling existing rows), add 
 ### Step 7 — Run quality gates
 
 ```bash
-make lint && make format && make test
+make lint && make test && make coverage && make security
 ```
 
 Tests should pass unchanged — a schema change that breaks existing tests indicates either a missing default value or a breaking change that was not accounted for in the spec.
