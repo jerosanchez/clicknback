@@ -139,6 +139,7 @@ version-agnostic: introducing a v2 router requires no changes inside feature mod
 ## 5. Key Design Properties
 
 - **Concurrency Safety**: Database transactions + row-level locking; `SELECT FOR UPDATE` on wallet updates
+- **Async I/O**: New modules (`purchases`, `wallets`, `payouts`) use `AsyncSession` with `asyncpg` end-to-end, eliminating event-loop blocking under concurrent request loads (see ADR 010)
 - **Idempotency**: Unique constraints on external IDs at database level
 - **Auditability**: Structured logging on all state transitions; request IDs correlate logs
 - **Testability**: Repository abstraction enables unit testing sans database; clean layer separation

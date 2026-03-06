@@ -62,28 +62,48 @@ Two classes per repository:
 
 The repository only performs DB queries. No business logic here.
 
-```python
-class UserRepositoryABC(ABC):
-    @abstractmethod
-    def get_user_by_email(self, db: Session, email: str) -> User | None: ...
+**All new modules use `AsyncSession` (see ADR 010).** Repository methods are `async def` and use SQLAlchemy 2.0 Core-style `select()` statements:
 
-class UserRepository(UserRepositoryABC):
-    def get_user_by_email(self, db: Session, email: str) -> User | None:
-        return db.query(User).filter(User.email == email).first()
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+class PurchaseRepositoryABC(ABC):
+    @abstractmethod
+    async def get_by_external_id(
+        self, db: AsyncSession, external_id: str
+    ) -> Purchase | None: ...
+
+class PurchaseRepository(PurchaseRepositoryABC):
+    async def get_by_external_id(
+        self, db: AsyncSession, external_id: str
+    ) -> Purchase | None:
+        result = await db.execute(
+            select(Purchase).where(Purchase.external_id == external_id)
+        )
+        return result.scalar_one_or_none()
 ```
+
+Do **not** use the legacy `session.query()` API in new modules — it requires synchronous execution and does not compose with `AsyncSession`.
 
 #### `services.py` – Service Layer
 
 Contains the `<Entity>Service` class. Dependencies (repository, policy callables, etc.) are injected via `__init__()` (the constructor) — never instantiated directly inside the service. This makes services fully unit-testable without touching the DB.
 
+**All new modules use `async def` service methods with `AsyncSession` (see ADR 010):**
+
 ```python
-class UserService:
+from sqlalchemy.ext.asyncio import AsyncSession
+
+class PurchaseService:
     def __init__(
         self,
-        enforce_password_complexity: Callable[[str], None],
-        hash_password: Callable[[str], str],
-        user_repository: UserRepositoryABC,
+        purchase_repository: PurchaseRepositoryABC,
     ): ...
+
+    async def ingest_purchase(
+        self, data: dict, db: AsyncSession
+    ) -> Purchase: ...
 ```
 
 Services raise **domain exceptions** (from `exceptions.py`). They have no knowledge of HTTP status codes.
@@ -144,17 +164,22 @@ FastAPI `APIRouter`. Responsibilities:
 4. Catch domain exceptions and convert them to `HTTPException` using `core/errors/builders.py`.
 5. Log unexpected errors and raise `internal_server_error()`.
 
+**All new modules use `async def` route handlers with `get_async_db` (see ADR 010):**
+
 ```python
-@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def create_user(
-    create_data: UserCreate,
-    user_service: UserService = Depends(get_user_service),
-    db: Session = Depends(get_db),
-) -> UserOut:
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_async_db
+
+@router.post("/purchases/", response_model=PurchaseOut, status_code=status.HTTP_201_CREATED)
+async def ingest_purchase(
+    data: PurchaseCreate,
+    service: PurchaseService = Depends(get_purchase_service),
+    db: AsyncSession = Depends(get_async_db),
+) -> PurchaseOut:
     try:
-        return user_service.create_user(create_data.model_dump(), db)
-    except EmailAlreadyRegisteredException as exc:
-        raise business_rule_violation_error(ErrorCode.EMAIL_ALREADY_REGISTERED, str(exc), {"email": exc.email})
+        return await service.ingest_purchase(data.model_dump(), db)
+    except PurchaseDuplicateException as exc:
+        raise business_rule_violation_error(ErrorCode.DUPLICATE_PURCHASE, str(exc), {"external_id": exc.external_id})
     except Exception as e:
         logging.error("Unexpected error", extra={"error": str(e)})
         raise internal_server_error()
@@ -199,7 +224,9 @@ class Settings(BaseSettings):
 
 ### `core/database.py`
 
-SQLAlchemy engine, `SessionLocal`, and the ORM `Base`. The `get_db()` generator is a FastAPI dependency that yields a DB session and ensures it is closed after the request.
+SQLAlchemy engines, session factories, and the ORM `Base`. Two paths coexist during the incremental async migration (see ADR 010):
+
+**Synchronous path** — used by `users`, `merchants`, `offers`, and `auth` until migrated:
 
 ```python
 Base = declarative_base()  # imported by all ORM models
@@ -211,6 +238,22 @@ def get_db():
     finally:
         db.close()
 ```
+
+**Async path — required for all new modules:**
+
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_async_db
+
+async def get_async_db():
+    async with AsyncSessionLocal() as session:
+        yield session
+
+# In route handler:
+db: AsyncSession = Depends(get_async_db)
+```
+
+Use `get_async_db` in every new module. Do not mix `get_db` and `get_async_db` within the same module.
 
 ### `core/logging.py`
 

@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi[all]==0.135.1",
     "psycopg2-binary==2.9.11",
+    "asyncpg==0.30.0",
     "alembic==1.18.4",
     "passlib==1.7.4",
     "bcrypt==3.2.0",
@@ -16,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest==9.0.2",
+    "pytest-asyncio==0.25.3",
     "pytest-cov==7.0.0",
     "pylint==4.0.5",
     "black==25.12.0",
@@ -37,3 +39,6 @@ line-length = 88
 
 [tool.isort]
 profile = "black"
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"

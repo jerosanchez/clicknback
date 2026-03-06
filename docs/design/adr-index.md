@@ -27,3 +27,4 @@ ADRs serve several essential purposes:
 - [ADR 007: Layered Testing Strategy](adr/007-layered-testing-strategy.md)
 - [ADR 008: JWT Stateless Authentication](adr/008-jwt-stateless-authentication.md)
 - [ADR 009: Use Python's Native Logging Over FastAPI/Uvicorn](adr/009-native-logging-over-fastapi.md)
+- [ADR 010: Async-First Database Layer with asyncpg](adr/010-async-database-layer.md)

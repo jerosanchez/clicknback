@@ -62,9 +62,31 @@ One pure function per business rule introduced by this feature. Each function ra
 
 Add the query methods needed by this feature to `<Entity>RepositoryABC` (abstract) and `<Entity>Repository` (SQLAlchemy). Repositories only query the DB — no business logic.
 
+**New modules use `AsyncSession` (see ADR 010).** All repository methods are `async def` and use SQLAlchemy 2.0 `select()` statements:
+
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+async def get_by_id(self, db: AsyncSession, entity_id: str) -> Entity | None:
+    result = await db.execute(select(Entity).where(Entity.id == entity_id))
+    return result.scalar_one_or_none()
+```
+
+Do **not** use the legacy `session.query()` API — it does not compose with `AsyncSession`.
+
 ### Step 5 — `services.py`: business logic orchestration
 
 Add the method(s) for this feature to `<Entity>Service`. Orchestrate policy checks and repository calls. Raise domain exceptions on failures. Log `INFO` for successful state-mutating operations, `DEBUG` for expected negative paths. Do not log read-only operations.
+
+**New modules use `async def` service methods (see ADR 010):**
+
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+
+async def create_entity(self, data: dict, db: AsyncSession) -> Entity:
+    ...
+```
 
 ### Step 6 — `composition.py`: dependency wiring
 
@@ -73,6 +95,21 @@ Update `get_<entity>_service()` if new dependencies (e.g., a second repository o
 ### Step 7 — `api.py` (or `api/`): HTTP router
 
 Add one route handler per endpoint. Each handler: declares request/response schemas and status codes; resolves dependencies via `Depends()`; calls the service; catches each domain exception and converts it with the appropriate `core/errors/builders.py` factory; catches bare `Exception` last, logs at `ERROR`, and raises `internal_server_error()`. Never put business logic here.
+
+**New modules use `async def` route handlers with `get_async_db` (see ADR 010):**
+
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_async_db
+
+@router.post("/entities/", status_code=status.HTTP_201_CREATED)
+async def create_entity(
+    data: EntityCreate,
+    service: EntityService = Depends(get_entity_service),
+    db: AsyncSession = Depends(get_async_db),
+) -> EntityOut:
+    ...
+```
 
 If `api.py` already exceeds ~200 lines or this feature introduces a clearly distinct endpoint group (e.g., public vs. admin), consult `docs/agents/code-organization.md` §3 and split into an `api/` package before adding new routes.
 

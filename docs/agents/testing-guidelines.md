@@ -675,7 +675,123 @@ def user_repository() -> Mock:
 
 ---
 
-## 14. Integration Tests (Not Yet Implemented)
+## 14. Testing Async Modules (purchases, wallets, payouts, …)
+
+All new modules use the async database stack (see ADR 010). Tests for these modules follow the same structure as sync modules with the following differences.
+
+### pytest-asyncio configuration
+
+The project runs `pytest-asyncio` in **strict mode** (configured in `pyproject.toml`):
+
+```toml
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+```
+
+Mark every async test function and every async fixture with `@pytest.mark.asyncio`:
+
+```python
+import pytest
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_returns_purchase_on_success(...) -> None:
+    ...
+```
+
+### Mocking async repositories
+
+Use `create_autospec` on the ABC as usual. For `async def` methods, `create_autospec` automatically returns `AsyncMock` for those methods — no extra configuration is needed:
+
+```python
+from unittest.mock import AsyncMock, Mock, create_autospec
+
+from app.purchases.repositories import PurchaseRepositoryABC
+
+
+@pytest.fixture
+def purchase_repository() -> Mock:
+    return create_autospec(PurchaseRepositoryABC)
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_raises_on_duplicate_external_id(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    duplicate_id = "ext-123"
+    purchase_repository.get_by_external_id.return_value = Purchase(...)
+
+    # Act & Assert
+    with pytest.raises(PurchaseDuplicateException):
+        await purchase_service.ingest_purchase({"external_id": duplicate_id}, db=AsyncMock())
+```
+
+### Mocking `AsyncSession` in tests
+
+Create a local `AsyncMock(spec=AsyncSession)` inside each test (not a shared fixture):
+
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from unittest.mock import AsyncMock
+
+async def test_example(purchase_service: PurchaseService, ...) -> None:
+    # Arrange
+    db = AsyncMock(spec=AsyncSession)
+    ...
+    # Act
+    result = await purchase_service.some_method(data, db)
+```
+
+### HTTP API tests for async handlers
+
+`TestClient` from FastAPI/Starlette wraps `anyio` to run async route handlers synchronously during tests — no test changes are needed for the API layer. Override `get_async_db` (not `get_db`) in the `client` fixture:
+
+```python
+from app.core.database import get_async_db
+
+@pytest.fixture
+def client(service_mock: Mock) -> Generator[TestClient, None, None]:
+    async def mock_get_async_db():
+        yield AsyncMock(spec=AsyncSession)
+
+    app.dependency_overrides[get_async_db] = mock_get_async_db
+    app.dependency_overrides[get_purchase_service] = lambda: service_mock
+
+    test_client = TestClient(app)
+    yield test_client
+    app.dependency_overrides.clear()
+```
+
+### Type hints for async tests
+
+```python
+# ✅ Async test function — returns None
+@pytest.mark.asyncio
+async def test_ingest_purchase_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    db = AsyncMock(spec=AsyncSession)
+    ...
+```
+
+### Quick reference — additions to checklist for async modules
+
+Service tests:
+
+- [ ] `db = AsyncMock(spec=AsyncSession)` created locally in each test (replaces `Mock(spec=Session)`)
+- [ ] All service test functions marked `@pytest.mark.asyncio` and declared `async def`
+- [ ] `await` used when calling service methods
+
+API tests:
+
+- [ ] `client` fixture overrides `get_async_db` (not `get_db`)
+- [ ] The `async_db` generator mock uses `async def` and `yield`
+
+---
+
+## 15. Integration Tests (Not Yet Implemented)
 
 When implemented, integration tests will use `testcontainers` with a real PostgreSQL container and `sqlalchemy` sessions that roll back after each test.
 
@@ -688,7 +804,7 @@ When implemented, integration tests will use `testcontainers` with a real Postgr
 
 ---
 
-## 15. End-to-End Tests (Not Yet Implemented)
+## 16. End-to-End Tests (Not Yet Implemented)
 
 When implemented, E2E tests will spin up the full stack via Docker Compose and issue real HTTP requests.
 
@@ -701,7 +817,7 @@ When implemented, E2E tests will spin up the full stack via Docker Compose and i
 
 ---
 
-## 16. Common Issues and Fixes
+## 17. Common Issues and Fixes
 
 ### `AttributeError: return_value` not found on fixture
 
@@ -742,7 +858,7 @@ app.dependency_overrides[get_current_admin_user] = lambda: Mock()
 
 ---
 
-## 17. Quick Reference Checklist
+## 18. Quick Reference Checklist
 
 Use this before submitting any new test file.
 
