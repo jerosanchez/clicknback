@@ -7,6 +7,7 @@ from app.core.health import router as health_router
 from app.merchants import api as merchants_api
 from app.offers.api import admin_router as offers_admin_router
 from app.offers.api import public_router as offers_public_router
+from app.purchases import api as purchases_api
 from app.users import api as users_api
 
 app = FastAPI()
@@ -35,3 +36,4 @@ app.include_router(auth_api.router, prefix="/api/v1")
 app.include_router(merchants_api.router, prefix="/api/v1")
 app.include_router(offers_admin_router, prefix="/api/v1")
 app.include_router(offers_public_router, prefix="/api/v1")
+app.include_router(purchases_api.router, prefix="/api/v1")
