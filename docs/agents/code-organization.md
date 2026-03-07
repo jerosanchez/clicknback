@@ -206,7 +206,7 @@ Each test file is self-contained: its fixtures, helpers, and test functions cove
 
 These organizational changes are internal to a module. The contracts a module exposes to the outside world — imports in `main.py`, dependency factories in `composition.py`, imports in other modules' API files — do not change when you reorganize internals.
 
-This is the design property that keeps modules ready for extraction into independent services: **each module's public surface is its `composition.py` factories and, if needed, a `clients.py` abstraction**. Everything else is private implementation detail.
+This is the design property that keeps modules ready for extraction into independent services: **each module's public surface is its `composition.py` factories and, if needed, a `clients/` package**. Everything else is private implementation detail.
 
 When splitting, always verify that no import path crosses module boundaries at a level deeper than the module root:
 

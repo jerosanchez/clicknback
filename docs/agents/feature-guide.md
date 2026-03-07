@@ -20,11 +20,14 @@ app/<feature>/
   errors.py            ← Module-specific ErrorCode enum (HTTP error codes)
   composition.py       ← Dependency wiring (FastAPI Depends factories)
   api.py               ← FastAPI router (HTTP layer only); or api/ package when split
+  clients/             ← Cross-module client abstractions (only when needed)
+    __init__.py        ← Re-exports all DTOs, ABCs, and concrete clients
+    <foreign>.py       ← One file per collaborating module (e.g., users.py, merchants.py)
   api-requests/        ← Manual HTTP test files (VS Code REST Client)
     <verb>-<resource>.http   ← One file per route; all typical responses covered
 ```
 
-Not every module needs all files (e.g., `auth` has no `repositories.py` — it delegates to `users` via a client).
+Not every module needs all files (e.g., `auth` has no `repositories.py` — it delegates to `users` via a client). The `clients/` package is only present when the module reads data owned by another module.
 
 As a module grows, individual files may be replaced by packages (e.g., `api/`, `services/`, `schemas/`). For the full decision framework — thresholds, split strategies, naming conventions, and the decoupling rules — see `docs/agents/code-organization.md`.
 
@@ -324,9 +327,11 @@ This is called once in `main.py`.
 
 Authentication is a standalone module. It does **not** have its own ORM model or repository — instead, it accesses user data through a `UsersClient` abstraction. This might change in the future if needed, encapsulating auth-related information in its own DB table, and keeping the `users` table clean from this concern.
 
-### Key Design: `clients.py`
+### Key Design: `clients/`
 
-`UsersClient` wraps `UserRepository` and exposes a minimal `get_user_by_email()` interface that returns an `auth.models.User` dataclass (not the ORM model). This is a **modular monolith boundary**: if `auth` were split into a microservice, only this client would need to change.
+The `clients/` package is the **only place in a module that may import ORM models from other modules**. It contains one file per collaborating module, each with a lightweight DTO (plain dataclass), an abstract client interface, and a concrete implementation that queries the shared DB and returns DTOs.
+
+This is a **modular monolith boundary**: if a collaborating module were split into a microservice, only its concrete client implementation would change — services, policies, and repositories are insulated from the cross-module dependency.
 
 ```python
 class UsersClientABC(ABC):

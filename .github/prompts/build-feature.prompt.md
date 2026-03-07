@@ -27,6 +27,7 @@ Before writing any code, read the following files in full:
 - Do not use allow-all CORS or wildcard origins in any configuration.
 - Do not log passwords, tokens, or secrets at any log level.
 - Do not modify `app/core/errors/handlers.py` or the global error response shape.
+- Do not import ORM models from other modules into `repositories.py`, `policies.py`, or `services.py` — use a `clients/` package and DTOs instead (see Step 4a).
 
 ## Commit Protocol
 
@@ -49,6 +50,29 @@ Follow these steps in order. Complete and commit each one before moving to the n
 ### Step 1 — `schemas.py`: Pydantic schemas
 
 Add or extend `<Entity>Create` (POST body), `<Entity>Update` (PATCH body, all-optional fields), and `<Entity>Out` (response) as needed for this feature. `<Entity>Out` must set `model_config = {"from_attributes": True}`. Add `Paginated<Entity>Out` with `items`, `total`, `page`, `page_size` fields if this feature includes a listing endpoint.
+
+**Schema validators:** For every ORM column constraint that cannot be expressed by Pydantic's built-in field arguments (`gt`, `ge`, `min_length`, `pattern`, etc.), add a `@field_validator` to enforce the constraint at the schema level before the data reaches the service. Common cases:
+
+| ORM column type | Validator to add |
+| --- | --- |
+| `Numeric(scale=N)` | Reject values with more than N decimal places |
+| `String` with domain-specific rules | Reject values outside the allowed set (or use `Literal` / `Enum`) |
+| Cross-field invariant | `@model_validator(mode="after")` |
+
+Example for a `Numeric(precision=12, scale=2)` column:
+
+```python
+from pydantic import field_validator
+
+@field_validator("amount")
+@classmethod
+def amount_scale_must_not_exceed_2(cls, v: Decimal) -> Decimal:
+    if v.as_tuple().exponent < -2:
+        raise ValueError("Amount must have at most 2 decimal places.")
+    return v
+```
+
+Test every `@field_validator` in a dedicated `test_{module}_schemas.py` file. See `docs/agents/testing-guidelines.md` §8a for the pattern.
 
 ### Step 2 — `exceptions.py` and `errors.py`: domain exceptions and error codes
 
@@ -74,6 +98,108 @@ async def get_by_id(self, db: AsyncSession, entity_id: str) -> Entity | None:
 ```
 
 Do **not** use the legacy `session.query()` API — it does not compose with `AsyncSession`.
+
+### Step 4a — `clients/`: cross-module clients (only if this feature reads data owned by another module)
+
+If this feature needs to read data from another module (e.g., look up a user, merchant, or offer), **do not** import that module's ORM models into the repository, policies, or service. Instead:
+
+1. Create a `clients/` package inside the module (if it does not already exist).
+2. Add one file per collaborating module (e.g., `clients/users.py`, `clients/merchants.py`). Each file contains:
+   - A lightweight **DTO** (plain `@dataclass`) carrying only the fields this module needs from the foreign entity.
+   - An abstract client class (`<Foreign>ClientABC`) and a concrete implementation (`<Foreign>Client`). The concrete class queries the shared DB directly using `AsyncSession` and returns DTOs — it never returns foreign ORM models.
+3. Add a `clients/__init__.py` that re-exports all DTOs, ABCs, and concrete clients so the rest of the module imports from `app.<module>.clients` (not from sub-modules directly).
+4. Inject the clients into the service via `__init__()`, just like the repository.
+5. Update `composition.py` to instantiate and wire the clients.
+
+This pattern isolates all cross-module coupling to the `clients/` package. If a collaborating module is extracted to a microservice, only its concrete client implementation changes; services, policies, and repositories remain untouched.
+
+**When splitting `clients.py` into a `clients/` package during refactoring**, preserve every existing comment in the functions being moved — comments often document non-obvious trade-offs or deferred decisions and must not be lost.
+
+```text
+app/<module>/
+  clients/
+    __init__.py        ← re-exports all DTOs, ABCs, and concrete clients
+    users.py           ← UserDTO, UsersClientABC, UsersClient
+    merchants.py       ← MerchantDTO, MerchantsClientABC, MerchantsClient
+    offers.py          ← OfferDTO, OffersClientABC, OffersClient
+```
+
+```python
+# app/<module>/clients/users.py
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.users.models import User  # ← only clients/ files may import foreign ORM models
+
+
+@dataclass
+class UserDTO:
+    id: str
+    active: bool
+
+
+class UsersClientABC(ABC):
+    @abstractmethod
+    async def get_user_by_id(
+        self, db: AsyncSession, user_id: str
+    ) -> UserDTO | None:
+        pass
+
+
+class UsersClient(UsersClientABC):
+    """Modular-monolith implementation — queries the shared DB directly.
+
+    Replace with an HTTP client if the users module is extracted to a
+    separate service.
+    """
+
+    async def get_user_by_id(
+        self, db: AsyncSession, user_id: str
+    ) -> UserDTO | None:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            return None
+        return UserDTO(id=user.id, active=user.active)
+```
+
+```python
+# app/<module>/clients/__init__.py
+from app.<module>.clients.users import UserDTO, UsersClient, UsersClientABC
+from app.<module>.clients.merchants import MerchantDTO, MerchantsClient, MerchantsClientABC
+
+__all__ = [
+    "UserDTO", "UsersClientABC", "UsersClient",
+    "MerchantDTO", "MerchantsClientABC", "MerchantsClient",
+]
+```
+
+Policy functions and services import from the package root, not from sub-modules:
+
+```python
+# ✅ Correct: import from clients package root
+from app.<module>.clients import UserDTO, UsersClientABC
+
+# ❌ Wrong: import from internal sub-module
+from app.<module>.clients.users import UserDTO
+```
+
+```python
+# policies.py uses DTOs
+def enforce_user_active(user: UserDTO | None, user_id: str) -> None: ...
+
+# services.py receives clients via __init__
+class EntityService:
+    def __init__(
+        self,
+        repository: EntityRepositoryABC,
+        users_client: UsersClientABC,
+        ...
+    ): ...
+```
 
 ### Step 5 — `services.py`: business logic orchestration
 

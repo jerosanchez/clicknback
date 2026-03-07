@@ -57,6 +57,11 @@ tests/
         test_offers_public_api.py       # mirrors app/offers/api/public.py
         test_offers_policies.py
         test_offers_services.py
+    purchases/
+        test_purchases_api.py
+        test_purchases_policies.py
+        test_purchases_schemas.py
+        test_purchases_services.py
     users/
         test_users_api.py
         test_users_policies.py
@@ -455,6 +460,104 @@ def test_internal_server_error_default_details() -> None:
     assert "request_id" in detail["error"]["details"]  # type: ignore[index]
     assert "timestamp" in detail["error"]["details"]   # type: ignore[index]
 ```
+
+---
+
+## 8a. Testing Schema Validators
+
+**Reference:** `tests/purchases/test_purchases_schemas.py`
+
+Pydantic `@field_validator` methods are pure functions. Test them by constructing the schema class directly — no mocking required. Treat them exactly like policy functions.
+
+### Key differences from policy tests
+
+| Aspect | Policy tests | Schema validator tests |
+| --- | --- | --- |
+| SUT invocation | Call the function directly | Construct the schema class: `Schema(**payload)` |
+| Valid-input assertion | No exception raised | No exception raised + assert field value |
+| Invalid-input assertion | `pytest.raises(DomainException)` | `pytest.raises(ValidationError)` |
+| Message check | `str(exc.value)` or attribute | `str(exc_info.value)` contains substring |
+
+### Pattern
+
+```python
+# tests/purchases/test_purchases_schemas.py
+from decimal import Decimal
+from typing import Any
+
+import pytest
+from pydantic import ValidationError
+
+from app.purchases.schemas import PurchaseCreate
+
+
+def _valid_payload(**overrides: Any) -> dict[str, Any]:
+    """Returns a complete, valid input dict. Override only the field under test."""
+    base: dict[str, Any] = {
+        "external_id": "txn-001",
+        "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+        "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "amount": "100.00",
+        "currency": "EUR",
+    }
+    base.update(overrides)
+    return base
+
+
+@pytest.mark.parametrize(
+    "amount",
+    [
+        "1",              # integer — 0 decimal places
+        "10.5",           # 1 decimal place
+        "100.00",         # 2 decimal places — upper scale boundary
+        "0.01",           # minimum positive with 2 decimal places
+        "9999999999.99",  # maximum representable value at precision=12, scale=2
+    ],
+)
+def test_purchase_create_accepts_valid_amount_scale(amount: str) -> None:
+    # Act — should not raise
+    schema = PurchaseCreate(**_valid_payload(amount=amount))
+
+    # Assert
+    assert schema.amount == Decimal(amount)
+
+
+@pytest.mark.parametrize(
+    "amount,expected_message",
+    [
+        ("100.001", "at most 2 decimal places"),  # 3 decimal places
+        ("0.001",   "at most 2 decimal places"),  # 3 decimal places — near zero
+        ("1.1234",  "at most 2 decimal places"),  # 4 decimal places
+    ],
+)
+def test_purchase_create_rejects_amount_with_excess_scale(
+    amount: str, expected_message: str
+) -> None:
+    # Act & Assert
+    with pytest.raises(ValidationError) as exc_info:
+        PurchaseCreate(**_valid_payload(amount=amount))
+    assert expected_message in str(exc_info.value)
+```
+
+### When to add schema validators
+
+Add a `@field_validator` (and its tests) whenever the ORM column carries a constraint that cannot be expressed by Pydantic's built-in field arguments alone:
+
+| ORM constraint | Schema validator to add |
+| --- | --- |
+| `Numeric(scale=N)` | Reject values with more than N decimal places |
+| `String` with allowed values | Reject strings outside the allowed set (or use `Literal` / `Enum`) |
+| Custom cross-field invariant | `@model_validator(mode="after")` + test with both valid and invalid combinations |
+
+Built-in Pydantic guards (`gt`, `ge`, `lt`, `le`, `min_length`, `max_length`, `pattern`) do not require a separate validator — test them via the API boundary-value tests (§6).
+
+### Schema Validator Test Checklist
+
+- [ ] Module-level `_valid_payload(**overrides)` helper — returns a complete, valid dict; override only the field under test
+- [ ] One parametrized test for valid inputs — verify no exception and assert the parsed field value
+- [ ] One parametrized test for invalid inputs — verify `ValidationError` is raised and message substring matches
+- [ ] Each parametrize entry is commented (role: lower boundary, upper boundary, midpoint, etc.)
+- [ ] No magic values — use named boundary constants where applicable
 
 ---
 
@@ -894,3 +997,10 @@ Use this before submitting any new test file.
 - [ ] Boundary values commented (lower boundary, upper boundary, midpoint)
 - [ ] Valid inputs: verify no exception raised
 - [ ] Invalid inputs: verify exception type and message substring
+
+### Schema validator test files
+
+- [ ] Module-level `_valid_payload(**overrides)` helper present
+- [ ] One parametrized test for valid inputs — asserts parsed field value
+- [ ] One parametrized test for invalid inputs — asserts `ValidationError` and message substring
+- [ ] Each parametrize entry is commented with its role
