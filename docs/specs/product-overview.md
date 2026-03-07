@@ -66,7 +66,7 @@ Time-bound or merchant-specific reward rules that define:
 ### Purchases
 
 Events representing a user transaction at a merchant.
-Purchases enter the system as external events (e.g., webhook ingestion).
+Purchases are submitted by authenticated users via the ingestion API.
 
 ### Cashback Transactions
 
@@ -130,7 +130,7 @@ Business rules:
 
 ### 4.3 Purchase Ingestion (Core Flow)
 
-Purchases enter the system via an API endpoint simulating external tracking (e.g., affiliate webhook).
+Purchases enter the system via an API endpoint called by authenticated users recording their own transactions.
 
 Request includes:
 

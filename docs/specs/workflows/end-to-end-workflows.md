@@ -12,7 +12,7 @@ ClickNBack is a cashback platform. Users earn a percentage (or fixed amount) bac
 
 1. An **admin** sets up and activates **merchants** and **offers** (cashback rules tied to a merchant and a date range).
 2. A **user** registers, browses active offers, and shops at a participating merchant.
-3. An **external system** (a merchant's point-of-sale or e-commerce platform) pushes a **purchase event** via webhook — the system records it as `pending`.
+3. The **user** records their own **purchase** via the app — the system records it as `pending`.
 4. The purchase is **confirmed** (either automatically or by an admin), at which point cashback is calculated and credited to the user's **wallet** as `pending` balance.
 5. Once enough confirmations accumulate, the user requests a **payout** (withdrawal). An admin processes it and the funds move from `pending` to `paid`.
 
@@ -48,7 +48,7 @@ A new user registers, logs in, and browses the currently active cashback offers.
 
 ## Workflow 3 — Purchase Ingestion and Cashback Calculation ⚪
 
-An external merchant system pushes a purchase event via webhook. An admin confirms it, triggering cashback calculation capped by the offer's monthly limit. The user can then view the credited cashback in their purchase history.
+A user records their own purchase. An admin confirms it, triggering cashback calculation capped by the offer's monthly limit. The user can then view the credited cashback in their purchase history.
 
 → **[Full details and sequence diagram](03-purchase-and-cashback.md)** · HTTP file: [`http/03-purchase-and-cashback.http`](http/03-purchase-and-cashback.http)
 
@@ -76,7 +76,7 @@ A user checks their wallet balances, requests a withdrawal, and an admin approve
 | `GET` | `/api/v1/offers/active` | User / Admin | List currently active public offers |
 | `GET` | `/api/v1/offers/{id}` | User / Admin | Get offer details |
 | `PATCH` | `/api/v1/offers/{id}/status` | Admin | Activate or deactivate an offer |
-| `POST` | `/api/v1/purchases` ⚪ | Admin / System | Ingest a purchase (webhook) |
+| `POST` | `/api/v1/purchases` ⚪ | User | Record a purchase |
 | `POST` | `/api/v1/purchases/{id}/confirm` ⚪ | Admin | Confirm a purchase |
 | `GET` | `/api/v1/purchases/{id}` ⚪ | Admin | Get purchase details |
 | `GET` | `/api/v1/purchases` ⚪ | Admin | List all purchases |
