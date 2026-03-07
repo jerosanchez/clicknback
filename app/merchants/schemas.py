@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 class MerchantSchemaBase(BaseModel):
     name: str
+    # TODO: Add validation to ensure this is a valid percentage (e.g., between 0 and 100)
     default_cashback_percentage: float
     active: bool = True
 
