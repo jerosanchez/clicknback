@@ -140,6 +140,7 @@ Indexes prioritize query patterns:
 | external_id   | string   | unique, idempotency key          |
 | user_id       | UUID     | FK (users.id)                    |
 | merchant_id   | UUID     | FK (merchants.id)                |
+| offer_id      | UUID     | FK (offers.id)                   |
 | amount        | decimal  |                                  |
 | currency      | string   |                                  |
 | status        | string   | pending/confirmed/reversed       |
@@ -237,6 +238,7 @@ erDiagram
   string external_id "unique, idempotency key"
   UUID user_id FK
   UUID merchant_id FK
+  UUID offer_id FK
   decimal amount
   string currency
   string status "pending | confirmed | reversed"
@@ -281,6 +283,7 @@ erDiagram
  cashback_transactions }o--|| users : "to"
  wallets ||--|| users : "belongs to"
  payouts }o--|| users : "for"
+ purchases }o--|| offers : "applies offer"
 ```
 
 ---

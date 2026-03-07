@@ -1,10 +1,12 @@
 from datetime import date
+from decimal import Decimal
 from typing import Any, Callable
 
 import pytest
 
 from app.merchants.models import Merchant
 from app.offers.models import Offer
+from app.purchases.models import Purchase
 from app.users.models import User
 
 
@@ -96,6 +98,40 @@ def offer_input_data() -> Callable[[Offer], dict[str, Any]]:
             "start_date": offer.start_date.isoformat(),
             "end_date": offer.end_date.isoformat(),
             "monthly_cap": offer.monthly_cap_per_user,
+        }
+
+    return _build
+
+
+@pytest.fixture
+def purchase_factory() -> Callable[..., Purchase]:
+    def _make_purchase(**kwargs: Any) -> Purchase:
+        defaults: dict[str, Any] = {
+            "id": "aa000001-0000-0000-0000-000000000001",
+            "external_id": "txn_test_001",
+            "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+            "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+            "offer_id": "f0e1d2c3-b4a5-4678-9012-3456789abcde",
+            "amount": Decimal("100.00"),
+            "currency": "EUR",
+            "status": "pending",
+            "created_at": "2026-03-01T10:00:00",
+        }
+        defaults.update(kwargs)
+        return Purchase(**defaults)
+
+    return _make_purchase
+
+
+@pytest.fixture
+def purchase_input_data() -> Callable[[Purchase], dict[str, Any]]:
+    def _build(purchase: Purchase) -> dict[str, Any]:
+        return {
+            "external_id": purchase.external_id,
+            "user_id": purchase.user_id,
+            "merchant_id": purchase.merchant_id,
+            "amount": str(purchase.amount),
+            "currency": purchase.currency,
         }
 
     return _build

@@ -127,7 +127,9 @@ The application lives under `app/`. Every domain is a self-contained module (e.g
 
 Cross-cutting infrastructure (config, DB session factory, JWT, logging, error builders) lives in `app/core/`.
 
-Tests mirror the module structure under `tests/`. The `conftest.py` at the root provides factory fixtures used across all test suites.
+**All new modules must use the async database stack** (ADR 010, `docs/design/adr/010-async-database-layer.md`): repositories accept `AsyncSession`, service methods are `async def`, and route handlers use `async def` with `Depends(get_async_db)`. Existing modules (`users`, `merchants`, `offers`, `auth`) use the synchronous session and are migrated incrementally.
+
+Tests mirror the module structure under `tests/`. Async service tests use `pytest-asyncio` (`@pytest.mark.asyncio`, `AsyncMock(spec=AsyncSession)`). The `conftest.py` at the root provides factory fixtures used across all test suites.
 
 For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/feature-guide.md](docs/agents/feature-guide.md). For guidelines on how to organize and split files as a module grows, see [docs/agents/code-organization.md](docs/agents/code-organization.md).
 

@@ -26,7 +26,7 @@ The primary goal is to simulate a **real-world financial incentive system** — 
 | **User** | Registers in the system and earns cashback. Roles: `user`, `admin`. |
 | **Merchant** | A partner business with configured cashback terms. Can be activated or deactivated. |
 | **Offer** | A time-bound reward rule attached to a merchant — percentage or fixed cashback, with optional per-user monthly caps. Only one active offer per merchant at a time. |
-| **Purchase** | An external transaction event ingested into the system via API (simulating an affiliate webhook). The idempotency key is the external purchase ID. Starts in `pending` state. |
+| **Purchase** | A transaction event submitted by an authenticated user via the ingestion API. The idempotency key is the external purchase ID. Starts in `pending` state. |
 | **Cashback Transaction** | An internal reward record generated from a purchase. Tracks its own state independently from the purchase. |
 | **Wallet** | Tracks three balance buckets per user: `pending`, `available`, and `paid`. Consistency under concurrent writes is a hard requirement. |
 | **Payout** | A user-initiated request to move `available` balance into `paid`. Requires row-level locking to prevent race conditions. |

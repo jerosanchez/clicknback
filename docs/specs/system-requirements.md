@@ -39,7 +39,7 @@ FRs are organized into domain areas covering authentication, merchants, offers, 
 
 ### Purchase Management
 
-- **[PU-01: Purchase Ingestion](functional/purchases/PU-01-purchase-ingestion.md)** — External systems can record user purchases via webhook with idempotent external IDs.
+- **[PU-01: Purchase Ingestion](functional/purchases/PU-01-purchase-ingestion.md)** — Authenticated users can record their own purchases with idempotent external IDs.
 - **[PU-02: Purchase Confirmation](functional/purchases/PU-02-purchase-confirmation.md)** — Admin users can confirm pending purchases and release cashback to available balances.
 - **[PU-03: Purchase Cashback Calculation](functional/purchases/PU-03-purchase-cashback-calculation.md)** — System automatically calculates and allocates cashback based on active offers, respecting monthly caps.
 - **[PU-04: Purchase Details View](functional/purchases/PU-04-purchase-details-view.md)** — Users can view detailed information about their purchases including cashback status.
@@ -75,7 +75,7 @@ Authenticated users view active offers through **O-04**, check offer details wit
 
 #### Purchase Fulfillment Workflow
 
-When external systems ingest purchases (**PU-01**), the system:
+When users ingest purchases (**PU-01**), the system:
 
 1. Records the purchase (idempotent via external_id)
 2. Calculates cashback (**PU-03**) respecting offer terms and monthly caps

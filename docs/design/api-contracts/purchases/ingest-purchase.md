@@ -2,9 +2,14 @@
 
 **Endpoint:** `POST /purchases`
 
-**Roles:** External / System
+**Roles:** Any authenticated user (valid Bearer token required)
 
-**Note:** This endpoint is idempotent.
+**Note:** This endpoint is idempotent with respect to `external_id`: re-submitting the same
+`external_id` always returns a **409 Conflict** with details of the previously ingested purchase.
+No duplicate purchase record is ever created.
+
+**Ownership rule:** The `user_id` in the request body must match the authenticated user's ID.
+A user may only ingest purchases on behalf of themselves. See ADR 012.
 
 ## Request
 
@@ -18,9 +23,22 @@
 }
 ```
 
+### Field Constraints
+
+| Field | Type | Constraints |
+| --- | --- | --- |
+| `external_id` | string | Required. Non-empty string. Unique idempotency key. |
+| `user_id` | UUID | Required. Must be a valid UUID. Must match the authenticated user's ID. |
+| `merchant_id` | UUID | Required. Must be a valid UUID. |
+| `amount` | decimal | Required. Must be a positive number (greater than zero). |
+| `currency` | string | Required. Must be `EUR`. The platform currently accepts purchases in EUR only. |
+
+**Note:** `offer_id` is **not** provided by the caller. The system resolves the active,
+date-valid offer for the given merchant automatically and stores it on the purchase record.
+
 ## Success Response
 
-**Status:** 201 Created or 200 OK if duplicate
+**Status:** 201 Created
 
 ```json
 {
@@ -30,51 +48,69 @@
 }
 ```
 
+**Notes:**
+
+- `status` is always `"pending"` for a newly ingested purchase.
+- `cashback_amount` is always `0` at ingestion time. Cashback is calculated and
+  credited when the purchase is confirmed in a subsequent flow.
+
 ## Failure Responses
 
-### 400 Bad Request – Validation Error
+### 422 Unprocessable Entity – Validation Error
+
+Returned when the request body fails input validation (missing required fields,
+invalid UUID format, non-positive amount, or currency string not exactly 3 characters).
+
+```json
+{
+  "detail": [
+    {
+      "type": "missing",
+      "loc": ["body", "external_id"],
+      "msg": "Field required"
+    }
+  ]
+}
+```
+
+> **Note:** Request body validation errors are returned in FastAPI's native Pydantic
+> format (HTTP 422). The custom `VALIDATION_ERROR` error envelope format described in
+> the error handling strategy applies to domain-level errors raised by the application
+> layer, not framework-level schema validation.
+
+### 401 Unauthorized – Missing or Invalid Authentication
 
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Validation failed for request body.",
+    "code": "INVALID_TOKEN",
+    "message": "Invalid or expired token, or user has not the permissions to perform this action.",
+    "details": {}
+  }
+}
+```
+
+### 403 Forbidden – Purchase Ownership Violation
+
+Returned when the `user_id` in the request body does not match the authenticated user's ID.
+Users may only ingest purchases on their own behalf.
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You can only ingest purchases on your own behalf.",
     "details": {
-      "violations": [
-        {
-          "field": "external_id",
-          "reason": "External ID is required and must be a non-empty string."
-        },
-        {
-          "field": "amount",
-          "reason": "Amount must be a positive number."
-        },
-        {
-          "field": "user_id",
-          "reason": "User ID is required and must be a valid UUID."
-        }
-      ]
+      "reason": "The user_id in the request does not match the authenticated user."
     }
   }
 }
 ```
 
-### 401 Unauthorized – Missing Authentication
+### 409 Conflict – Duplicate Purchase
 
-```json
-{
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Authentication token is missing or invalid.",
-    "details": {
-      "issue": "Token expired or malformed",
-      "action": "Include a valid Bearer token in the Authorization header."
-    }
-  }
-}
-```
-
-### 409 Conflict – Duplicate Purchase (Idempotent)
+Returned when a purchase with the same `external_id` has already been ingested.
+The caller should treat this as the canonical result for this `external_id`.
 
 ```json
 {
@@ -91,7 +127,9 @@
 }
 ```
 
-### 422 Unprocessable Entity – User Not Found
+### 422 Unprocessable Entity – User Not Found or Inactive
+
+Returned when the supplied `user_id` does not correspond to an existing, active user.
 
 ```json
 {
@@ -108,6 +146,8 @@
 
 ### 422 Unprocessable Entity – Merchant Not Found or Inactive
 
+Returned when the supplied `merchant_id` does not correspond to an existing, active merchant.
+
 ```json
 {
   "error": {
@@ -116,6 +156,45 @@
     "details": {
       "merchant_id": "e3b0c442-98fc-1c14-9afb-4c4e6c2e2a8c",
       "reason": "Purchases cannot be processed for inactive merchants."
+    }
+  }
+}
+```
+
+### 422 Unprocessable Entity – No Active Offer Available for Merchant
+
+Returned when the merchant has no offer that is simultaneously: `active = true` **and**
+valid for today's date (`start_date <= today <= end_date`).
+
+This covers three root causes — no offer exists, offer is inactive, or offer is outside
+its valid date range (expired or not yet started) — all of which prevent purchase ingestion.
+
+```json
+{
+  "error": {
+    "code": "UNPROCESSABLE_ENTITY",
+    "message": "No active offer is available for merchant 'e3b0c442-98fc-1c14-9afb-4c4e6c2e2a8c'.",
+    "details": {
+      "merchant_id": "e3b0c442-98fc-1c14-9afb-4c4e6c2e2a8c",
+      "reason": "Purchases cannot be processed without a valid active offer for the merchant."
+    }
+  }
+}
+```
+
+### 422 Unprocessable Entity – Unsupported Currency
+
+Returned when the `currency` field contains a value other than `EUR`.
+The platform currently processes purchases in EUR only.
+
+```json
+{
+  "error": {
+    "code": "UNPROCESSABLE_ENTITY",
+    "message": "Currency 'USD' is not supported. Only EUR is accepted at this time.",
+    "details": {
+      "currency": "USD",
+      "reason": "The platform currently processes purchases in EUR only."
     }
   }
 }

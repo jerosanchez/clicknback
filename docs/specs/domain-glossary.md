@@ -44,7 +44,7 @@ An admin action that validates a pending purchase and releases its associated ca
 
 ### Idempotency
 
-A business guarantee that submitting the same purchase request multiple times (e.g., due to network retries) produces the same result without creating duplicate purchases. Critical for reliable purchase ingestion from external systems. The system identifies duplicates by a unique external purchase ID.
+A business guarantee that submitting the same purchase request multiple times (e.g., due to client-side retries) produces the same result without creating duplicate purchases. The system identifies duplicates by a unique external purchase ID.
 
 ---
 
@@ -104,11 +104,11 @@ The initial state of a new purchase or cashback transaction. Purchases become pe
 
 ### Purchase
 
-An event representing a user transaction at a merchant. Purchases are submitted by external systems via the ingestion API and enter the system with status `pending`. Associated with: a user, a merchant, an amount, and a unique external identifier.
+An event representing a user transaction at a merchant. Purchases are submitted by authenticated users via the ingestion API and enter the system with status `pending`. Associated with: a user, a merchant, an amount, and a unique external identifier.
 
 ### Purchase Ingestion
 
-The process by which an external system (e.g., affiliate tracking platform) submits purchase events to ClickNBack. Validates user existence, merchant existence, and external ID uniqueness to prevent duplicates. Creates purchase and cashback records.
+The process by which an authenticated user submits their own purchase event to ClickNBack. Validates ownership (submitter must be the purchase owner), user existence, merchant existence, and external ID uniqueness to prevent duplicates. Creates purchase and cashback records.
 
 ### Purchase Reversal
 

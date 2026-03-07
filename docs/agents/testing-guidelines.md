@@ -57,6 +57,11 @@ tests/
         test_offers_public_api.py       # mirrors app/offers/api/public.py
         test_offers_policies.py
         test_offers_services.py
+    purchases/
+        test_purchases_api.py
+        test_purchases_policies.py
+        test_purchases_schemas.py
+        test_purchases_services.py
     users/
         test_users_api.py
         test_users_policies.py
@@ -351,7 +356,7 @@ Use a **fixture** (from `conftest.py`) when the input data must be derived from 
 
 Policies are pure functions; no mocking is needed. Use `@pytest.mark.parametrize` to cover the full input space concisely.
 
-### Pattern
+**Pattern:**
 
 ```python
 # tests/merchants/test_merchants_policies.py
@@ -455,6 +460,104 @@ def test_internal_server_error_default_details() -> None:
     assert "request_id" in detail["error"]["details"]  # type: ignore[index]
     assert "timestamp" in detail["error"]["details"]   # type: ignore[index]
 ```
+
+---
+
+## 8a. Testing Schema Validators
+
+**Reference:** `tests/purchases/test_purchases_schemas.py`
+
+Pydantic `@field_validator` methods are pure functions. Test them by constructing the schema class directly — no mocking required. Treat them exactly like policy functions.
+
+### Key differences from policy tests
+
+| Aspect | Policy tests | Schema validator tests |
+| --- | --- | --- |
+| SUT invocation | Call the function directly | Construct the schema class: `Schema(**payload)` |
+| Valid-input assertion | No exception raised | No exception raised + assert field value |
+| Invalid-input assertion | `pytest.raises(DomainException)` | `pytest.raises(ValidationError)` |
+| Message check | `str(exc.value)` or attribute | `str(exc_info.value)` contains substring |
+
+**Pattern:**
+
+```python
+# tests/purchases/test_purchases_schemas.py
+from decimal import Decimal
+from typing import Any
+
+import pytest
+from pydantic import ValidationError
+
+from app.purchases.schemas import PurchaseCreate
+
+
+def _valid_payload(**overrides: Any) -> dict[str, Any]:
+    """Returns a complete, valid input dict. Override only the field under test."""
+    base: dict[str, Any] = {
+        "external_id": "txn-001",
+        "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+        "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "amount": "100.00",
+        "currency": "EUR",
+    }
+    base.update(overrides)
+    return base
+
+
+@pytest.mark.parametrize(
+    "amount",
+    [
+        "1",              # integer — 0 decimal places
+        "10.5",           # 1 decimal place
+        "100.00",         # 2 decimal places — upper scale boundary
+        "0.01",           # minimum positive with 2 decimal places
+        "9999999999.99",  # maximum representable value at precision=12, scale=2
+    ],
+)
+def test_purchase_create_accepts_valid_amount_scale(amount: str) -> None:
+    # Act — should not raise
+    schema = PurchaseCreate(**_valid_payload(amount=amount))
+
+    # Assert
+    assert schema.amount == Decimal(amount)
+
+
+@pytest.mark.parametrize(
+    "amount,expected_message",
+    [
+        ("100.001", "at most 2 decimal places"),  # 3 decimal places
+        ("0.001",   "at most 2 decimal places"),  # 3 decimal places — near zero
+        ("1.1234",  "at most 2 decimal places"),  # 4 decimal places
+    ],
+)
+def test_purchase_create_rejects_amount_with_excess_scale(
+    amount: str, expected_message: str
+) -> None:
+    # Act & Assert
+    with pytest.raises(ValidationError) as exc_info:
+        PurchaseCreate(**_valid_payload(amount=amount))
+    assert expected_message in str(exc_info.value)
+```
+
+### When to add schema validators
+
+Add a `@field_validator` (and its tests) whenever the ORM column carries a constraint that cannot be expressed by Pydantic's built-in field arguments alone:
+
+| ORM constraint | Schema validator to add |
+| --- | --- |
+| `Numeric(scale=N)` | Reject values with more than N decimal places |
+| `String` with allowed values | Reject strings outside the allowed set (or use `Literal` / `Enum`) |
+| Custom cross-field invariant | `@model_validator(mode="after")` + test with both valid and invalid combinations |
+
+Built-in Pydantic guards (`gt`, `ge`, `lt`, `le`, `min_length`, `max_length`, `pattern`) do not require a separate validator — test them via the API boundary-value tests (§6).
+
+### Schema Validator Test Checklist
+
+- [ ] Module-level `_valid_payload(**overrides)` helper — returns a complete, valid dict; override only the field under test
+- [ ] One parametrized test for valid inputs — verify no exception and assert the parsed field value
+- [ ] One parametrized test for invalid inputs — verify `ValidationError` is raised and message substring matches
+- [ ] Each parametrize entry is commented (role: lower boundary, upper boundary, midpoint, etc.)
+- [ ] No magic values — use named boundary constants where applicable
 
 ---
 
@@ -675,7 +778,123 @@ def user_repository() -> Mock:
 
 ---
 
-## 14. Integration Tests (Not Yet Implemented)
+## 14. Testing Async Modules (purchases, wallets, payouts, …)
+
+All new modules use the async database stack (see ADR 010). Tests for these modules follow the same structure as sync modules with the following differences.
+
+### pytest-asyncio configuration
+
+The project runs `pytest-asyncio` in **strict mode** (configured in `pyproject.toml`):
+
+```toml
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+```
+
+Mark every async test function and every async fixture with `@pytest.mark.asyncio`:
+
+```python
+import pytest
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_returns_purchase_on_success(...) -> None:
+    ...
+```
+
+### Mocking async repositories
+
+Use `create_autospec` on the ABC as usual. For `async def` methods, `create_autospec` automatically returns `AsyncMock` for those methods — no extra configuration is needed:
+
+```python
+from unittest.mock import AsyncMock, Mock, create_autospec
+
+from app.purchases.repositories import PurchaseRepositoryABC
+
+
+@pytest.fixture
+def purchase_repository() -> Mock:
+    return create_autospec(PurchaseRepositoryABC)
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_raises_on_duplicate_external_id(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    duplicate_id = "ext-123"
+    purchase_repository.get_by_external_id.return_value = Purchase(...)
+
+    # Act & Assert
+    with pytest.raises(PurchaseDuplicateException):
+        await purchase_service.ingest_purchase({"external_id": duplicate_id}, db=AsyncMock())
+```
+
+### Mocking `AsyncSession` in tests
+
+Create a local `AsyncMock(spec=AsyncSession)` inside each test (not a shared fixture):
+
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from unittest.mock import AsyncMock
+
+async def test_example(purchase_service: PurchaseService, ...) -> None:
+    # Arrange
+    db = AsyncMock(spec=AsyncSession)
+    ...
+    # Act
+    result = await purchase_service.some_method(data, db)
+```
+
+### HTTP API tests for async handlers
+
+`TestClient` from FastAPI/Starlette wraps `anyio` to run async route handlers synchronously during tests — no test changes are needed for the API layer. Override `get_async_db` (not `get_db`) in the `client` fixture:
+
+```python
+from app.core.database import get_async_db
+
+@pytest.fixture
+def client(service_mock: Mock) -> Generator[TestClient, None, None]:
+    async def mock_get_async_db():
+        yield AsyncMock(spec=AsyncSession)
+
+    app.dependency_overrides[get_async_db] = mock_get_async_db
+    app.dependency_overrides[get_purchase_service] = lambda: service_mock
+
+    test_client = TestClient(app)
+    yield test_client
+    app.dependency_overrides.clear()
+```
+
+### Type hints for async tests
+
+```python
+# ✅ Async test function — returns None
+@pytest.mark.asyncio
+async def test_ingest_purchase_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    db = AsyncMock(spec=AsyncSession)
+    ...
+```
+
+### Quick reference — additions to checklist for async modules
+
+Service tests:
+
+- [ ] `db = AsyncMock(spec=AsyncSession)` created locally in each test (replaces `Mock(spec=Session)`)
+- [ ] All service test functions marked `@pytest.mark.asyncio` and declared `async def`
+- [ ] `await` used when calling service methods
+
+API tests:
+
+- [ ] `client` fixture overrides `get_async_db` (not `get_db`)
+- [ ] The `async_db` generator mock uses `async def` and `yield`
+
+---
+
+## 15. Integration Tests (Not Yet Implemented)
 
 When implemented, integration tests will use `testcontainers` with a real PostgreSQL container and `sqlalchemy` sessions that roll back after each test.
 
@@ -688,7 +907,7 @@ When implemented, integration tests will use `testcontainers` with a real Postgr
 
 ---
 
-## 15. End-to-End Tests (Not Yet Implemented)
+## 16. End-to-End Tests (Not Yet Implemented)
 
 When implemented, E2E tests will spin up the full stack via Docker Compose and issue real HTTP requests.
 
@@ -701,7 +920,7 @@ When implemented, E2E tests will spin up the full stack via Docker Compose and i
 
 ---
 
-## 16. Common Issues and Fixes
+## 17. Common Issues and Fixes
 
 ### `AttributeError: return_value` not found on fixture
 
@@ -742,7 +961,7 @@ app.dependency_overrides[get_current_admin_user] = lambda: Mock()
 
 ---
 
-## 17. Quick Reference Checklist
+## 18. Quick Reference Checklist
 
 Use this before submitting any new test file.
 
@@ -778,3 +997,10 @@ Use this before submitting any new test file.
 - [ ] Boundary values commented (lower boundary, upper boundary, midpoint)
 - [ ] Valid inputs: verify no exception raised
 - [ ] Invalid inputs: verify exception type and message substring
+
+### Schema validator test files
+
+- [ ] Module-level `_valid_payload(**overrides)` helper present
+- [ ] One parametrized test for valid inputs — asserts parsed field value
+- [ ] One parametrized test for invalid inputs — asserts `ValidationError` and message substring
+- [ ] Each parametrize entry is commented with its role

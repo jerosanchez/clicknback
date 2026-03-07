@@ -78,7 +78,7 @@ _Status legend:_
 | Offer Update | Offers | ⚫ planned |
 | Offer Deletion | Offers | ⚫ planned |
 | **Purchase & Cashback** | | |
-| Purchase Ingestion (Webhook) | Purchases | ⚪ backlog |
+| Purchase Ingestion | Purchases | 🟢 done |
 | Purchase Confirmation | Purchases | ⚪ backlog |
 | Purchase Details | Purchases | ⚪ backlog |
 | Purchases Listing | Purchases | ⚪ backlog |

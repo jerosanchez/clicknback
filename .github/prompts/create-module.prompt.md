@@ -23,6 +23,7 @@ Also read at least one existing module for structural reference:
 - Do not modify files under `alembic/versions/` — migrations are generated via `alembic revision --autogenerate`, never hand-edited.
 - Do not add dependencies to `pyproject.toml` without flagging for human review.
 - All new ORM models must be registered in `app/models.py`.
+- **All new modules must use the async database stack** (see ADR 010). Repository methods accept `AsyncSession`, service methods are `async def`, and route handlers use `async def` with `Depends(get_async_db)`. Do **not** use `Session` or `get_db()` in new modules.
 
 ## Commit Protocol
 
@@ -43,13 +44,13 @@ Create `app/<module>/` with the following files:
 - `__init__.py` — empty
 - `models.py` — imports only (`from sqlalchemy import ...`)
 - `schemas.py` — imports only (`from pydantic import ...`)
-- `repositories.py` — stub: `<Entity>RepositoryABC(ABC)` with no abstract methods yet; `<Entity>Repository(<Entity>RepositoryABC)` with no methods yet
-- `services.py` — stub: `<Entity>Service` class with `__init__(self, repository: <Entity>RepositoryABC)` and no other methods
+- `repositories.py` — stub: `<Entity>RepositoryABC(ABC)` with no abstract methods yet; `<Entity>Repository(<Entity>RepositoryABC)` with no methods yet. Import `AsyncSession` from `sqlalchemy.ext.asyncio` — this is used by all concrete methods added later.
+- `services.py` — stub: `<Entity>Service` class with `__init__(self, repository: <Entity>RepositoryABC)` and no other methods. Service methods will be `async def` when implemented.
 - `policies.py` — empty
 - `exceptions.py` — empty
 - `errors.py` — stub: `class ErrorCode(str, Enum): pass`
 - `composition.py` — stub: `get_<entity>_service()` factory that instantiates `<Entity>Service` with a concrete `<Entity>Repository()`
-- `api.py` — stub: `router = APIRouter(prefix="/api/v1")` with no registered routes (this will become `api/` if the module grows; see `docs/agents/code-organization.md`)
+- `api.py` — stub: `router = APIRouter(prefix="/api/v1")` with no registered routes. Route handlers will be `async def` with `db: AsyncSession = Depends(get_async_db)` when implemented. (this will become `api/` if the module grows; see `docs/agents/code-organization.md`)
 - `api-requests/.gitkeep` — empty file to track the directory in git
 
 ### Step 2 — ORM model
