@@ -356,7 +356,7 @@ Use a **fixture** (from `conftest.py`) when the input data must be derived from 
 
 Policies are pure functions; no mocking is needed. Use `@pytest.mark.parametrize` to cover the full input space concisely.
 
-### Pattern
+**Pattern:**
 
 ```python
 # tests/merchants/test_merchants_policies.py
@@ -478,7 +478,7 @@ Pydantic `@field_validator` methods are pure functions. Test them by constructin
 | Invalid-input assertion | `pytest.raises(DomainException)` | `pytest.raises(ValidationError)` |
 | Message check | `str(exc.value)` or attribute | `str(exc_info.value)` contains substring |
 
-### Pattern
+**Pattern:**
 
 ```python
 # tests/purchases/test_purchases_schemas.py
