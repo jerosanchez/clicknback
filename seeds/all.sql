@@ -99,3 +99,20 @@ INSERT INTO offers (id, merchant_id, percentage, fixed_amount, start_date, end_d
     ('c1d2e3f4-0000-0000-0002-000000000002', 'e3f4a5b6-c7d8-4e9f-0a1b-2c3d4e5f6a7b', 2.0, NULL, '2026-01-01', '2026-12-31', 20.0, FALSE),  -- ChefSupplies inactive
     -- Active offer on LuxWatches (inactive merchant) – for GET /offers/{id} inactive-merchant smoke test
     ('d0000001-0000-0000-0000-000000000001', 'a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 5.0, NULL, '2026-01-01', '2026-12-31', 50.0, TRUE);  -- LuxWatches (inactive merchant)
+
+-- Purchases
+-- Covers: pending status, multiple users, multiple merchants, different currencies.
+-- Seeds enough rows to verify purchase_id uniqueness and external_id uniqueness constraints.
+-- All purchases reference active merchants with active date-valid offers.
+INSERT INTO purchases (id, external_id, user_id, merchant_id, offer_id, amount, currency, status, created_at) VALUES
+    -- Pending purchases for alice (user) at Shoply (percent offer)
+    ('aa000001-0000-0000-0000-000000000001', 'txn_seed_001', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde', 100.00, 'EUR', 'pending',  NOW() - INTERVAL '5 days'),
+    ('aa000001-0000-0000-0000-000000000002', 'txn_seed_002', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde',  50.00, 'EUR', 'pending',  NOW() - INTERVAL '4 days'),
+    -- Pending purchase for bob (user) at QuickCart (fixed offer)
+    ('aa000001-0000-0000-0000-000000000003', 'txn_seed_003', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678',  75.00, 'USD', 'pending',  NOW() - INTERVAL '3 days'),
+    -- Pending purchase for carol (admin) at TechZone
+    ('aa000001-0000-0000-0000-000000000004', 'txn_seed_004', 'd9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c', 'c3d4e5f6-a7b8-4c9d-1111-000000000004', 200.00, 'EUR', 'pending',  NOW() - INTERVAL '2 days'),
+    -- Confirmed purchase for alice at Shoply (to exercise confirmed state)
+    ('aa000001-0000-0000-0000-000000000005', 'txn_seed_005', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde', 300.00, 'EUR', 'confirmed', NOW() - INTERVAL '10 days'),
+    -- Reversed purchase for bob at QuickCart (to exercise reversed state)
+    ('aa000001-0000-0000-0000-000000000006', 'txn_seed_006', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678',  40.00, 'USD', 'reversed', NOW() - INTERVAL '8 days');
