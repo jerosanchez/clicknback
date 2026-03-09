@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi[all]==0.135.1",
     "psycopg2-binary==2.9.11",
-    "asyncpg==0.30.0",
+    "asyncpg==0.31.0",
     "alembic==1.18.4",
     "passlib==1.7.4",
     "bcrypt==3.2.0",
