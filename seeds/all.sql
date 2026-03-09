@@ -109,10 +109,16 @@ INSERT INTO purchases (id, external_id, user_id, merchant_id, offer_id, amount, 
     ('aa000001-0000-0000-0000-000000000001', 'txn_seed_001', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde', 100.00, 'EUR', 'pending',  NOW() - INTERVAL '5 days'),
     ('aa000001-0000-0000-0000-000000000002', 'txn_seed_002', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde',  50.00, 'EUR', 'pending',  NOW() - INTERVAL '4 days'),
     -- Pending purchase for bob (user) at QuickCart (fixed offer)
-    ('aa000001-0000-0000-0000-000000000003', 'txn_seed_003', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678',  75.00, 'USD', 'pending',  NOW() - INTERVAL '3 days'),
+    ('aa000001-0000-0000-0000-000000000003', 'txn_seed_003', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678',  75.00, 'EUR', 'pending',  NOW() - INTERVAL '3 days'),
     -- Pending purchase for carol (admin) at TechZone
     ('aa000001-0000-0000-0000-000000000004', 'txn_seed_004', 'd9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c', 'c3d4e5f6-a7b8-4c9d-1111-000000000004', 200.00, 'EUR', 'pending',  NOW() - INTERVAL '2 days'),
     -- Confirmed purchase for alice at Shoply (to exercise confirmed state)
     ('aa000001-0000-0000-0000-000000000005', 'txn_seed_005', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde', 300.00, 'EUR', 'confirmed', NOW() - INTERVAL '10 days'),
     -- Reversed purchase for bob at QuickCart (to exercise reversed state)
-    ('aa000001-0000-0000-0000-000000000006', 'txn_seed_006', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678',  40.00, 'USD', 'reversed', NOW() - INTERVAL '8 days');
+    ('aa000001-0000-0000-0000-000000000006', 'txn_seed_006', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678',  40.00, 'EUR', 'reversed', NOW() - INTERVAL '8 days'),
+    -- Additional purchases to exceed default page_size (10) and exercise pagination
+    ('aa000001-0000-0000-0000-000000000007', 'txn_seed_007', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678',  80.00, 'EUR', 'pending',   NOW() - INTERVAL '1 day'),
+    ('aa000001-0000-0000-0000-000000000008', 'txn_seed_008', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde', 120.00, 'EUR', 'confirmed', NOW() - INTERVAL '11 days'),
+    ('aa000001-0000-0000-0000-000000000009', 'txn_seed_009', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c', 'c3d4e5f6-a7b8-4c9d-1111-000000000004',  60.00, 'EUR', 'pending',   NOW() - INTERVAL '6 days'),
+    ('aa000001-0000-0000-0000-000000000010', 'txn_seed_010', 'd9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678', 250.00, 'EUR', 'reversed',  NOW() - INTERVAL '9 days'),
+    ('aa000001-0000-0000-0000-000000000011', 'txn_seed_011', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c', 'c3d4e5f6-a7b8-4c9d-1111-000000000004',  90.00, 'EUR', 'pending',   NOW() - INTERVAL '7 days');
