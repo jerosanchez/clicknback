@@ -8,6 +8,7 @@ import pytest
 from app.purchases.clients import MerchantsClientABC, OffersClientABC, UsersClientABC
 from app.purchases.exceptions import (
     DuplicatePurchaseException,
+    InvalidPurchaseStatusException,
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
@@ -479,3 +480,28 @@ async def test_ingest_purchase_does_not_check_duplicate_on_ownership_violation(
         await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, db)
 
     purchase_repository.get_by_external_id.assert_not_called()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.list_purchases
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_purchases_raises_on_invalid_status(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    invalid_status = "not_a_valid_status"
+
+    # Act & Assert
+    with pytest.raises(InvalidPurchaseStatusException) as exc_info:
+        await purchase_service.list_purchases(
+            db,
+            status=invalid_status,
+        )
+
+    assert exc_info.value.status == invalid_status
+    assert "not a valid purchase status" in str(exc_info.value)
