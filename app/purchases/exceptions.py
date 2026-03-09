@@ -65,3 +65,12 @@ class PurchaseOwnershipViolationException(Exception):
         )
         self.current_user_id = current_user_id
         self.requested_user_id = requested_user_id
+
+
+class InvalidPurchaseStatusException(Exception):
+    def __init__(self, status: str):
+        super().__init__(
+            f"'{status}' is not a valid purchase status. "
+            "Allowed values: pending, confirmed, reversed."
+        )
+        self.status = status

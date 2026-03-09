@@ -12,9 +12,13 @@ from app.purchases.clients import (
     UserDTO,
     UsersClientABC,
 )
-from app.purchases.exceptions import DuplicatePurchaseException
+from app.purchases.exceptions import (
+    DuplicatePurchaseException,
+    InvalidPurchaseStatusException,
+)
 from app.purchases.models import Purchase
 from app.purchases.repositories import PurchaseRepositoryABC
+from app.purchases.schemas import PurchaseStatus
 
 
 class PurchaseService:
@@ -90,3 +94,31 @@ class PurchaseService:
             extra={"purchase_id": result.id, "external_id": external_id},
         )
         return result
+
+    async def list_purchases(
+        self,
+        db: AsyncSession,
+        *,
+        status: str | None = None,
+        user_id: str | None = None,
+        merchant_id: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> tuple[list[Purchase], int]:
+        if status is not None:
+            try:
+                PurchaseStatus(status)
+            except ValueError:
+                raise InvalidPurchaseStatusException(status)
+        return await self.repository.list_purchases(
+            db,
+            status=status,
+            user_id=user_id,
+            merchant_id=merchant_id,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            page_size=page_size,
+        )
