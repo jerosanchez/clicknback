@@ -1,0 +1,307 @@
+from decimal import Decimal
+from typing import Any, AsyncGenerator, Callable, Generator
+from unittest.mock import AsyncMock, Mock, create_autospec
+
+import pytest
+from fastapi import status
+from fastapi.testclient import TestClient
+
+from app.auth.exceptions import InvalidTokenException
+from app.core.current_user import get_current_admin_user
+from app.core.database import get_async_db
+from app.core.errors.codes import ErrorCode
+from app.main import app
+from app.purchases.composition import get_purchase_service
+from app.purchases.errors import ErrorCode as PurchaseErrorCode
+from app.purchases.exceptions import InvalidPurchaseStatusException
+from app.purchases.models import Purchase
+from app.purchases.services import PurchaseService
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Fixtures
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def purchase_service_mock() -> Mock:
+    return create_autospec(PurchaseService)
+
+
+async def _mock_get_async_db() -> AsyncGenerator[AsyncMock, Any]:
+    yield AsyncMock()
+
+
+@pytest.fixture
+def client(purchase_service_mock: Mock) -> Generator[TestClient, None, None]:
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
+    app.dependency_overrides[get_purchase_service] = lambda: purchase_service_mock
+    app.dependency_overrides[get_current_admin_user] = lambda: Mock()
+
+    test_client = TestClient(app)
+    yield test_client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def non_admin_client(
+    purchase_service_mock: Mock,
+) -> Generator[TestClient, None, None]:
+    def _raise_invalid_token() -> None:
+        raise InvalidTokenException()
+
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
+    app.dependency_overrides[get_purchase_service] = lambda: purchase_service_mock
+    app.dependency_overrides[get_current_admin_user] = _raise_invalid_token
+
+    yield TestClient(app)
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def unauthenticated_client(
+    purchase_service_mock: Mock,
+) -> Generator[TestClient, None, None]:
+    """Client that does NOT override the auth dependency — auth is absent."""
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
+    app.dependency_overrides[get_purchase_service] = lambda: purchase_service_mock
+
+    yield TestClient(app, raise_server_exceptions=False)
+
+    app.dependency_overrides.clear()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def _assert_paginated_response(
+    data: dict[str, Any],
+    expected_total: int,
+    expected_page: int,
+    expected_page_size: int,
+) -> None:
+    assert data["total"] == expected_total
+    assert data["page"] == expected_page
+    assert data["page_size"] == expected_page_size
+    assert "items" in data
+    assert isinstance(data["items"], list)
+
+
+def _assert_error_payload(data: dict[str, Any], expected_code: str) -> None:
+    assert "error" in data
+    assert data["error"]["code"] == expected_code
+
+
+def _assert_purchase_item_response(item: dict[str, Any], purchase: Purchase) -> None:
+    assert item["id"] == purchase.id
+    assert item["external_id"] == purchase.external_id
+    assert item["user_id"] == purchase.user_id
+    assert item["merchant_id"] == purchase.merchant_id
+    assert item["offer_id"] == purchase.offer_id
+    assert Decimal(item["amount"]) == purchase.amount
+    assert item["currency"] == purchase.currency
+    assert item["status"] == purchase.status
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/purchases — success
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_list_all_purchases_returns_200_on_success(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory()
+    purchase_service_mock.list_purchases.return_value = ([purchase], 1)
+
+    # Act
+    response = client.get("/api/v1/purchases")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    _assert_paginated_response(
+        data, expected_total=1, expected_page=1, expected_page_size=10
+    )
+    assert len(data["items"]) == 1
+    assert data["items"][0]["id"] == purchase.id
+
+
+def test_list_all_purchases_returns_empty_list_when_no_results(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_service_mock.list_purchases.return_value = ([], 0)
+
+    # Act
+    response = client.get("/api/v1/purchases")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    _assert_paginated_response(
+        data, expected_total=0, expected_page=1, expected_page_size=10
+    )
+    assert data["items"] == []
+
+
+def test_list_all_purchases_returns_correct_item_fields(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory()
+    purchase_service_mock.list_purchases.return_value = ([purchase], 1)
+
+    # Act
+    response = client.get("/api/v1/purchases")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    item = response.json()["items"][0]
+    _assert_purchase_item_response(item, purchase)
+
+
+def test_list_all_purchases_reflects_pagination_params(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_service_mock.list_purchases.return_value = ([], 0)
+    requested_page = 3
+    requested_page_size = 5
+
+    # Act
+    response = client.get(
+        f"/api/v1/purchases?page={requested_page}&page_size={requested_page_size}"
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["page"] == requested_page
+    assert data["page_size"] == requested_page_size
+
+
+def test_list_all_purchases_passes_filters_to_service(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_service_mock.list_purchases.return_value = ([], 0)
+    user_id = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
+    merchant_id = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+
+    # Act
+    client.get(
+        f"/api/v1/purchases?status=confirmed&user_id={user_id}"
+        f"&merchant_id={merchant_id}&start_date=2026-01-01&end_date=2026-03-31"
+    )
+
+    # Assert
+    purchase_service_mock.list_purchases.assert_called_once()
+    call_kwargs = purchase_service_mock.list_purchases.call_args.kwargs
+    assert call_kwargs["status"] == "confirmed"
+    assert call_kwargs["user_id"] == user_id
+    assert call_kwargs["merchant_id"] == merchant_id
+    assert str(call_kwargs["start_date"]) == "2026-01-01"
+    assert str(call_kwargs["end_date"]) == "2026-03-31"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/purchases — exception handling
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "side_effect,expected_status,expected_code",
+    [
+        (
+            InvalidPurchaseStatusException("invalid_status"),
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            PurchaseErrorCode.INVALID_PURCHASE_STATUS,
+        ),
+        (
+            Exception("unexpected failure"),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+        ),
+    ],
+)
+def test_list_all_purchases_returns_error_on_exception(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    side_effect: Exception,
+    expected_status: int,
+    expected_code: str,
+) -> None:
+    # Arrange
+    purchase_service_mock.list_purchases.side_effect = side_effect
+
+    # Act
+    response = client.get("/api/v1/purchases")
+
+    # Assert
+    assert response.status_code == expected_status
+    _assert_error_payload(response.json(), expected_code)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/purchases — authorization
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_list_all_purchases_returns_401_on_missing_auth(
+    unauthenticated_client: TestClient,
+) -> None:
+    # Act
+    response = unauthenticated_client.get("/api/v1/purchases")
+
+    # Assert
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_list_all_purchases_returns_401_on_non_admin(
+    non_admin_client: TestClient,
+) -> None:
+    # Act
+    response = non_admin_client.get("/api/v1/purchases")
+
+    # Assert
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    _assert_error_payload(response.json(), ErrorCode.INVALID_TOKEN)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/purchases — pagination validation
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "query_string,description",
+    [
+        ("page=0", "page below minimum"),
+        ("page_size=0", "page_size below minimum"),
+        ("page_size=101", "page_size above maximum"),
+    ],
+)
+def test_list_all_purchases_returns_422_on_invalid_pagination_params(
+    client: TestClient,
+    query_string: str,
+    description: str,
+) -> None:
+    # Act
+    response = client.get(f"/api/v1/purchases?{query_string}")
+
+    # Assert
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), f"Expected 422 for: {description}"

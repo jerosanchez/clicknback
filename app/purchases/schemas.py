@@ -1,7 +1,15 @@
+from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+
+
+class PurchaseStatus(str, Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    REVERSED = "reversed"
 
 
 class PurchaseCreate(BaseModel):
@@ -41,3 +49,24 @@ class PurchaseOut(BaseModel):
     id: str
     status: str
     cashback_amount: Decimal = Decimal("0")
+
+
+class PurchaseAdminOut(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: str
+    external_id: str
+    user_id: str
+    merchant_id: str
+    offer_id: str | None
+    amount: Decimal
+    currency: str
+    status: PurchaseStatus
+    created_at: datetime
+
+
+class PaginatedPurchaseOut(BaseModel):
+    items: list[PurchaseAdminOut]
+    total: int
+    page: int
+    page_size: int
