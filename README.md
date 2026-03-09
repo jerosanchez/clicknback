@@ -47,7 +47,8 @@ Last updated: 2026.03.05
 
 _Status legend:_
 
-- 🟢 done: Fully implemented and available
+- 🟢 done: Fully implemented and already available
+- 🟡 ongoing: Currently working on this feature, expected in the next days/week
 - ⚪ backlog: Queued for development, expected in the short-term
 - ⚫ planned: Feature is considered for future development, timing is uncertain
 
@@ -80,8 +81,8 @@ _Status legend:_
 | **Purchase & Cashback** | | |
 | Purchase Ingestion | Purchases | 🟢 done |
 | Purchase Confirmation | Purchases | ⚪ backlog |
-| Purchase Details | Purchases | ⚪ backlog |
-| Purchases Listing | Purchases | ⚪ backlog |
+| Purchase Details | Purchases | 🟡 ongoing |
+| Purchases Listing | Purchases | 🟢 done |
 | Cashback Calculation Engine | Purchases | ⚪ backlog |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
