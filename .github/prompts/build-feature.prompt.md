@@ -99,6 +99,18 @@ async def get_by_id(self, db: AsyncSession, entity_id: str) -> Entity | None:
 
 Do **not** use the legacy `session.query()` API — it does not compose with `AsyncSession`.
 
+**Dynamic filter lists:** When building a list of WHERE conditions to spread into `.where()`, annotate it as `list[ColumnElement[bool]]` using the public `ColumnElement` type imported from `sqlalchemy`. Avoid `_ColumnExpressionArgument` — it is a private alias that Pylance cannot fully resolve, causing `list[Unknown]` errors under strict type checking:
+
+```python
+from sqlalchemy import ColumnElement
+
+conditions: list[ColumnElement[bool]] = []
+if status is not None:
+    conditions.append(Entity.status == status)
+if conditions:
+    stmt = stmt.where(*conditions)
+```
+
 ### Step 4a — `clients/`: cross-module clients (only if this feature reads data owned by another module)
 
 If this feature needs to read data from another module (e.g., look up a user, merchant, or offer), **do not** import that module's ORM models into the repository, policies, or service. Instead:
