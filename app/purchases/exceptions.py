@@ -74,3 +74,21 @@ class InvalidPurchaseStatusException(Exception):
             "Allowed values: pending, confirmed, reversed."
         )
         self.status = status
+
+
+class PurchaseNotFoundException(Exception):
+    def __init__(self, purchase_id: str):
+        super().__init__(f"Purchase with ID '{purchase_id}' does not exist.")
+        self.purchase_id = purchase_id
+
+
+class PurchaseViewForbiddenException(Exception):
+    """The authenticated user is not the owner of the purchase being viewed."""
+
+    def __init__(self, purchase_id: str, resource_owner_id: str, current_user_id: str):
+        super().__init__(
+            f"User '{current_user_id}' does not have permission to view purchase '{purchase_id}'."
+        )
+        self.purchase_id = purchase_id
+        self.resource_owner_id = resource_owner_id
+        self.current_user_id = current_user_id

@@ -16,6 +16,10 @@ class PurchaseRepositoryABC(ABC):
         pass
 
     @abstractmethod
+    async def get_by_id(self, db: AsyncSession, purchase_id: str) -> Purchase | None:
+        pass
+
+    @abstractmethod
     async def add_purchase(self, db: AsyncSession, purchase: Purchase) -> Purchase:
         pass
 
@@ -42,6 +46,10 @@ class PurchaseRepository(PurchaseRepositoryABC):
         result = await db.execute(
             select(Purchase).where(Purchase.external_id == external_id)
         )
+        return result.scalar_one_or_none()
+
+    async def get_by_id(self, db: AsyncSession, purchase_id: str) -> Purchase | None:
+        result = await db.execute(select(Purchase).where(Purchase.id == purchase_id))
         return result.scalar_one_or_none()
 
     async def add_purchase(self, db: AsyncSession, purchase: Purchase) -> Purchase:

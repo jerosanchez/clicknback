@@ -4,6 +4,7 @@ from app.purchases.policies import (
     enforce_merchant_active,
     enforce_offer_available,
     enforce_purchase_ownership,
+    enforce_purchase_view_ownership,
     enforce_user_active,
 )
 from app.purchases.repositories import PurchaseRepository
@@ -25,4 +26,5 @@ def get_purchase_service() -> PurchaseService:
         enforce_merchant_active=enforce_merchant_active,
         enforce_offer_available=enforce_offer_available,
         enforce_currency_supported=enforce_currency_eur,
+        enforce_purchase_view_ownership=enforce_purchase_view_ownership,
     )
