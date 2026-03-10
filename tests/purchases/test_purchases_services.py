@@ -12,7 +12,9 @@ from app.purchases.exceptions import (
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
+    PurchaseNotFoundException,
     PurchaseOwnershipViolationException,
+    PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
     UserInactiveException,
     UserNotFoundException,
@@ -68,6 +70,11 @@ def enforce_currency_supported() -> Mock:
 
 
 @pytest.fixture
+def enforce_purchase_view_ownership() -> Mock:
+    return Mock()
+
+
+@pytest.fixture
 def purchase_service(
     purchase_repository: Mock,
     users_client: Mock,
@@ -78,6 +85,7 @@ def purchase_service(
     enforce_merchant_active: Mock,
     enforce_offer_available: Mock,
     enforce_currency_supported: Mock,
+    enforce_purchase_view_ownership: Mock,
 ) -> PurchaseService:
     return PurchaseService(
         repository=purchase_repository,
@@ -89,6 +97,7 @@ def purchase_service(
         enforce_merchant_active=enforce_merchant_active,
         enforce_offer_available=enforce_offer_available,
         enforce_currency_supported=enforce_currency_supported,
+        enforce_purchase_view_ownership=enforce_purchase_view_ownership,
     )
 
 
@@ -505,3 +514,173 @@ async def test_list_purchases_raises_on_invalid_status(
 
     assert exc_info.value.status == invalid_status
     assert "not a valid purchase status" in str(exc_info.value)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.get_purchase_details — happy path
+# ──────────────────────────────────────────────────────────────────────────────
+
+_DETAIL_PURCHASE_ID = "aa000001-0000-0000-0000-000000000001"
+_DETAIL_CURRENT_USER_ID = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
+_DETAIL_MERCHANT_NAME = "Shoply"
+
+
+@pytest.mark.asyncio
+async def test_get_purchase_details_returns_purchase_and_merchant_name_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    merchants_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    purchase = purchase_factory(
+        id=_DETAIL_PURCHASE_ID,
+        user_id=_DETAIL_CURRENT_USER_ID,
+    )
+    purchase_repository.get_by_id.return_value = purchase
+    merchant_mock = Mock()
+    merchant_mock.name = _DETAIL_MERCHANT_NAME
+    merchants_client.get_merchant_by_id.return_value = merchant_mock
+
+    # Act
+    result_purchase, result_name = await purchase_service.get_purchase_details(
+        _DETAIL_PURCHASE_ID, _DETAIL_CURRENT_USER_ID, db
+    )
+
+    # Assert
+    assert result_purchase == purchase
+    assert result_name == _DETAIL_MERCHANT_NAME
+
+
+@pytest.mark.asyncio
+async def test_get_purchase_details_falls_back_to_unknown_when_merchant_missing(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    merchants_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    purchase = purchase_factory(
+        id=_DETAIL_PURCHASE_ID,
+        user_id=_DETAIL_CURRENT_USER_ID,
+    )
+    purchase_repository.get_by_id.return_value = purchase
+    merchants_client.get_merchant_by_id.return_value = None
+
+    # Act
+    _, result_name = await purchase_service.get_purchase_details(
+        _DETAIL_PURCHASE_ID, _DETAIL_CURRENT_USER_ID, db
+    )
+
+    # Assert
+    assert result_name == "Unknown"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.get_purchase_details — not found
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_get_purchase_details_raises_on_purchase_not_found(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    missing_purchase_id = "00000000-0000-0000-0000-000000000000"
+    purchase_repository.get_by_id.return_value = None
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotFoundException) as exc_info:
+        await purchase_service.get_purchase_details(
+            missing_purchase_id, _DETAIL_CURRENT_USER_ID, db
+        )
+
+    assert exc_info.value.purchase_id == missing_purchase_id
+
+
+@pytest.mark.asyncio
+async def test_get_purchase_details_does_not_check_ownership_when_not_found(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    enforce_purchase_view_ownership: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    purchase_repository.get_by_id.return_value = None
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotFoundException):
+        await purchase_service.get_purchase_details(
+            "00000000-0000-0000-0000-000000000000", _DETAIL_CURRENT_USER_ID, db
+        )
+
+    enforce_purchase_view_ownership.assert_not_called()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.get_purchase_details — ownership enforcement
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_get_purchase_details_raises_on_ownership_violation(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    enforce_purchase_view_ownership: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    other_user_id = "c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a"
+    purchase = purchase_factory(
+        id=_DETAIL_PURCHASE_ID,
+        user_id=other_user_id,
+    )
+    purchase_repository.get_by_id.return_value = purchase
+    enforce_purchase_view_ownership.side_effect = PurchaseViewForbiddenException(
+        _DETAIL_PURCHASE_ID, other_user_id, _DETAIL_CURRENT_USER_ID
+    )
+
+    # Act & Assert
+    with pytest.raises(PurchaseViewForbiddenException) as exc_info:
+        await purchase_service.get_purchase_details(
+            _DETAIL_PURCHASE_ID, _DETAIL_CURRENT_USER_ID, db
+        )
+
+    assert exc_info.value.purchase_id == _DETAIL_PURCHASE_ID
+    assert exc_info.value.resource_owner_id == other_user_id
+    assert exc_info.value.current_user_id == _DETAIL_CURRENT_USER_ID
+
+
+@pytest.mark.asyncio
+async def test_get_purchase_details_calls_ownership_check_with_correct_args(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    merchants_client: Mock,
+    enforce_purchase_view_ownership: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    purchase = purchase_factory(
+        id=_DETAIL_PURCHASE_ID,
+        user_id=_DETAIL_CURRENT_USER_ID,
+    )
+    purchase_repository.get_by_id.return_value = purchase
+    merchant_mock = Mock()
+    merchant_mock.name = _DETAIL_MERCHANT_NAME
+    merchants_client.get_merchant_by_id.return_value = merchant_mock
+
+    # Act
+    await purchase_service.get_purchase_details(
+        _DETAIL_PURCHASE_ID, _DETAIL_CURRENT_USER_ID, db
+    )
+
+    # Assert
+    enforce_purchase_view_ownership.assert_called_once_with(
+        _DETAIL_CURRENT_USER_ID, purchase.user_id, _DETAIL_PURCHASE_ID
+    )
