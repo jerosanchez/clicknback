@@ -16,7 +16,9 @@ from app.purchases.exceptions import (
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
+    PurchaseNotFoundException,
     PurchaseOwnershipViolationException,
+    PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
     UserInactiveException,
     UserNotFoundException,
@@ -443,3 +445,141 @@ def test_ingest_purchase_returns_401_on_missing_auth(
 
     # Assert
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/purchases/{purchase_id} — helpers
+# ──────────────────────────────────────────────────────────────────────────────
+
+_PURCHASE_ID = "aa000001-0000-0000-0000-000000000001"
+_MERCHANT_NAME = "Shoply"
+
+
+def _assert_purchase_details_response(
+    data: dict[str, Any], purchase: Purchase, merchant_name: str
+) -> None:
+    assert data["id"] == purchase.id
+    assert data["merchant_name"] == merchant_name
+    assert Decimal(str(data["amount"])) == purchase.amount
+    assert data["status"] == purchase.status
+    assert Decimal(str(data["cashback_amount"])) == Decimal("0")
+    assert data["cashback_status"] is None
+    assert "created_at" in data
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/purchases/{purchase_id} — success
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_get_purchase_details_returns_200_on_success(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory(id=_PURCHASE_ID)
+    purchase_service_mock.get_purchase_details.return_value = (purchase, _MERCHANT_NAME)
+
+    # Act
+    response = client.get(f"/api/v1/purchases/{_PURCHASE_ID}")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    _assert_purchase_details_response(response.json(), purchase, _MERCHANT_NAME)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/purchases/{purchase_id} — all exceptions → status code + error code
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "exception,expected_status,expected_code",
+    [
+        (
+            PurchaseNotFoundException(_PURCHASE_ID),
+            status.HTTP_404_NOT_FOUND,
+            ErrorCode.NOT_FOUND,
+        ),
+        (
+            PurchaseViewForbiddenException(
+                _PURCHASE_ID,
+                "c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a",
+                "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+            ),
+            status.HTTP_403_FORBIDDEN,
+            ErrorCode.FORBIDDEN,
+        ),
+        (
+            Exception("unexpected failure"),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+        ),
+    ],
+)
+def test_get_purchase_details_returns_error_on_exception(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    exception: Exception,
+    expected_status: int,
+    expected_code: str,
+) -> None:
+    # Arrange
+    purchase_service_mock.get_purchase_details.side_effect = exception
+
+    # Act
+    response = client.get(f"/api/v1/purchases/{_PURCHASE_ID}")
+
+    # Assert
+    assert response.status_code == expected_status
+    _assert_error_payload(response.json(), expected_code)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/purchases/{purchase_id} — full error detail shape per exception
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_get_purchase_details_returns_404_with_details_on_not_found(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_service_mock.get_purchase_details.side_effect = PurchaseNotFoundException(
+        _PURCHASE_ID
+    )
+
+    # Act
+    response = client.get(f"/api/v1/purchases/{_PURCHASE_ID}")
+
+    # Assert
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    error = response.json()["error"]
+    assert error["code"] == ErrorCode.NOT_FOUND
+    assert _PURCHASE_ID in error["message"]
+    assert error["details"]["resource_type"] == "purchase"
+    assert error["details"]["resource_id"] == _PURCHASE_ID
+
+
+def test_get_purchase_details_returns_403_with_details_on_forbidden(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    owner_id = "c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a"
+    current_id = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
+    exc = PurchaseViewForbiddenException(_PURCHASE_ID, owner_id, current_id)
+    purchase_service_mock.get_purchase_details.side_effect = exc
+
+    # Act
+    response = client.get(f"/api/v1/purchases/{_PURCHASE_ID}")
+
+    # Assert
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    error = response.json()["error"]
+    assert error["code"] == ErrorCode.FORBIDDEN
+    assert "another user" in error["message"]
+    assert error["details"]["purchase_id"] == _PURCHASE_ID
+    assert error["details"]["resource_owner"] == owner_id
+    assert error["details"]["current_user"] == current_id
