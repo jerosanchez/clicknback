@@ -9,6 +9,7 @@ from app.core.errors.builders import (
     business_rule_violation_error,
     forbidden_error,
     internal_server_error,
+    not_found_error,
     unprocessable_entity_error,
 )
 from app.core.logging import logging
@@ -19,12 +20,14 @@ from app.purchases.exceptions import (
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
+    PurchaseNotFoundException,
     PurchaseOwnershipViolationException,
+    PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
     UserInactiveException,
     UserNotFoundException,
 )
-from app.purchases.schemas import PurchaseCreate, PurchaseOut
+from app.purchases.schemas import PurchaseCreate, PurchaseDetailsOut, PurchaseOut
 from app.purchases.services import PurchaseService
 from app.users.models import User
 
@@ -153,4 +156,61 @@ async def ingest_purchase(
         id=purchase.id,
         status=purchase.status,
         cashback_amount=Decimal("0"),
+    )
+
+
+@router.get(
+    "/{purchase_id}",
+    description="Get details of a specific purchase. Only accessible by the purchase owner.",
+)
+async def get_purchase_details(
+    purchase_id: str,
+    service: PurchaseService = Depends(get_purchase_service),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+) -> PurchaseDetailsOut:
+    try:
+        purchase, merchant_name = await service.get_purchase_details(
+            purchase_id, str(current_user.id), db
+        )
+
+    except PurchaseNotFoundException as exc:
+        raise not_found_error(
+            message=f"Purchase with ID '{exc.purchase_id}' does not exist.",
+            details={
+                "resource_type": "purchase",
+                "resource_id": exc.purchase_id,
+            },
+        )
+
+    except PurchaseViewForbiddenException as exc:
+        logging.debug(
+            "Purchase view forbidden: user attempted to view another user's purchase.",
+            extra={"user_id": str(current_user.id), "purchase_id": exc.purchase_id},
+        )
+        raise forbidden_error(
+            message="You do not have permission to view this purchase. Purchase belongs to another user.",
+            details={
+                "purchase_id": exc.purchase_id,
+                "resource_owner": exc.resource_owner_id,
+                "current_user": exc.current_user_id,
+            },
+        )
+
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while retrieving purchase details.",
+            extra={"error": str(e)},
+        )
+        raise internal_server_error()
+
+    # cashback fields will be wired to the cashback module once it is implemented
+    return PurchaseDetailsOut(
+        id=purchase.id,
+        merchant_name=merchant_name,
+        amount=purchase.amount,
+        status=purchase.status,
+        cashback_amount=Decimal("0"),
+        cashback_status=None,
+        created_at=purchase.created_at,
     )

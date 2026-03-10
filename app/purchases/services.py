@@ -15,6 +15,7 @@ from app.purchases.clients import (
 from app.purchases.exceptions import (
     DuplicatePurchaseException,
     InvalidPurchaseStatusException,
+    PurchaseNotFoundException,
 )
 from app.purchases.models import Purchase
 from app.purchases.repositories import PurchaseRepositoryABC
@@ -33,6 +34,7 @@ class PurchaseService:
         enforce_merchant_active: Callable[[MerchantDTO | None, str], None],
         enforce_offer_available: Callable[[OfferDTO | None, str], None],
         enforce_currency_supported: Callable[[str], None],
+        enforce_purchase_view_ownership: Callable[[str, str, str], None],
     ):
         self.repository = repository
         self.users_client = users_client
@@ -43,6 +45,7 @@ class PurchaseService:
         self.enforce_merchant_active = enforce_merchant_active
         self.enforce_offer_available = enforce_offer_available
         self.enforce_currency_supported = enforce_currency_supported
+        self.enforce_purchase_view_ownership = enforce_purchase_view_ownership
 
     async def ingest_purchase(
         self, data: dict[str, Any], current_user_id: str, db: AsyncSession
@@ -122,3 +125,30 @@ class PurchaseService:
             page=page,
             page_size=page_size,
         )
+
+    async def get_purchase_details(
+        self, purchase_id: str, current_user_id: str, db: AsyncSession
+    ) -> tuple[Purchase, str]:
+        purchase = await self.repository.get_by_id(db, purchase_id)
+        if purchase is None:
+            raise PurchaseNotFoundException(purchase_id)
+
+        self.enforce_purchase_view_ownership(
+            current_user_id, purchase.user_id, purchase_id
+        )
+
+        merchant = await self.merchants_client.get_merchant_by_id(
+            db, purchase.merchant_id
+        )
+
+        # Merchant should always exist for a valid purchase; fall back gracefully if not
+        if merchant is None:
+            logger.warning(
+                "Merchant not found for purchase.",
+                extra={"purchase_id": purchase.id, "merchant_id": purchase.merchant_id},
+            )
+            merchant_name = "Unknown"
+        else:
+            merchant_name = merchant.name
+
+        return purchase, merchant_name

@@ -6,6 +6,7 @@ from app.purchases.exceptions import (
     MerchantNotFoundException,
     OfferNotAvailableException,
     PurchaseOwnershipViolationException,
+    PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
     UserInactiveException,
     UserNotFoundException,
@@ -15,6 +16,7 @@ from app.purchases.policies import (
     enforce_merchant_active,
     enforce_offer_available,
     enforce_purchase_ownership,
+    enforce_purchase_view_ownership,
     enforce_user_active,
 )
 
@@ -88,7 +90,9 @@ def test_enforce_user_active_raises_on_inactive_user() -> None:
 
 def test_enforce_merchant_active_raises_nothing_on_active_merchant() -> None:
     # Arrange
-    merchant = MerchantDTO(id="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", active=True)
+    merchant = MerchantDTO(
+        id="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", active=True, name="Shoply"
+    )
     merchant_id = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 
     # Act & Assert — should not raise
@@ -108,7 +112,9 @@ def test_enforce_merchant_active_raises_on_merchant_not_found() -> None:
 
 def test_enforce_merchant_active_raises_on_inactive_merchant() -> None:
     # Arrange
-    merchant = MerchantDTO(id="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", active=False)
+    merchant = MerchantDTO(
+        id="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", active=False, name="Shoply"
+    )
     merchant_id = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 
     # Act & Assert
@@ -175,3 +181,32 @@ def test_enforce_currency_eur_raises_on_unsupported_currency(
         enforce_currency_eur(currency)
 
     assert exc_info.value.currency == currency
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# enforce_purchase_view_ownership
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_enforce_purchase_view_ownership_raises_nothing_on_matching_ids() -> None:
+    # Arrange
+    user_id = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
+    purchase_id = "aa000001-0000-0000-0000-000000000001"
+
+    # Act & Assert
+    enforce_purchase_view_ownership(user_id, user_id, purchase_id)
+
+
+def test_enforce_purchase_view_ownership_raises_on_mismatched_user() -> None:
+    # Arrange
+    current_user_id = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
+    purchase_owner_id = "c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a"
+    purchase_id = "aa000001-0000-0000-0000-000000000003"
+
+    # Act & Assert
+    with pytest.raises(PurchaseViewForbiddenException) as exc_info:
+        enforce_purchase_view_ownership(current_user_id, purchase_owner_id, purchase_id)
+
+    assert exc_info.value.purchase_id == purchase_id
+    assert exc_info.value.resource_owner_id == purchase_owner_id
+    assert exc_info.value.current_user_id == current_user_id

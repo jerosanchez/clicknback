@@ -4,6 +4,7 @@ from app.purchases.exceptions import (
     MerchantNotFoundException,
     OfferNotAvailableException,
     PurchaseOwnershipViolationException,
+    PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
     UserInactiveException,
     UserNotFoundException,
@@ -44,3 +45,13 @@ def enforce_currency_eur(currency: str) -> None:
     """Raise if the currency is not among the supported currencies (currently EUR only)."""
     if currency.upper() not in _SUPPORTED_CURRENCIES:
         raise UnsupportedCurrencyException(currency)
+
+
+def enforce_purchase_view_ownership(
+    current_user_id: str, purchase_user_id: str, purchase_id: str
+) -> None:
+    """Raise if the authenticated user does not own the purchase being viewed."""
+    if current_user_id != purchase_user_id:
+        raise PurchaseViewForbiddenException(
+            purchase_id, purchase_user_id, current_user_id
+        )

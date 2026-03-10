@@ -80,9 +80,10 @@ _Status legend:_
 | Offer Deletion | Offers | ⚫ planned |
 | **Purchase & Cashback** | | |
 | Purchase Ingestion | Purchases | 🟢 done |
-| Purchase Confirmation | Purchases | ⚪ backlog |
-| Purchase Details | Purchases | 🟡 ongoing |
+| Purchase Confirmation | Purchases | 🟡 ongoing |
+| Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
+| User Purchases Listing | Purchases | ⚪ backlog |
 | Cashback Calculation Engine | Purchases | ⚪ backlog |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |

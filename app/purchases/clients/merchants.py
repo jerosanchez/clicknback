@@ -11,6 +11,7 @@ from app.merchants.models import Merchant
 class MerchantDTO:
     id: str
     active: bool
+    name: str
 
 
 class MerchantsClientABC(ABC):
@@ -38,4 +39,4 @@ class MerchantsClient(MerchantsClientABC):
         merchant = result.scalar_one_or_none()
         if merchant is None:
             return None
-        return MerchantDTO(id=merchant.id, active=merchant.active)
+        return MerchantDTO(id=merchant.id, active=merchant.active, name=merchant.name)

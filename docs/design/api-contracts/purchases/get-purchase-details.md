@@ -1,6 +1,6 @@
 # Get purchase details
 
-**Endpoint:** `GET /users/purchases/{id}`
+**Endpoint:** `GET /purchases/{id}`
 
 **Roles:** Authenticated
 
@@ -19,6 +19,8 @@
   "created_at": "2026-02-13T12:00:00Z"
 }
 ```
+
+> `cashback_amount` is `0` and `cashback_status` is `null` when no cashback transaction exists for this purchase yet.
 
 ## Failure Responses
 
@@ -64,6 +66,18 @@
       "resource_type": "purchase",
       "resource_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab"
     }
+  }
+}
+```
+
+### 500 Internal Server Error – Unexpected Error
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_SERVER_ERROR",
+    "message": "An unexpected error occurred. Please try again later.",
+    "details": null
   }
 }
 ```
