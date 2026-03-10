@@ -28,6 +28,8 @@ Before writing any code, read the following files in full:
 - Do not log passwords, tokens, or secrets at any log level.
 - Do not modify `app/core/errors/handlers.py` or the global error response shape.
 - Do not import ORM models from other modules into `repositories.py`, `policies.py`, or `services.py` — use a `clients/` package and DTOs instead (see Step 4a).
+- **Infrastructure/support modules** (broker, scheduler, token provider, etc.) must keep the ABC and the default in-memory/simple implementation in the **same file**, placed directly under `app/core/` (e.g., `app/core/broker.py`, `app/core/scheduler.py`). Do not split the interface and its default implementation into separate files (`broker_abc.py` + `broker.py`) — that fragmentation adds no value at this scale and forces unnecessary cross-file navigation.
+- Event or message payload definitions that are domain-specific belong in a sub-package (e.g., `app/core/events/`) and are kept separate from the infrastructure files. See `app/core/broker.py`, `app/core/scheduler.py`, and `app/auth/token_provider.py` as reference examples.
 
 ## Commit Protocol
 
@@ -277,6 +279,10 @@ Add realistic seed rows to exercise this feature. Use valid UUIDs. Add enough ro
 ### Step 11 — Write tests
 
 Once all `.http` smoke tests are passing, use `write-tests.prompt.md` to write the test suite for this feature. Tests are a separate commit.
+
+**Testing concurrent/background infrastructure (schedulers, brokers):** Never assert on private attributes (`_registered`, `_running`, etc.) or call internal methods (`_run_loop`) directly — this couples tests to implementation details, breaks on refactors, and triggers linter warnings. Instead, observe only public-contract behaviour:
+
+If for some reason you need to take shortcuts and assert on internal state, add a comment justifying the deviation from best practices and explaining why it is necessary for testing this feature. This ensures future maintainers understand the rationale and can make informed decisions when refactoring.
 
 ### Step 12 — Quality gates and commit
 
