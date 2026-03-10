@@ -1,0 +1,33 @@
+@baseUrl = http://localhost:8001/api/v1
+@userToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MzA3ODUwMX0.Ca9bXYtSnqUnLrH8tc5s5ns7hsfJ70YipKUFOJ8Ce8Q
+
+### Get a fresh token for testing (alice, bob - regular user)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### Happy path: owner retrieves their own purchase (200 OK)
+# alice owns purchase aa000001-0000-0000-0000-000000000001 (seed: txn_seed_001, pending, Shoply)
+GET {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000001
+Authorization: {{userToken}}
+
+### Happy path: confirmed purchase (200 OK)
+# alice owns purchase aa000001-0000-0000-0000-000000000005 (seed: txn_seed_005, confirmed, Shoply)
+GET {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000005
+Authorization: {{userToken}}
+
+### 403 Forbidden: alice attempts to view bob's purchase
+# bob owns purchase aa000001-0000-0000-0000-000000000003 (seed: txn_seed_003)
+GET {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000003
+Authorization: {{userToken}}
+
+### 404 Not Found: purchase does not exist
+GET {{baseUrl}}/purchases/00000000-0000-0000-0000-000000000000
+Authorization: {{userToken}}
+
+### 401 Unauthorized: no token provided
+GET {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000001
