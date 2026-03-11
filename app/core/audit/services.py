@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from typing import Any
+from datetime import datetime
+from typing import Any, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,8 +26,13 @@ class AuditTrail:
     reflects that the operation did not complete.
     """
 
-    def __init__(self, repository: AuditTrailRepositoryABC) -> None:
+    def __init__(
+        self,
+        repository: AuditTrailRepositoryABC,
+        datetime_provider: Callable[[], datetime],
+    ) -> None:
         self._repository = repository
+        self._datetime_provider = datetime_provider
 
     async def record(
         self,
@@ -56,11 +61,15 @@ class AuditTrail:
             outcome:       AuditOutcome.success or AuditOutcome.failure.
             details:       Optional action-specific JSON payload (amounts, reasons, etc.).
         """
+        dt = self._datetime_provider()
+        # Always convert to UTC and strip tzinfo for naive UTC
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(__import__("datetime").timezone.utc).replace(tzinfo=None)
         audit_log = AuditLog(
             # Store as naive UTC datetime to match the DateTime() column definition.
-            occurred_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            occurred_at=dt,
             actor_type=actor_type.value,
-            actor_id=actor_id,
+            actor_id=actor_id if actor_type != AuditActorType.system else None,
             action=action.value,
             resource_type=resource_type,
             resource_id=resource_id,

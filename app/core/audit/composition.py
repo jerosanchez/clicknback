@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from app.core.audit.repositories import AuditTrailRepository
 from app.core.audit.services import AuditTrail
 
@@ -15,4 +17,8 @@ def get_audit_trail() -> AuditTrail:
                 audit_trail=audit_trail,
             )
     """
-    return AuditTrail(repository=AuditTrailRepository())
+
+    return AuditTrail(
+        repository=AuditTrailRepository(),
+        datetime_provider=lambda: datetime.now(timezone.utc),
+    )
