@@ -211,17 +211,17 @@ Indexes prioritize query patterns:
 
 Append-only record of every critical operation. Written by `app/core/audit/` alongside the standard Python logger. Never updated or deleted.
 
-| Field         | Type     | Constraints/Notes                                              |
-|---------------|----------|----------------------------------------------------------------|
-| id            | UUID     | PK                                                             |
-| occurred_at   | datetime | UTC; set by the application                                    |
-| actor_type    | string   | `system` \| `admin` \| `user`                                |
-| actor_id      | string   | UUID of acting user/admin; `null` when actor_type = `system`  |
+| Field         | Type     | Constraints/Notes                                                     |
+|---------------|----------|-----------------------------------------------------------------------|
+| id            | UUID     | PK                                                                    |
+| occurred_at   | datetime | UTC; set by the application                                           |
+| actor_type    | string   | `system` \| `admin` \| `user`                                         |
+| actor_id      | string   | UUID of acting user/admin; `null` when actor_type = `system`          |
 | action        | string   | `AuditAction` enum: e.g. `PURCHASE_CONFIRMED`, `WITHDRAWAL_PROCESSED` |
-| resource_type | string   | Domain entity: `purchase`, `payout`, `merchant`, `offer`, `wallet` |
-| resource_id   | string   | UUID of the affected record                                    |
-| outcome       | string   | `success` \| `failure`                                        |
-| details       | JSON     | nullable; action-specific payload (amounts, status change, reason) |
+| resource_type | string   | Domain entity: `purchase`, `payout`, `merchant`, `offer`, `wallet`    |
+| resource_id   | string   | UUID of the affected record                                           |
+| outcome       | string   | `success` \| `failure`                                                |
+| details       | JSON     | nullable; action-specific payload (amounts, status change, reason)    |
 
 **Indexes:**
 

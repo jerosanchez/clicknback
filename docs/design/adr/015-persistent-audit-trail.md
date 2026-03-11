@@ -49,16 +49,16 @@ app/core/audit/
 
 ### `audit_logs` table
 
-| Field          | Type     | Constraints / Notes                                          |
-|----------------|----------|--------------------------------------------------------------|
-| id             | UUID     | PK                                                           |
-| occurred_at    | datetime | UTC timestamp; set by the application, not a DB default      |
-| actor_type     | string   | `system` \| `admin` \| `user`                               |
-| actor_id       | string   | UUID of the acting user/admin; `null` when actor_type=system |
-| action         | string   | `AuditAction` string enum member                             |
-| resource_type  | string   | Domain entity type: `purchase`, `payout`, `merchant`, etc.  |
-| resource_id    | string   | UUID of the affected resource                                 |
-| outcome        | string   | `success` \| `failure`                                      |
+| Field          | Type     | Constraints / Notes                                                      |
+|----------------|----------|--------------------------------------------------------------------------|
+| id             | UUID     | PK                                                                       |
+| occurred_at    | datetime | UTC timestamp; set by the application, not a DB default                  |
+| actor_type     | string   | `system` \| `admin` \| `user`                                            |
+| actor_id       | string   | UUID of the acting user/admin; `null` when actor_type=system             |
+| action         | string   | `AuditAction` string enum member                                         |
+| resource_type  | string   | Domain entity type: `purchase`, `payout`, `merchant`, etc.               |
+| resource_id    | string   | UUID of the affected resource                                            |
+| outcome        | string   | `success` \| `failure`                                                   |
 | details        | JSON     | nullable; action-specific payload (amounts, status change, reason, etc.) |
 
 ### Usage pattern in services

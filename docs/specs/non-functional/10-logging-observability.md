@@ -17,14 +17,14 @@ Additionally, for critical state-changing operations (purchase confirmation, wit
 
 ## Definition
 
-### Runtime Logging
+**Runtime Logging**:
 
 - All financial transactions, state changes, and errors are logged with structured data.
 - Logs include context: user ID, request ID, operation, timestamp, duration, outcome.
 - Log levels are used appropriately: INFO (business events), WARN (recoverable issues), ERROR (failures).
 - Logs are centralized and searchable; retention follows compliance requirements.
 
-### Persistent Audit Trail
+**Persistent Audit Trail**:
 
 - Every critical operation writes a row to `audit_logs` with: actor type, actor ID, action, affected resource, outcome, and an action-specific JSON payload.
 - "Critical operations" include, but are not limited to: purchase confirmation/rejection, cashback crediting, withdrawal request, payout processing, merchant/offer activation, and any manual admin override.
@@ -42,14 +42,14 @@ Additionally, for critical state-changing operations (purchase confirmation, wit
 
 ## Technical Approach
 
-### Runtime Logging
+**Runtime Logging**:
 
 - Uses Python's native `logging` module configured in `app/core/logging.py` (see ADR-009).
 - `ExtraDictFormatter` appends structured `extra=` keyword arguments to log lines.
 - All modules obtain a logger via `logging.getLogger(__name__)`.
 - Log to stdout; container/logging agent handles centralization.
 
-### Persistent Audit Trail
+**Persistent Audit Trail**:
 
 - `app/core/audit.py` provides all audit infrastructure: `AuditActorType` enum, `AuditAction` enum, `AuditLog` ORM model, `AuditTrailRepositoryABC` / `AuditTrailRepository`, and the `AuditTrail` service class.
 - `AuditTrail.record(...)` writes the audit row to the database **and** emits a corresponding `INFO` log line — both always happen together.
