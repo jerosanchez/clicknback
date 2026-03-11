@@ -15,7 +15,7 @@
 
 ## What This Project Is
 
-ClickNBack models how a real cashback application works: users earn rewards on purchases at partner merchants. The platform ingests purchase events, calculates cashback, manages user wallets (pending, available, and paid balances), and processes withdrawals.
+ClickNBack models how a real cashback application works: users earn rewards on purchases at partner merchants. The platform ingests purchase events, verifies them asynchronously via a background job (simulating bank reconciliation), publishes confirmation/rejection and other events to an internal message broker, calculates cashback, manages user wallets (pending, available, and paid balances), and processes withdrawals.
 
 A complete [glossary](/docs/specs/domain-glossary.md) and [product spec documents](/docs/specs/) are available to better understand the business domain.
 
@@ -36,6 +36,8 @@ Product specs are still evolving, see the [feature roadmap](#feature-roadmap) to
 - **Consistent error handling** — a layered pipeline from domain exception → `HTTPException` → normalized JSON response `{ "error": { "code", "message", "details" } }`
 - **Financial precision** — `Decimal` for all monetary values; row-level locking (`SELECT FOR UPDATE`) for wallet updates
 - **Idempotency** — purchases keyed by external ID to prevent double-crediting
+- **Internal message broker** — a simple in-memory pub/sub component enables decoupled communication between background jobs, domain services, and future modules (e.g., notifications)
+- **Persistent audit trail** — every critical operation (purchase confirmation, cashback crediting, withdrawal, admin actions) writes an append-only row to `audit_logs`, providing durable, queryable traceability independent of log rotation
 - **Test discipline** — unit tests (mocked dependencies via `create_autospec`), API-level tests (HTTP via `TestClient` + `dependency_overrides`), and integration tests; full coverage reporting
 - **Modular monolith** — module boundaries are explicit and ready for extraction into separate services if the system grows
 
@@ -80,10 +82,10 @@ _Status legend:_
 | Offer Deletion | Offers | ⚫ planned |
 | **Purchase & Cashback** | | |
 | Purchase Ingestion | Purchases | 🟢 done |
-| Purchase Confirmation | Purchases | 🟡 ongoing |
+| Purchase Confirmation | Purchases | 🟢 done |
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
-| User Purchases Listing | Purchases | ⚪ backlog |
+| User Purchases Listing | Purchases | 🟡 ongoing |
 | Cashback Calculation Engine | Purchases | ⚪ backlog |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
@@ -133,7 +135,8 @@ The guide comes with ready-to-run `.http` request sequences (compatible with the
 | --- | --- | --- |
 | [`01-admin-platform-setup.http`](docs/specs/workflows/http/01-admin-platform-setup.http) | Create and activate a merchant and an offer | 🟢 live |
 | [`02-user-discovery.http`](docs/specs/workflows/http/02-user-discovery.http) | Register, log in, and browse active offers | 🟢 live |
-| [`03-purchase-and-cashback.http`](docs/specs/workflows/http/03-purchase-and-cashback.http) | Ingest a purchase, confirm it, verify cashback | ⚪ backlog |
+
+ | [`03-purchase-and-cashback.http`](docs/specs/workflows/http/03-purchase-and-cashback.http) | Ingest a purchase, wait for async confirmation, verify cashback | ⚪ backlog |
 | [`04-wallet-and-payout.http`](docs/specs/workflows/http/04-wallet-and-payout.http) | Check wallet balances and process a withdrawal | ⚪ backlog |
 
 _The backlog files document the intended API surface for upcoming features — useful for understanding the domain model even before the endpoints are implemented._
@@ -152,7 +155,9 @@ Topics covered include:
 - [Modular monolith approach](docs/design/adr/001-adopt-modular-monolith-approach.md) — explicit module boundaries designed for future extraction
 - [API module as composition root](docs/design/adr/003-api-module-as-composition-root.md) — where and how dependencies are wired
 - [JWT stateless authentication](docs/design/adr/008-jwt-stateless-authentication.md) — token strategy and tradeoffs
-- [Layered testing strategy](docs/design/adr/007-layered-testing-strategy.md) — unit, API-level, and integration test boundaries
+  - [Layered testing strategy](docs/design/adr/007-layered-testing-strategy.md) — unit, API-level, and integration test boundaries
+  - [Async purchase confirmation](docs/design/adr/013-async-purchase-confirmation.md) — event-driven, background-verified confirmation and decoupled cashback allocation
+  - [Persistent audit trail](docs/design/adr/015-persistent-audit-trail.md) — durable, queryable record of every critical operation for traceability and compliance
 
 The full index is at [`docs/design/adr-index.md`](docs/design/adr-index.md).
 

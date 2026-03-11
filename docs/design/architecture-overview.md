@@ -45,6 +45,7 @@ graph TB
         Config["Configuration"]
         Security["Security & Auth"]
         Policies["Business Policies<br/>RateLimiting, Validation"]
+        Audit["Audit Trail<br/>Persistent critical-op log"]
     end
 
     subgraph "Data Layer"
@@ -141,7 +142,7 @@ version-agnostic: introducing a v2 router requires no changes inside feature mod
 - **Concurrency Safety**: Database transactions + row-level locking; `SELECT FOR UPDATE` on wallet updates
 - **Async I/O**: New modules (`purchases`, `wallets`, `payouts`) use `AsyncSession` with `asyncpg` end-to-end, eliminating event-loop blocking under concurrent request loads (see ADR 010)
 - **Idempotency**: Unique constraints on external IDs at database level
-- **Auditability**: Structured logging on all state transitions; request IDs correlate logs
+- **Auditability**: Structured runtime logging on all state transitions; persistent `audit_logs` table records every critical operation with actor, resource, and outcome (see ADR-015)
 - **Testability**: Repository abstraction enables unit testing sans database; clean layer separation
 - **Extensibility**: Domain boundaries enable future extraction to services; message queues would slot in naturally
 - **Maintainability**: Consistent layering across modules; business logic isolated from HTTP/DB details
@@ -170,4 +171,14 @@ This design signals to evaluators:
 | **Purchases** | Purchase ingestion, idempotency, state transitions | Idempotency key enforcement, DB constraints |
 | **Wallets** | Balance tracking (pending/available/paid), concurrency | Row-level locking, atomic updates |
 | **Payouts** | Withdrawal requests, payout processing, settlement | Financial correctness, audit trails |
-| **Core** | Config, database sessions, security middleware | Shared infrastructure, cross-cutting concerns |
+| **Core** | Config, database sessions, security middleware, audit trail | Shared infrastructure, cross-cutting concerns |
+
+---
+
+## 8. Audit Trail
+
+All critical state-changing operations — purchase confirmation/rejection, cashback crediting, withdrawal requests, payout processing, and admin overrides — write a row to the `audit_logs` table in addition to emitting a runtime log line.
+
+The `AuditTrail` component lives in `app/core/audit.py` and follows the same repository-pattern as all other data-access code. Feature services receive it via constructor injection. This keeps the audit write within the same database transaction as the business operation when required.
+
+See [ADR-015](adr/015-persistent-audit-trail.md) for rationale and full design details.

@@ -30,6 +30,7 @@ Before writing any code, read the following files in full:
 - Do not import ORM models from other modules into `repositories.py`, `policies.py`, or `services.py` — use a `clients/` package and DTOs instead (see Step 4a).
 - **Infrastructure/support modules** (broker, scheduler, token provider, etc.) must keep the ABC and the default in-memory/simple implementation in the **same file**, placed directly under `app/core/` (e.g., `app/core/broker.py`, `app/core/scheduler.py`). Do not split the interface and its default implementation into separate files (`broker_abc.py` + `broker.py`) — that fragmentation adds no value at this scale and forces unnecessary cross-file navigation.
 - Event or message payload definitions that are domain-specific belong in a sub-package (e.g., `app/core/events/`) and are kept separate from the infrastructure files. See `app/core/broker.py`, `app/core/scheduler.py`, and `app/auth/token_provider.py` as reference examples.
+- Critical state-changing operations (purchase confirmation/rejection, cashback crediting, withdrawal processing, payout settlement, admin overrides) **must** call `AuditTrail.record(...)` in the service method, after the operation succeeds. Inject `AuditTrail` via `__init__()` and wire it in `composition.py`. See `docs/agents/feature-guide.md` §2 (`core/audit.py`) and ADR-015.
 
 ## Commit Protocol
 
@@ -227,6 +228,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def create_entity(self, data: dict, db: AsyncSession) -> Entity:
     ...
 ```
+
+**Audit trail — required for critical operations (see ADR-015):**
+
+If this feature performs a critical state-changing operation (purchase confirmation/rejection, cashback crediting, withdrawal processing, payout settlement, or any manual admin override), the service method must also call `AuditTrail.record(...)` after the operation succeeds:
+
+```python
+from app.core.audit import AuditActorType, AuditAction, AuditTrail
+
+class EntityService:
+    def __init__(
+        self,
+        entity_repository: EntityRepositoryABC,
+        audit_trail: AuditTrail,
+    ): ...
+
+    async def perform_critical_op(
+        self, entity_id: str, actor_id: str | None, db: AsyncSession
+    ) -> Entity:
+        entity = await self._do_the_work(entity_id, db)
+        await self.audit_trail.record(
+            db=db,
+            actor_type=AuditActorType.SYSTEM,   # or ADMIN / USER
+            actor_id=actor_id,                   # None for system jobs
+            action=AuditAction.PURCHASE_CONFIRMED,
+            resource_type="purchase",
+            resource_id=entity.id,
+            outcome="success",
+            details={"amount": str(entity.amount)},
+        )
+        return entity
+```
+
+Place the `record()` call **after** the business operation succeeds. If the operation raises, no audit row is written — which accurately reflects the real outcome. The `AuditTrail` instance is injected via `__init__()` and wired in `composition.py` via `get_audit_trail`. Check `docs/specs/non-functional/10-logging-observability.md` for the full list of operations that require an audit row.
 
 ### Step 6 — `composition.py`: dependency wiring
 
