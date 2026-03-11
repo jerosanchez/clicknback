@@ -30,3 +30,6 @@ ADRs serve several essential purposes:
 - [ADR 010: Async-First Database Layer with asyncpg](adr/010-async-database-layer.md)
 - [ADR 011: EUR-Only Currency Policy](adr/011-eur-only-currency-policy.md)
 - [ADR 012: Restrict Purchase Ingestion to Self (Self-Ingestion Policy)](adr/012-self-ingestion-policy.md)
+- [ADR 013: Asynchronous Purchase Confirmation via Internal Event Broker](adr/013-async-purchase-confirmation.md)
+- [ADR 014: In-Process Message Broker and Task Scheduler for MVP](adr/014-in-process-broker-and-scheduler.md)
+- [ADR 015: Persistent Audit Trail for Critical Operations](adr/015-persistent-audit-trail.md)

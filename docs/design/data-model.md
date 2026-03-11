@@ -205,6 +205,35 @@ Indexes prioritize query patterns:
 | user_id_idx  | user_id   |
 | status_idx   | status    |
 
+---
+
+### 5.8 audit_logs
+
+Append-only record of every critical operation. Written by `app/core/audit/` alongside the standard Python logger. Never updated or deleted.
+
+| Field         | Type     | Constraints/Notes                                                     |
+|---------------|----------|-----------------------------------------------------------------------|
+| id            | UUID     | PK                                                                    |
+| occurred_at   | datetime | UTC; set by the application                                           |
+| actor_type    | string   | `system` \| `admin` \| `user`                                         |
+| actor_id      | string   | UUID of acting user/admin; `null` when actor_type = `system`          |
+| action        | string   | `AuditAction` enum: e.g. `PURCHASE_CONFIRMED`, `WITHDRAWAL_PROCESSED` |
+| resource_type | string   | Domain entity: `purchase`, `payout`, `merchant`, `offer`, `wallet`    |
+| resource_id   | string   | UUID of the affected record                                           |
+| outcome       | string   | `success` \| `failure`                                                |
+| details       | JSON     | nullable; action-specific payload (amounts, status change, reason)    |
+
+**Indexes:**
+
+| Index Name           | Columns                        |
+|----------------------|--------------------------------|
+| actor_id_idx         | actor_id                       |
+| action_idx           | action                         |
+| resource_idx         | resource_type, resource_id     |
+| occurred_at_idx      | occurred_at                    |
+
+---
+
 ## 5.1 E-R Diagram
 
 ```mermaid
@@ -268,6 +297,17 @@ erDiagram
   datetime processed_at
   string external_reference "nullable, e.g. bank transfer ID"
  }
+ audit_logs {
+  UUID id PK
+  datetime occurred_at
+  string actor_type "system | admin | user"
+  string actor_id "nullable"
+  string action "AuditAction enum"
+  string resource_type
+  string resource_id
+  string outcome "success | failure"
+  json details "nullable"
+ }
 
  users ||--o{ purchases : "has"
  users ||--o{ cashback_transactions : "has"
@@ -284,6 +324,7 @@ erDiagram
  wallets ||--|| users : "belongs to"
  payouts }o--|| users : "for"
  purchases }o--|| offers : "applies offer"
+ users ||--o{ audit_logs : "actioned by"
 ```
 
 ---

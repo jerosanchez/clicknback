@@ -125,7 +125,7 @@ make clean       # Remove .venv, __pycache__, coverage reports, etc.
 
 The application lives under `app/`. Every domain is a self-contained module (e.g., `app/users/`, `app/merchants/`) that follows the same layered structure: `api` (HTTP routing), `services` (business logic), `policies` (pure business rules), `repositories` (data access), `models`, `schemas`, `exceptions`, `errors`, and `composition` (dependency wiring).
 
-Cross-cutting infrastructure (config, DB session factory, JWT, logging, error builders) lives in `app/core/`.
+Cross-cutting infrastructure (config, DB session factory, JWT, logging, audit trail, message brokers, schedulers, error builders) lives in `app/core/`.
 
 **All new modules must use the async database stack** (ADR 010, `docs/design/adr/010-async-database-layer.md`): repositories accept `AsyncSession`, service methods are `async def`, and route handlers use `async def` with `Depends(get_async_db)`. Existing modules (`users`, `merchants`, `offers`, `auth`) use the synchronous session and are migrated incrementally.
 

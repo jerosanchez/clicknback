@@ -312,6 +312,60 @@ Available builders:
 | `unprocessable_entity_error(code, message, details)` | 422 |
 | `internal_server_error(message, details)` | 500 |
 
+### `core/audit/`
+
+The audit trail is a self-contained infrastructure sub-package that follows the same layered structure as domain feature modules. It is placed under `core/` because it is shared infrastructure, but its internal layout mirrors a regular module:
+
+```text
+app/core/audit/
+  __init__.py      ← Re-exports all public symbols; callers import from app.core.audit
+  enums.py         ← AuditActorType, AuditOutcome, AuditAction
+  models.py        ← AuditLog ORM model (audit_logs table)
+  repositories.py  ← AuditTrailRepositoryABC + AuditTrailRepository
+  services.py      ← AuditTrail service
+  composition.py   ← get_audit_trail() FastAPI Depends factory
+```
+
+Key exports:
+
+- **`AuditActorType`** — string enum: `system` | `admin` | `user`.
+- **`AuditAction`** — string enum of all auditable actions (e.g. `PURCHASE_CONFIRMED`, `WITHDRAWAL_PROCESSED`). Add a new member to `enums.py` when implementing a new auditable operation.
+- **`AuditLog`** — SQLAlchemy ORM model for the `audit_logs` table (append-only, never updated).
+- **`AuditTrailRepositoryABC`** / **`AuditTrailRepository`** — repository pair following the standard pattern; ABC enables mocking in tests.
+- **`AuditTrail`** — the thin service class injected into feature services. Single primary method: `record(...)`. Internally writes the DB row **and** emits a structured `INFO` log line — both always happen together.
+- **`get_audit_trail()`** — FastAPI `Depends()` factory; returns a fully wired `AuditTrail` instance.
+
+```python
+from app.core.audit import AuditActorType, AuditAction, AuditTrail
+
+class PurchaseService:
+    def __init__(
+        self,
+        purchase_repository: PurchaseRepositoryABC,
+        audit_trail: AuditTrail,
+    ): ...
+
+    async def confirm_purchase(self, purchase_id: str, db: AsyncSession) -> Purchase:
+        purchase = await self._confirm_internally(purchase_id, db)
+        # Audit write happens after the business operation succeeds.
+        # If the operation raises, no audit row is written.
+        await self.audit_trail.record(
+            db=db,
+            actor_type=AuditActorType.SYSTEM,
+            actor_id=None,
+            action=AuditAction.PURCHASE_CONFIRMED,
+            resource_type="purchase",
+            resource_id=purchase.id,
+            outcome="success",
+            details={"amount": str(purchase.amount), "merchant_id": purchase.merchant_id},
+        )
+        return purchase
+```
+
+For admin-initiated operations, pass `actor_type=AuditActorType.ADMIN` and `actor_id=current_user.id` (obtained from the route handler and threaded down to the service).
+
+See [ADR-015](../design/adr/015-persistent-audit-trail.md) for rationale and the full list of auditable actions.
+
 ### `core/errors/handlers.py`
 
 Registers global FastAPI exception handlers via `register_error_handlers(app)`. This ensures:
@@ -466,6 +520,19 @@ logger.info(f"Login attempt successful for {email}.")
 - Do not log at `INFO` or above for every repository query — that belongs at `DEBUG`.
 - Do not log read-only service operations (queries that do not mutate DB state). These have no audit value and add noise. Only log at `INFO` for operations that create, update, or delete records, or that represent a security-relevant event.
 - Do not duplicate the exception traceback manually; Python's `logging.exception()` or `logging.error(..., exc_info=True)` can include it automatically if needed.
+
+### Audit Trail — Persistent Record of Critical Operations
+
+Runtime logging is not a substitute for a persistent audit record. For every critical state-changing operation (purchase confirmation/rejection, cashback crediting, withdrawal processing, admin overrides), the service must also call `AuditTrail.record(...)` **in addition** to emitting the regular log line.
+
+The distinction:
+
+| Concern | Tool | Storage | Use for |
+| --- | --- | --- | --- |
+| Debugging & alerting | `logging.info/warn/error` | stdout / log aggregator | Runtime diagnostics, performance, errors |
+| Compliance & traceability | `AuditTrail.record(...)` | PostgreSQL `audit_logs` | Who did what, when, with what outcome — permanently |
+
+See the `core/audit/` section above and [ADR-015](../design/adr/015-persistent-audit-trail.md) for full details. See [NFR-10](../specs/non-functional/10-logging-observability.md) for the complete list of operations that require an audit row.
 
 ---
 
