@@ -24,6 +24,9 @@ coverage: ## Run tests, generate coverage reports, and print emoji grade (exits 
 security: ## Run Bandit security scan on app/ (medium and high severity only)
 	@bash -c "$(VENV_ACTIVATE) bandit -r app/ -ll"
 
+migrate: ## Apply all pending Alembic migrations
+	@bash -c "$(VENV_ACTIVATE) alembic upgrade head"
+
 # Development lifecycle:
 
 clean: ## Clean up development environment
@@ -61,4 +64,4 @@ dev: ## Run the application locally with hot-reload (no Docker)
 logs: ## Tail container logs for clicknback-app
 	docker compose logs -f clicknback-app
 
-.PHONY: install lint test coverage security clean up down db-reset dev logs
+.PHONY: install lint test coverage security migrate clean up down db-reset dev logs
