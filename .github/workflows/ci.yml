@@ -96,7 +96,7 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
-    needs: coverage
+    needs: lint
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
