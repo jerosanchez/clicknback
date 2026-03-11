@@ -312,18 +312,28 @@ Available builders:
 | `unprocessable_entity_error(code, message, details)` | 422 |
 | `internal_server_error(message, details)` | 500 |
 
-### `core/audit.py`
+### `core/audit/`
 
-Provides the persistent audit trail infrastructure. All critical state-changing operations must write an audit row in addition to emitting a runtime log line.
+The audit trail is a self-contained infrastructure sub-package that follows the same layered structure as domain feature modules. It is placed under `core/` because it is shared infrastructure, but its internal layout mirrors a regular module:
+
+```text
+app/core/audit/
+  __init__.py      ← Re-exports all public symbols; callers import from app.core.audit
+  enums.py         ← AuditActorType, AuditOutcome, AuditAction
+  models.py        ← AuditLog ORM model (audit_logs table)
+  repositories.py  ← AuditTrailRepositoryABC + AuditTrailRepository
+  services.py      ← AuditTrail service
+  composition.py   ← get_audit_trail() FastAPI Depends factory
+```
 
 Key exports:
 
 - **`AuditActorType`** — string enum: `system` | `admin` | `user`.
-- **`AuditAction`** — string enum of all auditable actions (e.g. `PURCHASE_CONFIRMED`, `WITHDRAWAL_PROCESSED`). Add a new member here when implementing a new auditable operation.
+- **`AuditAction`** — string enum of all auditable actions (e.g. `PURCHASE_CONFIRMED`, `WITHDRAWAL_PROCESSED`). Add a new member to `enums.py` when implementing a new auditable operation.
 - **`AuditLog`** — SQLAlchemy ORM model for the `audit_logs` table (append-only, never updated).
 - **`AuditTrailRepositoryABC`** / **`AuditTrailRepository`** — repository pair following the standard pattern; ABC enables mocking in tests.
 - **`AuditTrail`** — the thin service class injected into feature services. Single primary method: `record(...)`. Internally writes the DB row **and** emits a structured `INFO` log line — both always happen together.
-- **`get_audit_trail(db)`** — FastAPI `Depends()` factory; `db: AsyncSession` so the audit write can participate in the same transaction as the business operation.
+- **`get_audit_trail()`** — FastAPI `Depends()` factory; returns a fully wired `AuditTrail` instance.
 
 ```python
 from app.core.audit import AuditActorType, AuditAction, AuditTrail
@@ -522,7 +532,7 @@ The distinction:
 | Debugging & alerting | `logging.info/warn/error` | stdout / log aggregator | Runtime diagnostics, performance, errors |
 | Compliance & traceability | `AuditTrail.record(...)` | PostgreSQL `audit_logs` | Who did what, when, with what outcome — permanently |
 
-See the `core/audit.py` section above and [ADR-015](../design/adr/015-persistent-audit-trail.md) for full details. See [NFR-10](../specs/non-functional/10-logging-observability.md) for the complete list of operations that require an audit row.
+See the `core/audit/` section above and [ADR-015](../design/adr/015-persistent-audit-trail.md) for full details. See [NFR-10](../specs/non-functional/10-logging-observability.md) for the complete list of operations that require an audit row.
 
 ---
 

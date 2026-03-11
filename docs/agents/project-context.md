@@ -129,7 +129,7 @@ As a module grows, any layer file may be replaced by a package of the same name.
 app/
   main.py              ← FastAPI app factory + router registration
   models.py            ← Central Alembic model discovery import
-  core/                ← Cross-cutting infrastructure (config, DB, auth, error handling, logging)
+  core/                ← Cross-cutting infrastructure (config, DB, auth, error handling, logging, audit)
   auth/                ← Authentication module
   users/               ← Users module
   merchants/           ← Merchants module
@@ -157,7 +157,7 @@ pyproject.toml
 | **Purchases** | Purchase ingestion, idempotency, state transitions, reversal |
 | **Wallets** | Balance tracking (pending/available/paid), concurrency-safe updates |
 | **Payouts** | Withdrawal requests, payout processing, settlement records |
-| **Core** | Config, DB sessions, logging, current-user dependencies, error infrastructure |
+| **Core** | Config, DB sessions, logging, current-user dependencies, error infrastructure, persistent audit trail |
 
 ---
 

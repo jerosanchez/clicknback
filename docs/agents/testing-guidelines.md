@@ -45,6 +45,9 @@ tests/
         test_auth_services.py
         test_token_providers.py
     core/
+        audit/
+            test_audit_enums.py         # mirrors app/core/audit/enums.py
+            test_audit_services.py      # mirrors app/core/audit/services.py + composition.py
         test_current_user.py
         errors/
             test_builders.py

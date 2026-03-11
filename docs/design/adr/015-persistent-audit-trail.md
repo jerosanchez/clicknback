@@ -26,12 +26,22 @@ Without a persistent, queryable audit record, answering questions like *"why was
 
 We introduce a dedicated `audit_trail` infrastructure component in `app/core/` that persists a record of every critical operation to the `audit_logs` database table.
 
-### Component: `app/core/audit.py`
+### Component: `app/core/audit/`
 
-A single file containing all audit infrastructure:
+A self-contained sub-package following the same layered structure used by domain feature modules. This makes it independently navigable and ready to be promoted to a standalone service if needed. All public symbols are re-exported from `__init__.py` so call sites remain unchanged:
+
+```text
+app/core/audit/
+  __init__.py      ← Re-exports all public symbols
+  enums.py         ← AuditActorType, AuditOutcome, AuditAction
+  models.py        ← AuditLog ORM model
+  repositories.py  ← AuditTrailRepositoryABC + AuditTrailRepository
+  services.py      ← AuditTrail service
+  composition.py   ← get_audit_trail() FastAPI Depends factory
+```
 
 - **`AuditActorType`** — string enum: `system` | `admin` | `user`.
-- **`AuditAction`** — string enum listing every auditable action (e.g. `PURCHASE_CONFIRMED`, `WITHDRAWAL_PROCESSED`). New actions are added here as features are implemented.
+- **`AuditAction`** — string enum listing every auditable action (e.g. `PURCHASE_CONFIRMED`, `WITHDRAWAL_PROCESSED`). New actions are added to `enums.py` as features are implemented.
 - **`AuditLog`** — SQLAlchemy ORM model mapped to the `audit_logs` table.
 - **`AuditTrailRepositoryABC`** and **`AuditTrailRepository`** — the repository pair following the project's standard pattern (ABCs enable mocking in unit tests).
 - **`AuditTrail`** — the thin service class injected into feature services. Exposes a single primary method: `record(...)`. Internally, it both persists the row *and* emits a structured log line via the root Python logger, so the runtime log and the DB record are always in sync.

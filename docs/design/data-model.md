@@ -209,7 +209,7 @@ Indexes prioritize query patterns:
 
 ### 5.8 audit_logs
 
-Append-only record of every critical operation. Written by `app/core/audit.py` alongside the standard Python logger. Never updated or deleted.
+Append-only record of every critical operation. Written by `app/core/audit/` alongside the standard Python logger. Never updated or deleted.
 
 | Field         | Type     | Constraints/Notes                                              |
 |---------------|----------|----------------------------------------------------------------|
