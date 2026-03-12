@@ -38,7 +38,8 @@ Product specs are still evolving, see the [feature roadmap](#feature-roadmap) to
 - **Idempotency** — purchases keyed by external ID to prevent double-crediting
 - **Internal message broker** — a simple in-memory pub/sub component enables decoupled communication between background jobs, domain services, and future modules (e.g., notifications)
 - **Persistent audit trail** — every critical operation (purchase confirmation, cashback crediting, withdrawal, admin actions) writes an append-only row to `audit_logs`, providing durable, queryable traceability independent of log rotation
-- **Test discipline** — unit tests (mocked dependencies via `create_autospec`), API-level tests (HTTP via `TestClient` + `dependency_overrides`), and integration tests; full coverage reporting
+- **Background job architecture** — background jobs follow a deliberate _Fan-Out Dispatcher + Per-Item Runner_ pattern: a lightweight dispatcher spawns one independent `asyncio.Task` per pending item on each scheduler tick; each task owns its own retry lifecycle and DB session; an abstracted in-flight tracker prevents duplicate processing; and a swappable Strategy interface decouples the external-system integration from all orchestration logic. The design is fully documented in [ADR-016](docs/design/adr/016-background-job-architecture-pattern.md)
+- **Test discipline** — unit tests (mocked dependencies via `create_autospec`), API-level tests (HTTP via `TestClient` + `dependency_overrides`), and integration tests; full coverage reporting; background job components tested in isolation without spawning real asyncio tasks
 - **Modular monolith** — module boundaries are explicit and ready for extraction into separate services if the system grows
 
 ---
@@ -82,7 +83,8 @@ _Status legend:_
 | Offer Deletion | Offers | ⚫ planned |
 | **Purchase & Cashback** | | |
 | Purchase Ingestion | Purchases | 🟢 done |
-| Purchase Confirmation | Purchases | 🟢 done |
+| Purchase Confirmation (job) | Purchases | 🟢 done |
+| Purchase Confirmation (manual) | Purchases | ⚪ backlog |
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
 | User Purchases Listing | Purchases | 🟡 ongoing |
@@ -123,6 +125,24 @@ The API is continuosly deployed at **<https://clicknback.com>**. No setup requir
 
 ---
 
+## Testing Purchase Confirmation and Rejection
+
+The background verification job runs every **60 seconds** (configurable via `PURCHASE_CONFIRMATION_INTERVAL_SECONDS`). When you ingest a purchase, it starts as `pending`. The job then confirms or rejects it:
+
+- **Any normal merchant** — the purchase is confirmed on the first job run after ingestion.
+- **BankSimFail** (`f0000000-0000-0000-0000-000000000001`) — a special seeded merchant that simulates bank reconciliation failure. The job retries verification `PURCHASE_MAX_VERIFICATION_ATTEMPTS` times (default: 3 cycles = ~3 minutes) before permanently rejecting the purchase. This lets you observe the full rejection flow without any code changes.
+
+To test rejection:
+
+1. Ingest a purchase with `merchant_id: f0000000-0000-0000-0000-000000000001`.
+2. Check purchase status — it will be `pending`.
+3. Wait approximately `3 × 60 = 180 seconds` (3 job cycles).
+4. Check again — status will be `rejected`.
+
+> The BankSimFail merchant and its offer (`f0000000-0000-0000-0001-000000000001`) are pre-seeded. Do not delete or deactivate them in the demo environment; they are required for this workflow.
+
+---
+
 ## Explore the Workflows
 
 If you want to understand the business domain and test the system end-to-end without reading all the documentation, start here:
@@ -136,7 +156,7 @@ The guide comes with ready-to-run `.http` request sequences (compatible with the
 | [`01-admin-platform-setup.http`](docs/specs/workflows/http/01-admin-platform-setup.http) | Create and activate a merchant and an offer | 🟢 live |
 | [`02-user-discovery.http`](docs/specs/workflows/http/02-user-discovery.http) | Register, log in, and browse active offers | 🟢 live |
 
- | [`03-purchase-and-cashback.http`](docs/specs/workflows/http/03-purchase-and-cashback.http) | Ingest a purchase, wait for async confirmation, verify cashback | ⚪ backlog |
+ | [`03-purchase-and-cashback.http`](docs/specs/workflows/http/03-purchase-and-cashback.http) | Ingest a purchase, wait for async confirmation, verify cashback | 🟡 ongoing |
 | [`04-wallet-and-payout.http`](docs/specs/workflows/http/04-wallet-and-payout.http) | Check wallet balances and process a withdrawal | ⚪ backlog |
 
 _The backlog files document the intended API surface for upcoming features — useful for understanding the domain model even before the endpoints are implemented._
@@ -155,9 +175,10 @@ Topics covered include:
 - [Modular monolith approach](docs/design/adr/001-adopt-modular-monolith-approach.md) — explicit module boundaries designed for future extraction
 - [API module as composition root](docs/design/adr/003-api-module-as-composition-root.md) — where and how dependencies are wired
 - [JWT stateless authentication](docs/design/adr/008-jwt-stateless-authentication.md) — token strategy and tradeoffs
-  - [Layered testing strategy](docs/design/adr/007-layered-testing-strategy.md) — unit, API-level, and integration test boundaries
-  - [Async purchase confirmation](docs/design/adr/013-async-purchase-confirmation.md) — event-driven, background-verified confirmation and decoupled cashback allocation
-  - [Persistent audit trail](docs/design/adr/015-persistent-audit-trail.md) — durable, queryable record of every critical operation for traceability and compliance
+- [Layered testing strategy](docs/design/adr/007-layered-testing-strategy.md) — unit, API-level, and integration test boundaries
+- [Async purchase confirmation](docs/design/adr/013-async-purchase-confirmation.md) — event-driven, background-verified confirmation and decoupled cashback allocation
+- [Persistent audit trail](docs/design/adr/015-persistent-audit-trail.md) — durable, queryable record of every critical operation for traceability and compliance
+- [Background job architecture pattern](docs/design/adr/016-background-job-architecture-pattern.md) — Fan-Out Dispatcher + Per-Item Runner: how complex async background jobs decompose into independently testable, strategy-driven components with isolated retry lifecycles
 
 The full index is at [`docs/design/adr-index.md`](docs/design/adr-index.md).
 
