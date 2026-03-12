@@ -19,7 +19,7 @@ from app.purchases.repositories import PurchaseRepositoryABC
 from app.purchases.schemas import PurchaseStatus
 
 
-async def _confirm_purchase(
+async def _confirm_purchase(  # pyright: ignore[reportUnusedFunction]
     *,
     purchase: Purchase,
     verified_at: datetime,
@@ -62,7 +62,7 @@ async def _confirm_purchase(
     )
 
 
-async def _reject_purchase(
+async def _reject_purchase(  # pyright: ignore[reportUnusedFunction]
     *,
     purchase: Purchase,
     reason: str,

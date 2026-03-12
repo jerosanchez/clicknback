@@ -79,6 +79,17 @@ class PurchaseRepository(PurchaseRepositoryABC):
     async def update_status(
         self, db: AsyncSession, purchase_id: str, new_status: str
     ) -> Purchase | None:
+        # Current approach: fetch ORM object, update status, commit.
+        # This is simple and idiomatic for SQLAlchemy ORM, but can suffer from concurrency issues
+        # (lost updates/race conditions) if multiple jobs/API calls update the same purchase simultaneously.
+        # For now it's safe, since we only update via the background job, ensuring one single update at a time,
+        # and even if the API allowed status updates, we don't expect high contention on the same purchase.
+        #
+        # If we needed to handle concurrent updates safely on high contention scenarios, we can implement
+        # atomic updates using SQLAlchemy Core's update():
+        #   await db.execute(update(Purchase).where(Purchase.id == purchase_id).values(status=new_status))
+        #   await db.commit()
+        # Then, if you need the updated object, fetch it after the update.
         result = await db.execute(select(Purchase).where(Purchase.id == purchase_id))
         purchase = result.scalar_one_or_none()
         if purchase is None:

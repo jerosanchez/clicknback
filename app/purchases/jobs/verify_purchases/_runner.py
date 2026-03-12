@@ -4,6 +4,19 @@ Drives a single purchase through up to ``max_attempts`` verification rounds,
 sleeping between soft failures and force-rejecting on exhaustion.  Opens a
 fresh DB session per attempt; always removes itself from the in-flight
 tracker on exit.  Calls into ``_processor.py`` once a disposition is decided.
+
+Retry strategy
+--------------
+The runner uses a **fixed sleep interval** (``retry_interval_seconds``) between
+consecutive soft-failure attempts.  This keeps the mental model simple and the
+smoke-test timeline predictable, which is appropriate given the current
+simulated bank gateway.
+
+If ClickNBack integrates a real bank gateway in the future, consider migrating
+to exponential-backoff-with-jitter so the gateway gets progressively more time
+to recover between retries.  All changes are local to this file.
+
+See ADR-017 for the full rationale and an upgrade path.
 """
 
 import asyncio
@@ -19,11 +32,12 @@ from app.purchases.repositories import PurchaseRepositoryABC
 from app.purchases.schemas import PurchaseStatus
 
 from ._in_flight_tracker import InFlightTrackerABC
-from ._processor import _confirm_purchase, _reject_purchase
+from ._processor import _confirm_purchase  # pyright: ignore[reportPrivateUsage]
+from ._processor import _reject_purchase  # pyright: ignore[reportPrivateUsage]
 from ._verifiers import PurchaseVerifierABC
 
 
-async def _run_verification_with_retry(
+async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
     *,
     purchase_id: str,
     repository: PurchaseRepositoryABC,

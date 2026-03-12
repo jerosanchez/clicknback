@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import asyncio
 
 
-async def _dispatch_pending_purchases(
+async def _dispatch_pending_purchases(  # pyright: ignore[reportUnusedFunction]
     *,
     repository: PurchaseRepositoryABC,
     db_session_factory: async_sessionmaker[AsyncSession],

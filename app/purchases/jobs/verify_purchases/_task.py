@@ -20,9 +20,11 @@ from app.core.broker import MessageBrokerABC
 from app.core.scheduler import ScheduledTask
 from app.purchases.repositories import PurchaseRepositoryABC
 
-from ._dispatcher import _dispatch_pending_purchases
+from ._dispatcher import (
+    _dispatch_pending_purchases,  # pyright: ignore[reportPrivateUsage]
+)
 from ._in_flight_tracker import InFlightTrackerABC, InMemoryInFlightTracker
-from ._runner import _run_verification_with_retry
+from ._runner import _run_verification_with_retry  # pyright: ignore[reportPrivateUsage]
 from ._verifiers import PurchaseVerifierABC
 
 
