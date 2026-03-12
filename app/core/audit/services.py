@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Callable
 
@@ -9,7 +10,31 @@ from app.core.audit.repositories import AuditTrailRepositoryABC
 from app.core.logging import logger
 
 
-class AuditTrail:
+class AuditTrailABC(ABC):
+    """Abstract contract for audit trail services.
+
+    Depend on this interface instead of the concrete ``AuditTrail`` so the
+    implementation can be swapped (e.g. for a third-party observability backend)
+    without touching call sites.
+    """
+
+    @abstractmethod
+    async def record(
+        self,
+        *,
+        db: AsyncSession,
+        actor_type: AuditActorType,
+        actor_id: str | None,
+        action: AuditAction,
+        resource_type: str,
+        resource_id: str,
+        outcome: AuditOutcome,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Write one audit record for a completed operation."""
+
+
+class AuditTrail(AuditTrailABC):
     """Thin service that persists an audit row and emits a log line together.
 
     Inject via __init__() into any service that performs critical operations:

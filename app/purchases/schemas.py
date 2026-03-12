@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 class PurchaseStatus(str, Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
+    REJECTED = "rejected"
     REVERSED = "reversed"
 
 

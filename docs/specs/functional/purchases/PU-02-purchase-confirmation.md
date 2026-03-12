@@ -1,50 +1,47 @@
-# PU-02: Purchase Confirmation
+
+# PU-02: Purchase Confirmation (Async/Event-Driven)
 
 IMPORTANT: This is a living document, specs are subject to change.
 
+## Overview
+
+Purchase confirmation is handled asynchronously via a background job and an internal event broker. After a user ingests a purchase, a periodic background job simulates bank reconciliation by attempting to verify the purchase (date, amount, merchant name). If verification succeeds, a `PurchaseConfirmed` event is published; if it fails after a configurable number of retries (settings), a `PurchaseRejected` event is published. A separate service subscribes to these events and updates purchase status, triggers cashback calculation, and updates wallet balances.
+
 ## User Story
 
-_As an admin, I want to confirm pending purchases so that I can release cashback to users' available balance._
+_As a system, I want to automatically confirm or reject pending purchases after verifying them against simulated bank data, so that cashback is only released for legitimate transactions._
 
 ---
 
 ## Constraints
 
-### Authorization Constraints
+### System Constraints
 
-- Only authenticated admin users can confirm purchases
-- Admin role must be verified before allowing confirmation
-
-### Purchase Constraints
-
+- Only the background job (trusted system process) can trigger confirmation or rejection
 - Purchase must exist with status `pending`
-- Associated cashback transaction must exist
+- Associated cashback transaction must exist (created after confirmation)
+- Verification is retried up to N times before rejection
 
 ---
 
 ## BDD Acceptance Criteria
 
-**Scenario:** Admin successfully confirms a pending purchase
-**Given** I am an authenticated admin user
-**And** the purchase exists with status `pending`
-**When** the authorization is verified
-**Then** purchase status changes to `confirmed`, cashback status changes to `available`, and wallet balance is updated
+**Scenario:** System successfully confirms a pending purchase
+**Given** a purchase exists with status `pending`
+**And** the background job verifies the purchase against simulated bank data
+**When** verification succeeds
+**Then** a `PurchaseConfirmed` event is published, purchase status changes to `confirmed`, cashback is calculated and credited to the user's wallet
 
-**Scenario:** Non-admin user attempts to confirm a purchase
-**Given** I am an authenticated non-admin user
-**When** the system checks authorization
-**Then** access is denied
+**Scenario:** System rejects a purchase after failed verification
+**Given** a purchase exists with status `pending`
+**And** the background job fails to verify the purchase after N retries
+**When** retries are exhausted
+**Then** a `PurchaseRejected` event is published, purchase status changes to `rejected`, no cashback is credited
 
-**Scenario:** Admin attempts to confirm non-existent purchase
-**Given** I am an authenticated admin user
-**When** the system attempts to find the purchase
-**Then** a not found error is returned
-
-**Scenario:** Admin attempts to confirm already confirmed purchase
-**Given** I am an authenticated admin user
-**And** the purchase already has status `confirmed`
-**When** the system checks purchase status
-**Then** an error is returned indicating invalid operation
+**Scenario:** Manual confirmation endpoint is not available
+**Given** an admin or user attempts to confirm a purchase via API
+**When** the system receives the request
+**Then** a `405 Method Not Allowed` or `403 Forbidden` is returned
 
 ---
 
@@ -52,51 +49,34 @@ _As an admin, I want to confirm pending purchases so that I can release cashback
 
 ### Happy Path
 
-Admin successfully confirms a pending purchase
-
-1. Admin sends confirmation request for pending purchase.
-2. System verifies admin authentication and role.
-3. System retrieves purchase record.
-4. System verifies purchase status is `pending`.
-5. System transitions purchase to `confirmed`.
-6. System transitions associated cashback to `available`.
-7. System moves wallet balance from pending to available.
-8. System returns updated purchase info.
+1. User ingests a purchase (status: `pending`).
+2. Background job periodically attempts to verify the purchase against simulated bank data.
+3. If verification succeeds, job publishes `PurchaseConfirmed` event.
+4. Event subscriber updates purchase status to `confirmed`, triggers cashback calculation, and credits wallet.
 
 ### Sad Paths
 
-#### Unauthorized - Non-Admin User
-
-1. Non-admin user sends confirmation request.
-2. System verifies authentication.
-3. System checks admin role.
-4. System finds user does not have admin role.
-5. System returns `HTTP 403 Forbidden`.
-
-#### Purchase Not Found
-
-1. Admin sends confirmation request for non-existent purchase ID.
-2. System verifies admin role.
-3. System attempts to retrieve purchase.
-4. System finds purchase does not exist.
-5. System returns not found error.
-
-#### Purchase Already Confirmed
-
-1. Admin sends confirmation request for already confirmed purchase.
-2. System verifies admin role.
-3. System retrieves purchase record.
-4. System checks purchase status.
-5. System finds purchase is already confirmed.
-6. System returns error indicating invalid operation.
-
-#### Unauthenticated Request
-
-1. Anonymous user sends confirmation request.
-2. System verifies authentication.
-3. System finds no valid credentials.
-4. System rejects the request as unauthorized.
+- If verification fails after N retries, job publishes `PurchaseRejected` event; subscriber updates purchase status to `rejected`.
+- If purchase is already confirmed or rejected, no further action is taken.
+- Manual confirmation attempts via API are rejected.
 
 ## API Contract
+
+There is no longer a public API endpoint for purchase confirmation. Confirmation and rejection are handled internally by the background job and event subscriber.
+
+### Internal Events
+
+- `PurchaseConfirmed` (purchase_id, user_id, merchant_id, amount, verified_at)
+- `PurchaseRejected` (purchase_id, user_id, merchant_id, amount, failed_at, reason)
+
+### Background Job
+
+- Runs periodically to verify pending purchases
+- Retries up to N times before rejection
+
+### Event Subscriber
+
+- Listens for confirmation/rejection events
+- Updates purchase status, triggers cashback calculation, updates wallet
 
 See [Confirm purchase](../../design/api-contracts/purchases/confirm-purchase.md) for detailed API specifications.

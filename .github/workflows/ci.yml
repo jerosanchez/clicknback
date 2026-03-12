@@ -6,6 +6,17 @@ on:
   push:
     branches: [main]
 
+env:
+  DATABASE_URL: "postgresql://user:password@localhost:5432/db"
+  OAUTH_HASH_KEY: "7bdb4bcf0b01f00ca206693965b29145611d9419563630525dc848024c38fc08"
+  OAUTH_ALGORITHM: "HS256"
+  OAUTH_TOKEN_TTL: "30"
+  MAX_CASHBACK_PERCENTAGE: "20"
+  DEFAULT_PAGE_SIZE: "20"
+  MAX_PAGE_SIZE: "100"
+  PURCHASE_CONFIRMATION_INTERVAL_SECONDS: "60"
+  PURCHASE_MAX_VERIFICATION_ATTEMPTS: "3"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -25,12 +36,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: lint
-    env:
-      # For testing purposes only
-      DATABASE_URL: "postgresql://user:password@localhost:5432/db"
-      OAUTH_HASH_KEY: "7bdb4bcf0b01f00ca206693965b29145611d9419563630525dc848024c38fc08"
-      OAUTH_ALGORITHM: "HS256"
-      OAUTH_TOKEN_TTL: "30"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -45,11 +50,6 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     needs: test
-    env:
-      DATABASE_URL: "postgresql://user:password@localhost:5432/db"
-      OAUTH_HASH_KEY: "7bdb4bcf0b01f00ca206693965b29145611d9419563630525dc848024c38fc08"
-      OAUTH_ALGORITHM: "HS256"
-      OAUTH_TOKEN_TTL: "30"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -78,11 +78,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
-    env:
-      DATABASE_URL: "postgresql://user:password@localhost:5432/db"
-      OAUTH_HASH_KEY: "7bdb4bcf0b01f00ca206693965b29145611d9419563630525dc848024c38fc08"
-      OAUTH_ALGORITHM: "HS256"
-      OAUTH_TOKEN_TTL: "30"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python

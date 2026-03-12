@@ -42,7 +42,10 @@ Content-Type: application/json
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+
 # STEP 2 — Ingest a purchase (webhook call from external merchant system)
+
+# Confirmation is now handled asynchronously by a background job. There is no public API endpoint for manual confirmation.
 #
 # Expected: 201 Created with status: "pending" and cashback_amount: 0.
 # Copy the `id` value and set @purchaseId below.

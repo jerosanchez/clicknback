@@ -33,3 +33,5 @@ ADRs serve several essential purposes:
 - [ADR 013: Asynchronous Purchase Confirmation via Internal Event Broker](adr/013-async-purchase-confirmation.md)
 - [ADR 014: In-Process Message Broker and Task Scheduler for MVP](adr/014-in-process-broker-and-scheduler.md)
 - [ADR 015: Persistent Audit Trail for Critical Operations](adr/015-persistent-audit-trail.md)
+- [ADR 016: Background Job Architecture Pattern — Fan-Out Dispatcher with Per-Item Retry Runners](adr/016-background-job-architecture-pattern.md)
+- [ADR 017: Fixed-Interval Retry Strategy for Background Jobs](adr/017-fixed-interval-retry-strategy.md)

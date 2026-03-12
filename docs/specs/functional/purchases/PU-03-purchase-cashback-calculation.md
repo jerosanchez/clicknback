@@ -1,10 +1,15 @@
-# PU-03: Purchase Cashback Calculation
+
+# PU-03: Purchase Cashback Calculation (Event-Driven)
 
 IMPORTANT: This is a living document, specs are subject to change.
 
+## Overview
+
+Cashback calculation is now triggered by a `PurchaseConfirmed` event published by the background verification job. The calculation and wallet update are handled by an event subscriber service, not by direct admin action.
+
 ## User Story
 
-_As a system process, I want to automatically calculate and allocate cashback for purchases so that users can earn rewards based on active offers._
+_As a system process, I want to automatically calculate and allocate cashback for purchases when they are confirmed by the background verification workflow, so that users earn rewards only for legitimate, verified transactions._
 
 ---
 
@@ -12,7 +17,7 @@ _As a system process, I want to automatically calculate and allocate cashback fo
 
 ### Purchase Constraints
 
-- Purchase must exist with status `pending`
+- Purchase must exist with status `confirmed` (set by event subscriber)
 - Merchant must be active
 
 ### Cashback Constraints
@@ -26,10 +31,10 @@ _As a system process, I want to automatically calculate and allocate cashback fo
 ## BDD Acceptance Criteria
 
 **Scenario:** System successfully calculates cashback for eligible purchase
-**Given** the purchase exists with status `pending`
+**Given** a `PurchaseConfirmed` event is received for a purchase with status `confirmed`
 **And** an active offer exists for the merchant
 **And** the monthly cap has not been exceeded
-**When** the system evaluates eligibility and applies calculation rules
+**When** the event subscriber evaluates eligibility and applies calculation rules
 **Then** the cashback transaction is created with status `pending` and wallet `pending_balance` is increased
 
 **Scenario:** System skips cashback for inactive merchant

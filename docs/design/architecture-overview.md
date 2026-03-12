@@ -143,6 +143,7 @@ version-agnostic: introducing a v2 router requires no changes inside feature mod
 - **Async I/O**: New modules (`purchases`, `wallets`, `payouts`) use `AsyncSession` with `asyncpg` end-to-end, eliminating event-loop blocking under concurrent request loads (see ADR 010)
 - **Idempotency**: Unique constraints on external IDs at database level
 - **Auditability**: Structured runtime logging on all state transitions; persistent `audit_logs` table records every critical operation with actor, resource, and outcome (see ADR-015)
+- **Background job isolation**: Background jobs follow the Fan-Out Dispatcher + Per-Item Runner pattern — each pending item is processed by an independent `asyncio.Task` with its own retry lifecycle and DB session; an abstracted in-flight tracker prevents duplicate processing; a Strategy interface decouples the external integration from orchestration code (see ADR-016)
 - **Testability**: Repository abstraction enables unit testing sans database; clean layer separation
 - **Extensibility**: Domain boundaries enable future extraction to services; message queues would slot in naturally
 - **Maintainability**: Consistent layering across modules; business logic isolated from HTTP/DB details
