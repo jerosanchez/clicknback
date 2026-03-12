@@ -24,6 +24,16 @@ class PurchaseRepositoryABC(ABC):
         pass
 
     @abstractmethod
+    async def get_pending_purchases(self, db: AsyncSession) -> list[Purchase]:
+        """Return all purchases with status 'pending', ordered by creation date."""
+
+    @abstractmethod
+    async def update_status(
+        self, db: AsyncSession, purchase_id: str, new_status: str
+    ) -> Purchase | None:
+        """Update the status of a purchase and return the updated record."""
+
+    @abstractmethod
     async def list_purchases(
         self,
         db: AsyncSession,
@@ -54,6 +64,26 @@ class PurchaseRepository(PurchaseRepositoryABC):
 
     async def add_purchase(self, db: AsyncSession, purchase: Purchase) -> Purchase:
         db.add(purchase)
+        await db.commit()
+        await db.refresh(purchase)
+        return purchase
+
+    async def get_pending_purchases(self, db: AsyncSession) -> list[Purchase]:
+        result = await db.execute(
+            select(Purchase)
+            .where(Purchase.status == "pending")
+            .order_by(Purchase.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def update_status(
+        self, db: AsyncSession, purchase_id: str, new_status: str
+    ) -> Purchase | None:
+        result = await db.execute(select(Purchase).where(Purchase.id == purchase_id))
+        purchase = result.scalar_one_or_none()
+        if purchase is None:
+            return None
+        purchase.status = new_status
         await db.commit()
         await db.refresh(purchase)
         return purchase

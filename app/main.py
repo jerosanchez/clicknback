@@ -3,6 +3,7 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import api as auth_api
+from app.core.config import settings
 from app.core.errors.handlers import register_error_handlers
 from app.core.health import router as health_router
 from app.core.scheduler import InMemoryTaskScheduler
@@ -11,18 +12,18 @@ from app.offers.api import admin_router as offers_admin_router
 from app.offers.api import public_router as offers_public_router
 from app.purchases.api import admin_router as purchases_admin_router
 from app.purchases.api import public_router as purchases_public_router
+from app.purchases.composition import get_verify_purchases_task
 from app.users import api as users_api
 
 # ----- Lifespan and infrastructure
 
-# Schedule background jobs and other infrastructure components here.
 scheduler = InMemoryTaskScheduler()
 
-# Example: schedule a job to verify pending purchases every 30 seconds.
-# The job function is not implemented yet, but this shows where and how to schedule
-# it in the composition root:
-
-# scheduler.schedule("verify_purchases", verify_pending_purchases, interval_seconds=settings.verify_purchases_interval_seconds)
+scheduler.schedule(
+    "verify_purchases",
+    get_verify_purchases_task(),
+    interval_seconds=settings.purchase_confirmation_interval_seconds,
+)
 
 
 @asynccontextmanager
