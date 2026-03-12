@@ -42,7 +42,11 @@ INSERT INTO merchants (id, name, default_cashback_percentage, active) VALUES
     -- Inactive merchants – for testing the active=false filter
     ('a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 'LuxWatches',    15.0, FALSE),
     ('b6c7d8e9-f0a1-4b2c-3d4e-5f6a7b8c9d0e', 'VintageVault',  12.0, FALSE),
-    ('c7d8e9f0-a1b2-4c3d-4e5f-6a7b8c9d0e1f', 'NightOwl Electronics', 8.5, FALSE);
+    ('c7d8e9f0-a1b2-4c3d-4e5f-6a7b8c9d0e1f', 'NightOwl Electronics', 8.5, FALSE),
+    -- Rejection simulation merchant – all purchases for this merchant are always
+    -- rejected by the background verification job (see REJECTION_MERCHANT_ID in .env).
+    -- DO NOT activate/deactivate or remove; testers ingest purchases here to observe rejection.
+    ('f0000000-0000-0000-0000-000000000001', 'BankSimFail',    0.0,  TRUE);
 
 -- Offers
 -- Active percent offer on an active merchant (Shoply)
@@ -98,7 +102,10 @@ INSERT INTO offers (id, merchant_id, percentage, fixed_amount, start_date, end_d
     -- Inactive offer on ChefSupplies – targeted by set-offer-status.http (activate scenario)
     ('c1d2e3f4-0000-0000-0002-000000000002', 'e3f4a5b6-c7d8-4e9f-0a1b-2c3d4e5f6a7b', 2.0, NULL, '2026-01-01', '2026-12-31', 20.0, FALSE),  -- ChefSupplies inactive
     -- Active offer on LuxWatches (inactive merchant) – for GET /offers/{id} inactive-merchant smoke test
-    ('d0000001-0000-0000-0000-000000000001', 'a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 5.0, NULL, '2026-01-01', '2026-12-31', 50.0, TRUE);  -- LuxWatches (inactive merchant)
+    ('d0000001-0000-0000-0000-000000000001', 'a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d', 5.0, NULL, '2026-01-01', '2026-12-31', 50.0, TRUE),  -- LuxWatches (inactive merchant)
+    -- Offer for BankSimFail (rejection simulation merchant) – required to allow purchase ingestion.
+    -- The background job rejects any purchase for this merchant regardless of the offer.
+    ('f0000000-0000-0000-0001-000000000001', 'f0000000-0000-0000-0000-000000000001', 5.0, NULL, '2026-01-01', '2099-12-31', 100.0, TRUE);  -- BankSimFail
 
 -- Purchases
 -- Covers: pending status, multiple users, multiple merchants, different currencies.
@@ -121,4 +128,9 @@ INSERT INTO purchases (id, external_id, user_id, merchant_id, offer_id, amount, 
     ('aa000001-0000-0000-0000-000000000008', 'txn_seed_008', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde', 120.00, 'EUR', 'confirmed', NOW() - INTERVAL '11 days'),
     ('aa000001-0000-0000-0000-000000000009', 'txn_seed_009', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c', 'c3d4e5f6-a7b8-4c9d-1111-000000000004',  60.00, 'EUR', 'pending',   NOW() - INTERVAL '6 days'),
     ('aa000001-0000-0000-0000-000000000010', 'txn_seed_010', 'd9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678', 250.00, 'EUR', 'reversed',  NOW() - INTERVAL '9 days'),
-    ('aa000001-0000-0000-0000-000000000011', 'txn_seed_011', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c', 'c3d4e5f6-a7b8-4c9d-1111-000000000004',  90.00, 'EUR', 'pending',   NOW() - INTERVAL '7 days');
+    ('aa000001-0000-0000-0000-000000000011', 'txn_seed_011', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c', 'c3d4e5f6-a7b8-4c9d-1111-000000000004',  90.00, 'EUR', 'pending',   NOW() - INTERVAL '7 days'),
+    -- Rejection simulation purchases at BankSimFail.
+    -- These are older than purchase_max_verification_attempts * purchase_confirmation_interval_seconds
+    -- so the job will reject them on the first run after seeding.
+    ('bb000001-0000-0000-0000-000000000001', 'txn_seed_reject_001', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'f0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0001-000000000001', 99.00, 'EUR', 'pending', NOW() - INTERVAL '1 hour'),
+    ('bb000001-0000-0000-0000-000000000002', 'txn_seed_reject_002', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'f0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0001-000000000001', 49.50, 'EUR', 'pending', NOW() - INTERVAL '2 hours');
