@@ -41,14 +41,21 @@ async def _dispatch_pending_purchases(
     async with db_session_factory() as db:
         pending = await repository.get_pending_purchases(db)
 
+    logger.info(
+        "verify_purchases: dispatcher tick.",
+        extra={
+            "pending_count": len(pending) if pending else 0,
+            "in_flight_count": in_flight.count(),
+        },
+    )
+
     if not pending:
-        logger.debug("verify_purchases: no pending purchases found.")
         return
 
     new_purchases = [p for p in pending if not in_flight.contains(p.id)]
 
     if not new_purchases:
-        logger.debug(
+        logger.info(
             "verify_purchases: all pending purchases already in-flight.",
             extra={"in_flight_count": in_flight.count()},
         )
