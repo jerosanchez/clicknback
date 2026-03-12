@@ -1,53 +1,28 @@
-# Confirm purchase
 
-**Endpoint:** `PATCH /purchases/{id}/confirm`
+# Confirm purchase (Event-Driven)
 
-**Roles:** Admin
+**Note:** The public API endpoint for purchase confirmation has been removed. Confirmation is now handled asynchronously by a background job and internal event broker.
 
-## Success Response
+## Internal Workflow
 
-**Status:** 200 OK
+- The background job verifies pending purchases against simulated bank data.
+- On success, it publishes a `PurchaseConfirmed` event.
+- On failure after retries, it publishes a `PurchaseRejected` event.
+- An event subscriber updates purchase status and triggers cashback calculation.
 
-```json
-{
-  "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-  "status": "confirmed",
-  "cashback_amount": 10.05
-}
-```
+## Internal Events
 
-## Failure Responses
+- `PurchaseConfirmed` (purchase_id, user_id, merchant_id, amount, verified_at)
+- `PurchaseRejected` (purchase_id, user_id, merchant_id, amount, failed_at, reason)
 
-### 400 Bad Request – Invalid State Transition
+## Security
 
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Cannot confirm purchase 'a1b2c3d4-5678-90ab-cdef-1234567890ab'. Purchase is already confirmed.",
-    "details": {
-      "purchase_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-      "current_status": "confirmed",
-      "allowed_transitions": ["pending"]
-    }
-  }
-}
-```
+- Only the background job and event subscriber can change purchase status to `confirmed` or `rejected`.
 
-### 401 Unauthorized – Missing Authentication
+## See Also
 
-```json
-{
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Authentication token is missing or invalid.",
-    "details": {
-      "issue": "Token expired or malformed",
-      "action": "Include a valid Bearer token in the Authorization header."
-    }
-  }
-}
-```
+- [PU-02: Purchase Confirmation](../../../specs/functional/purchases/PU-02-purchase-confirmation.md)
+- [ADR-013: Async Purchase Confirmation](../../../design/adr/013-async-purchase-confirmation.md)
 
 ### 403 Forbidden – Insufficient Permissions
 

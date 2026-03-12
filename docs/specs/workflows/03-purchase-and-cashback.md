@@ -41,21 +41,33 @@ sequenceDiagram
     Admin->>API: POST /api/v1/auth/login
     API-->>Admin: 200 OK · access_token
 
-    Admin->>API: POST /api/v1/purchases/{id}/confirm
-    API->>DB: Fetch active offer for merchant on purchase date
-    alt active offer found
-        DB-->>API: offer {cashback_type, cashback_value, monthly_cap}
-        API->>DB: Sum user's cashback for this offer this month
-        DB-->>API: already_earned amount
-        Note over API: raw = amount × cashback_value%<br/>remaining_cap = monthly_cap − already_earned<br/>credited = min(raw, remaining_cap)
-        API->>Wallet: Credit user wallet (amount: credited, status: "pending")
-        Wallet->>DB: Insert wallet transaction
-    else no active offer
-        Note over API: cashback = 0
-    end
-    API->>DB: Update purchase (status: "confirmed", cashback_amount: credited)
-    DB-->>API: updated purchase
-    API-->>Admin: 200 OK · {status: "confirmed", cashback_amount}
+
+        Note over API: Background job runs periodically
+        API->>DB: Find purchases with status "pending"
+        loop for each pending purchase
+            API->>Bank: Simulate verification (date, amount, merchant)
+            alt verification succeeds
+                API->>EventBroker: Publish PurchaseConfirmed event
+            else verification fails after N retries
+                API->>EventBroker: Publish PurchaseRejected event
+            end
+        end
+        EventBroker->>API: On PurchaseConfirmed event
+        API->>DB: Update purchase (status: "confirmed")
+        API->>DB: Fetch active offer for merchant on purchase date
+        alt active offer found
+            DB-->>API: offer {cashback_type, cashback_value, monthly_cap}
+            API->>DB: Sum user's cashback for this offer this month
+            DB-->>API: already_earned amount
+            Note over API: raw = amount × cashback_value%<br/>remaining_cap = monthly_cap − already_earned<br/>credited = min(raw, remaining_cap)
+            API->>Wallet: Credit user wallet (amount: credited, status: "pending")
+            Wallet->>DB: Insert wallet transaction
+        else no active offer
+            Note over API: cashback = 0
+        end
+        API->>DB: Update purchase (cashback_amount: credited)
+        EventBroker->>API: On PurchaseRejected event
+        API->>DB: Update purchase (status: "rejected")
 
     User->>API: GET /api/v1/users/{user_id}/purchases
     API->>DB: Query purchases for user
@@ -77,7 +89,7 @@ sequenceDiagram
 | 1 | (User) Login | `POST /api/v1/auth/login` |
 | 2 | User records their own purchase | `POST /api/v1/purchases` |
 | 3 | (Admin) Login | `POST /api/v1/auth/login` |
-| 4 | Confirm the purchase (transitions it from `pending` → `confirmed`, triggers cashback calculation) | `POST /api/v1/purchases/{purchase_id}/confirm` |
+| 4 | Wait for background job to verify purchase and publish confirmation/rejection event | (internal) |
 | 5 | View the user's purchase history | `GET /api/v1/users/{user_id}/purchases` |
 | 6 | View purchase details (includes calculated cashback amount) | `GET /api/v1/purchases/{purchase_id}` |
 
@@ -85,8 +97,9 @@ sequenceDiagram
 
 - The purchase ingestion endpoint is **idempotent**: submitting the same `external_id` twice returns a 409 Conflict with details of the existing purchase — no duplicate is created. This ensures safe client-side retries.
 - A freshly ingested purchase has `cashback_amount: 0` and `status: pending`.
-- On confirmation, the system looks up the active offer for the merchant at the time of purchase, applies either the percentage or fixed-amount rule (capped by `monthly_cap_per_user`), and credits the user's wallet with a `pending` cashback transaction.
+- On confirmation, the background job publishes a `PurchaseConfirmed` event. The system then looks up the active offer for the merchant at the time of purchase, applies either the percentage or fixed-amount rule (capped by `monthly_cap_per_user`), and credits the user's wallet with a `pending` cashback transaction.
 - If no active offer exists for the merchant at the time of purchase, cashback is `0`.
+- If verification fails after retries, a `PurchaseRejected` event is published and the purchase is marked as `rejected`.
 
 ## Cashback Calculation Logic
 

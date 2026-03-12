@@ -46,9 +46,23 @@ A new user registers, logs in, and browses the currently active cashback offers.
 
 ---
 
-## Workflow 3 — Purchase Ingestion and Cashback Calculation ⚪
+## Workflow 3 — Purchase Ingestion and Async Confirmation 🟡
 
-A user records their own purchase. An admin confirms it, triggering cashback calculation capped by the offer's monthly limit. The user can then view the credited cashback in their purchase history.
+A user records their own purchase. A background job automatically confirms it (or rejects it if you use the **BankSimFail** test merchant), after which cashback is calculated and credited to the wallet.
+
+**Testing purchase confirmation (normal flow):**
+
+1. Ingest a purchase at any active merchant (e.g. Shoply `a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d`).
+2. Wait up to 60 seconds (one job cycle). The background job auto-confirms it and publishes a `PurchaseConfirmed` event.
+3. Check purchase status — it will be `confirmed`.
+
+**Testing purchase rejection (BankSimFail merchant):**
+
+1. Ingest a purchase with `merchant_id: f0000000-0000-0000-0000-000000000001` (BankSimFail).
+2. The job skips verification for this merchant until `PURCHASE_MAX_VERIFICATION_ATTEMPTS` cycles (default: 3 × 60s = ~3 minutes) elapse.
+3. After ~3 minutes, the purchase status becomes `rejected` and a `PurchaseRejected` event is published.
+
+> Cashback calculation (triggered by `PurchaseConfirmed`) is a backlog feature — wallet balance is not yet updated.
 
 → **[Full details and sequence diagram](03-purchase-and-cashback.md)** · HTTP file: [`http/03-purchase-and-cashback.http`](http/03-purchase-and-cashback.http)
 
