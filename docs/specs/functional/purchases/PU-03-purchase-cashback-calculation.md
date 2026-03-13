@@ -5,7 +5,7 @@ IMPORTANT: This is a living document, specs are subject to change.
 
 ## Overview
 
-Cashback calculation is now triggered by a `PurchaseConfirmed` event published by the background verification job. The calculation and wallet update are handled by an event subscriber service, not by direct admin action.
+Cashback calculation is triggered by a `PurchaseConfirmed` event published by the background verification job. The calculation and wallet update are handled by an event subscriber service, not by direct admin action.
 
 ## User Story
 

@@ -1,0 +1,96 @@
+# Purchases – List All Purchases (Admin)
+# Smoke tests for GET /purchases.
+#
+# Admin-only endpoint. Returns a paginated list of all purchases across all users.
+# Supports optional filtering by status, user_id, merchant_id, and date range.
+# Run the helper login requests below to obtain a fresh token.
+#
+# Seed data: seeds/all.sql contains at least 6 purchase rows across two users
+# (alice and bob) to support pagination and filter smoke tests.
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste fresh tokens here (use helper login requests below).
+# These placeholder values are expired local-dev tokens from seed data — never real credentials.
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzMwNTI2Njd9.EOyEXR2AHeB-K52xbDs-uuXkd9qsfU_lt0Hc0QUkhYE
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MzA1MjcwMn0.Gd1UhPRwpL4dohIH0cLjRIE18NkFIx6TDI_J_pBruvI
+
+### Helper – obtain a fresh admin token (carol)
+# Returns access_token — paste as "Bearer <token>" into @adminToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: list all purchases without filters (first page)
+# Expected: paginated envelope with all seed purchases; total >= 6.
+GET {{baseUrl}}/purchases
+Authorization: {{adminToken}}
+
+### 200 – Happy path: filter by status=confirmed
+# Expected: only payments with status=confirmed (txn_seed_005 from seed data).
+GET {{baseUrl}}/purchases?status=confirmed
+Authorization: {{adminToken}}
+
+### 200 – Happy path: filter by status=reversed
+# Expected: only reversed purchases (txn_seed_006 from seed data).
+GET {{baseUrl}}/purchases?status=reversed
+Authorization: {{adminToken}}
+
+### 200 – Happy path: filter by user_id (alice's purchases only)
+# Expected: all purchases where user_id = alice's UUID.
+GET {{baseUrl}}/purchases?user_id=b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d
+Authorization: {{adminToken}}
+
+### 200 – Happy path: filter by merchant_id (Shoply purchases only)
+# Expected: all purchases made at Shoply.
+GET {{baseUrl}}/purchases?merchant_id=a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+Authorization: {{adminToken}}
+
+### 200 – Happy path: filter by date range
+# Expected: purchases with created_at between start_date and end_date (inclusive).
+GET {{baseUrl}}/purchases?start_date=2026-03-02&end_date=2026-03-09
+Authorization: {{adminToken}}
+
+### 200 – Happy path: pagination — page 2, page_size 2
+# Verifies offset = (2-1)*2 = 2 is applied correctly.
+GET {{baseUrl}}/purchases?page=2&page_size=2
+Authorization: {{adminToken}}
+
+### 200 – Happy path: filter yields empty results
+# Unknown user_id guarantees no matching rows.
+# Expected: {"items": [], "total": 0, "page": 1, "page_size": 20}
+GET {{baseUrl}}/purchases?user_id=00000000-0000-0000-0000-000000000000
+Authorization: {{adminToken}}
+
+### 401 – Sad path: unauthenticated request
+# No Authorization header; expects 401 UNAUTHORIZED from the auth middleware.
+GET {{baseUrl}}/purchases
+
+### 401 – Sad path: authenticated as a non-admin user
+# alice has role=user; this admin-only endpoint expects 401 (or 403 depending on policy).
+GET {{baseUrl}}/purchases
+Authorization: {{userToken}}
+
+### 422 – Sad path: page number below minimum (page=0)
+# Schema validator enforces page >= 1.
+GET {{baseUrl}}/purchases?page=0
+Authorization: {{adminToken}}
+
+### 422 – Sad path: page_size exceeds maximum
+# Schema validator enforces page_size <= 100 (or the configured max).
+GET {{baseUrl}}/purchases?page_size=200
+Authorization: {{adminToken}}

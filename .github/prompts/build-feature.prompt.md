@@ -1,22 +1,23 @@
 # Prompt: Implement a New Feature
 
-Use this prompt to implement a single feature (one or more related endpoints) inside an **existing module**. If the module does not exist yet, scaffold it first with `create-module.prompt.md`, then return here.
+Use this prompt to implement a single feature (one single endpoint or component) inside an **existing module**. If the module does not exist yet, scaffold it first with `create-module.prompt.md`, then return here.
 
 ## Context Files (Read First)
 
 Before writing any code, read the following files in full:
 
-- `docs/agents/project-context.md` — domain model and system purpose
-- `docs/agents/feature-guide.md` — module anatomy, layer responsibilities, coding conventions
-- `docs/agents/code-organization.md` — when and how to split large files; naming conventions for split packages and their tests
-- `docs/agents/testing-guidelines.md` — test structure, patterns, and what to test at each level
-- `docs/agents/quality-gates.md` — mandatory quality gate sequence
+- `docs/guidelines/project-context.md` — domain model and system purpose
+- `docs/guidelines/functional-specification.md` — how to recognize a complete and well-formed functional specification; use this to validate the spec before starting implementation- `docs/guidelines/api-contracts.md` — how to recognize a complete and well-formed API contract; use this to validate the contract and ensure consistency with the spec during Step 0- `docs/guidelines/feature-architecture.md` — module anatomy, layer responsibilities, coding conventions
+- `docs/guidelines/code-organization.md` — when and how to split large files; naming conventions for split packages and their tests
+- `docs/guidelines/unit-testing.md` — test structure, patterns, and what to test at each level
+- `docs/guidelines/quality-gates.md` — mandatory quality gate sequence
 - `docs/design/architecture-overview.md` — system structure and module boundaries
 - `docs/design/data-model.md` — entity relationships and field conventions
 - `docs/design/error-handling-strategy.md` — error response shape, exception hierarchy, handler rules
 - `docs/design/security-strategy.md` — auth model, token handling, secrets rules
-- All ADR files under `docs/design/adr/` — rationale behind conventions; read these to understand *why* rules exist before deciding how to apply them
-- The functional spec referenced in the **Feature Specification** section below — this is the source of truth for endpoints, auth, business rules, constraints, and all acceptance scenarios
+- `docs/guidelines/arch-decision-records.md` — how to read and understand ADRs
+- All ADR files under `docs/design/adr/` — architectural decisions and their rationale; read the ADR index first to find relevant decisions for the feature you're implementing
+- The functional spec referenced in **Step 0** below — this is the source of truth for endpoints, auth, business rules, constraints, and all acceptance scenarios
 
 ## Known Constraints
 
@@ -30,8 +31,9 @@ Before writing any code, read the following files in full:
 - Do not import ORM models from other modules into `repositories.py`, `policies.py`, or `services.py` — use a `clients/` package and DTOs instead (see Step 4a).
 - **Small infrastructure/support modules** (broker, scheduler, token provider, etc.) must keep the ABC and the default in-memory/simple implementation in the **same file**, placed directly under `app/core/` (e.g., `app/core/broker.py`, `app/core/scheduler.py`). Do not split the interface and its default implementation into separate files (`broker_abc.py` + `broker.py`) — that fragmentation adds no value at this scale and forces unnecessary cross-file navigation. **Exception:** when an infrastructure component grows to encompass its own model, repository, service, and factory (as `app/core/audit/` does), promote it to a sub-package under `app/core/` following the same layered structure as domain feature modules. The sub-package must expose all public symbols through its `__init__.py` so call sites remain unchanged.
 - Event or message payload definitions that are domain-specific belong in a sub-package (e.g., `app/core/events/`) and are kept separate from the infrastructure files. See `app/core/broker.py`, `app/core/scheduler.py`, and `app/auth/token_provider.py` as reference examples.
-- Critical state-changing operations (purchase confirmation/rejection, cashback crediting, withdrawal processing, payout settlement, admin overrides) **must** call `AuditTrail.record(...)` in the service method, after the operation succeeds. Inject `AuditTrail` via `__init__()` and wire it in `composition.py`. See `docs/agents/feature-guide.md` §2 (`core/audit/`) and ADR-015.
-- **Domain-specific background jobs** (polling loops, confirmation jobs, settlement jobs) belong under `app/<domain>/jobs/<job_name>/`, following the Fan-Out Dispatcher + Per-Item Runner pattern documented in ADR-016. Use `app/core/jobs/` only for cross-cutting jobs with no clear domain owner. Wire the task in the domain's `composition.py` (e.g. `get_<job_name>_task()`), then schedule it in `app/main.py`. Tests live under `tests/<domain>/jobs/`, one file per module (`test_<job>_runner.py`, `test_<job>_dispatcher.py`, etc.). See `docs/agents/background-jobs.md` for the full checklist.
+- Critical state-changing operations (purchase confirmation/rejection, cashback crediting, withdrawal processing, payout settlement, admin overrides) **must** call `AuditTrail.record(...)` in the service method, after the operation succeeds. Inject `AuditTrail` via `__init__()` and wire it in `composition.py`. See `docs/guidelines/feature-architecture.md` §2 (`core/audit/`) and [ADR-015: Persistent Audit Trail](../../docs/design/adr/015-persistent-audit-trail.md).
+- **Domain-specific background jobs** (polling loops, confirmation jobs, settlement jobs) belong under `app/<domain>/jobs/<job_name>/`, following the Fan-Out Dispatcher + Per-Item Runner pattern documented in [ADR-016](../../docs/design/adr/016-background-job-architecture-pattern.md). Use `app/core/jobs/` only for cross-cutting jobs with no clear domain owner. Wire the task in the domain's `composition.py` (e.g. `get_<job_name>_task()`), then schedule it in `app/main.py`. Tests live under `tests/<domain>/jobs/`, one file per module (`test_<job>_runner.py`, `test_<job>_dispatcher.py`, etc.). See `docs/guidelines/background-jobs.md` for the full checklist.
+- **Feature flags:** If the feature being implemented should be controllable at runtime (e.g. a background job, an experimental endpoint, or a behaviour that may need to be disabled during testing, demos, or incident response), gate it behind a feature flag. Treat `feature_flags` as a foreign module and follow **the same Step 4a client pattern** already used for cross-module dependencies: add a `clients/feature_flags.py` file to the **current module's own** `clients/` package (creating the package if it doesn't exist yet). Define a `FeatureFlagsClientABC` with an `is_enabled(key)` method and a concrete `FeatureFlagsClient` that calls `FeatureFlagService` via the shared database. Inject the ABC into the gated component via `__init__()` and call `await feature_flags.is_enabled("<flag_key>")` at the relevant entry point. Wire the concrete class in `composition.py`. If `feature_flags` is ever promoted to a standalone microservice, only that concrete class is replaced with one calling `GET /api/v1/feature-flags/{key}/evaluate` — no other code in the consuming module changes. Resolution is fail-open: if no flag record exists, `is_enabled()` returns `True`. See [ADR-018: Database-Backed Feature Flag System](../../docs/design/adr/018-feature-flag-system.md) for resolution semantics and the evaluate endpoint design. Seed the flag key in `seeds/all.sql` with `enabled = true` so the system behaves normally out of the box.
 
 ## Commit Protocol
 
@@ -50,6 +52,49 @@ To close a step:
 ## Implementation Steps
 
 Follow these steps in order. Complete and commit each one before moving to the next.
+
+### Step 0 — Functional Specification Review
+
+Before writing any implementation code, ensure the functional specification is complete and review it against the corresponding API contract.
+
+**Step 0a — Ensure a functional spec exists and is specified**
+
+If the human has not provided a functional spec file path, ask for it:
+
+> Which functional spec doc covers this feature? Please provide the path relative to the workspace root (e.g., `docs/specs/functional/feature-flags/FF-01-set-feature-flag.md`).
+
+Once you have the path:
+1. Read the functional spec file in full.
+2. Verify it follows the mandatory format documented in [Writing Functional Specifications](../../docs/guidelines/functional-specification.md):
+   - Title with "IMPORTANT: This is a living document, specs are subject to change."
+   - User Story in the given–want–benefit format
+   - Constraints section (Authorization, Input, Data, Behavior)
+   - BDD Acceptance Criteria with at least one happy path, one auth failure, one validation failure, and one business-rule failure
+   - Use Cases (Happy Path and Sad Paths) with numbered steps and error codes
+   - API Contract reference(s) linking to `docs/design/api-contracts/<domain>/`
+
+If the spec is incomplete or malformed, update it to include the missing sections according to the guidelines and what makes the most sense for the feature.
+
+**Step 0b — Review the functional spec and API contract for consistency**
+
+Once a complete functional spec exists:
+
+1. Extract the list of all error codes mentioned in the spec's Use Cases (e.g., `USER_NOT_FOUND`, `VALIDATION_ERROR`).
+2. For each endpoint referenced in the spec's "API Contract" section, read the corresponding API contract file (`docs/design/api-contracts/<domain>/*.md`).
+3. Cross-check the following to ensure the spec and contract are consistent:
+   - **Constraints match response details:** Is every constraint from the spec reflected in a validation response (`422`) or business-rule failure (`400`/`409`) in the contract?
+   - **Error codes match:** Does every error code in the spec's sad paths appear in the contract's failure responses?
+   - **Acceptance criteria map to scenarios:** Can each BDD scenario be mapped to an endpoint and one or more response codes?
+   - **Success status code matches intent:** Does the happy path response status (e.g., `200`, `201`, `202`) match the operation (read, create, async task)?
+   - **Authorization responses are complete:** Do the contract's `401` and `403` failures match the spec's Authorization Constraints?
+
+If inconsistencies are found, fix them (updating the docs) according to what makes the most sense for the feature, so the human can review them together with the spec and contract before implementation begins. For example, if the spec has a validation constraint that is not reflected in the contract, add a `422` response with the appropriate error code to the contract. If the spec has a sad path scenario that is not reflected in the contract, add the corresponding failure response to the contract. If the contract has a `403` response but the spec does not mention any authorization constraints, add the relevant constraints to the spec.
+
+**Step 0c — Add missing constraints, acceptance criteria, or response documentation**
+
+If the review uncovers gaps (e.g., missing error code, missing scenario, missing constraint), update either the spec or the contract according to what makes the most sense for the feature.For example, if the spec has a validation constraint that is not reflected in the contract, add a `422` response with the appropriate error code to the contract. If the spec has a sad path scenario that is not reflected in the contract, add the corresponding failure response to the contract.
+
+---
 
 ### Step 1 — `schemas.py`: Pydantic schemas
 
@@ -76,7 +121,7 @@ def amount_scale_must_not_exceed_2(cls, v: Decimal) -> Decimal:
     return v
 ```
 
-Test every `@field_validator` in a dedicated `test_{module}_schemas.py` file. See `docs/agents/testing-guidelines.md` §8a for the pattern.
+Test every `@field_validator` in a dedicated `test_{module}_schemas.py` file. See `docs/guidelines/unit-testing.md` §8a for the pattern.
 
 ### Step 2 — `exceptions.py` and `errors.py`: domain exceptions and error codes
 
@@ -90,7 +135,7 @@ One pure function per business rule introduced by this feature. Each function ra
 
 Add the query methods needed by this feature to `<Entity>RepositoryABC` (abstract) and `<Entity>Repository` (SQLAlchemy). Repositories only query the DB — no business logic.
 
-**New modules use `AsyncSession` (see ADR 010).** All repository methods are `async def` and use SQLAlchemy 2.0 `select()` statements:
+**New modules use `AsyncSession` (see [ADR 010: Async Database Layer](../../docs/design/adr/010-async-database-layer.md)).** All repository methods are `async def` and use SQLAlchemy 2.0 `select()` statements:
 
 ```python
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -286,7 +331,7 @@ async def create_entity(
     ...
 ```
 
-If `api.py` already exceeds ~200 lines or this feature introduces a clearly distinct endpoint group (e.g., public vs. admin), consult `docs/agents/code-organization.md` §3 and split into an `api/` package before adding new routes.
+If `api.py` already exceeds ~200 lines or this feature introduces a clearly distinct endpoint group (e.g., public vs. admin), consult `docs/guidelines/code-organization.md` §3 and split into an `api/` package before adding new routes.
 
 For list responses with nested items, use explicit `model_validate()` conversion:
 
@@ -299,9 +344,19 @@ return Paginated<Entity>Out(
 )
 ```
 
-### Step 8 — `api-requests/`: manual HTTP test files
+### Step 8 — `http/<module>/`: manual HTTP smoke-test files
 
-Create one `.http` file per new route inside `app/<module>/api-requests/`, named `<verb>-<resource>.http` (e.g., `create-purchase.http`). Each file must cover every distinct HTTP response the endpoint can return — one `###` request per response code. Define `@baseUrl` at the top. Include a login request for authenticated endpoints. Never commit real tokens.
+Create one `.http` file per new route inside `http/<module>/` at the project root (e.g., `http/purchases/create-purchase.http`). These files are testing artifacts and living documentation; they live outside the application source tree and are shared across the whole project.
+
+Before writing the files, read `docs/guidelines/http-requests-file.md` in full — it documents every authoring convention in detail. A short summary of the required structure:
+
+- **Variable block at the top:** `@baseUrl`, any resource ID variables, and `@adminToken` / `@userToken` placeholder variables (expired local-dev JWTs from seed data — never real credentials).
+- **Helper login requests** immediately after the variable block, one per role exercised in the file, with a comment directing the developer to paste the returned token into the variable above.
+- **One `###` block per distinct HTTP response** the endpoint can return, titled `### <status> – <Happy/Sad path>: <description>` and followed by at least one `#` comment explaining the scenario, the expected outcome, and any seed-data dependency.
+- **Coverage order:** happy paths first, then 401 → 403 → 422 (validation) → 400/409 (business rules) → 404.
+- **Never commit real tokens, API keys, or production credentials.**
+
+See `docs/guidelines/http-requests-file.md` for the full coverage checklist, naming rules, and an annotated example.
 
 ### Step 9 — Alembic migration (only if model changed)
 

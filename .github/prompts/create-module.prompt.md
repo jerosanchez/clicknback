@@ -6,9 +6,9 @@ Use this prompt to create the empty skeleton of a brand-new domain area (e.g., `
 
 Before writing any code, read the following files in full:
 
-- `docs/agents/project-context.md` — domain model and system purpose
-- `docs/agents/feature-guide.md` — module anatomy, layer responsibilities, coding conventions
-- `docs/agents/code-organization.md` — when and how to split files as a module grows
+- `docs/guidelines/project-context.md` — domain model and system purpose
+- `docs/guidelines/feature-architecture.md` — module anatomy, layer responsibilities, coding conventions
+- `docs/guidelines/code-organization.md` — when and how to split files as a module grows
 
 Also read at least one existing module for structural reference:
 
@@ -23,7 +23,7 @@ Also read at least one existing module for structural reference:
 - Do not modify files under `alembic/versions/` — migrations are generated via `alembic revision --autogenerate`, never hand-edited.
 - Do not add dependencies to `pyproject.toml` without flagging for human review.
 - All new ORM models must be registered in `app/models.py`.
-- **All new modules must use the async database stack** (see ADR 010). Repository methods accept `AsyncSession`, service methods are `async def`, and route handlers use `async def` with `Depends(get_async_db)`. Do **not** use `Session` or `get_db()` in new modules.
+- **All new modules must use the async database stack** (see [ADR 010: Async Database Layer](../../docs/design/adr/010-async-database-layer.md); also read `docs/guidelines/arch-decision-records.md` for how to understand ADRs). Repository methods accept `AsyncSession`, service methods are `async def`, and route handlers use `async def` with `Depends(get_async_db)`. Do **not** use `Session` or `get_db()` in new modules.
 
 ## Commit Protocol
 
@@ -50,7 +50,7 @@ Create `app/<module>/` with the following files:
 - `exceptions.py` — empty
 - `errors.py` — stub: `class ErrorCode(str, Enum): pass`
 - `composition.py` — stub: `get_<entity>_service()` factory that instantiates `<Entity>Service` with a concrete `<Entity>Repository()`
-- `api.py` — stub: `router = APIRouter(prefix="/api/v1")` with no registered routes. Route handlers will be `async def` with `db: AsyncSession = Depends(get_async_db)` when implemented. (this will become `api/` if the module grows; see `docs/agents/code-organization.md`)
+- `api.py` — stub: `router = APIRouter(prefix="/api/v1")` with no registered routes. Route handlers will be `async def` with `db: AsyncSession = Depends(get_async_db)` when implemented. (this will become `api/` if the module grows; see `docs/guidelines/code-organization.md`)
 - `api-requests/.gitkeep` — empty file to track the directory in git
 
 ### Step 2 — ORM model

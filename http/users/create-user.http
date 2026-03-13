@@ -1,0 +1,76 @@
+# Users – Register User
+# Smoke tests for POST /users.
+#
+# Public endpoint — no authentication token required.
+# Password policy: minimum 8 characters with at least one uppercase letter,
+# one lowercase letter, one digit, and one special character.
+
+@baseUrl = http://localhost:8001/api/v1
+
+### 201 – Happy path: register a new user
+# Expected: user object with id, email, and created_at.
+# Use an email not already present in seeds/all.sql.
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "Str0ng!Pass"
+}
+
+### 409 – Sad path: email already registered
+# alice is seeded in seeds/all.sql.
+# Expects: 409 Conflict with EMAIL_ALREADY_REGISTERED error code.
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 422 – Sad path: password too short (< 8 characters)
+# Pydantic field validator rejects the payload before the service is reached.
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "shortpass@example.com",
+  "password": "S1!a"
+}
+
+### 422 – Sad path: password missing uppercase letter
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "noupper@example.com",
+  "password": "str0ng!pass"
+}
+
+### 422 – Sad path: password missing lowercase letter
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "nolower@example.com",
+  "password": "STR0NG!PASS"
+}
+
+### 422 – Sad path: password missing digit
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "nodigit@example.com",
+  "password": "Strong!Pass"
+}
+
+### 422 – Sad path: password missing special character
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "nospecial@example.com",
+  "password": "Str0ngPass"
+}

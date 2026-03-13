@@ -35,6 +35,13 @@
 - [Get Current User](api-contracts/users/get-current-user.md)
 - [Register User](api-contracts/users/register-user.md)
 
+## Feature Flags
+
+- [Set Feature Flag](api-contracts/feature-flags/set-feature-flag.md)
+- [Delete Feature Flag](api-contracts/feature-flags/delete-feature-flag.md)
+- [List Feature Flags](api-contracts/feature-flags/list-feature-flags.md)
+- [Evaluate Feature Flag](api-contracts/feature-flags/evaluate-feature-flag.md)
+
 ## Wallets
 
 - [Get Wallet Summary](api-contracts/wallets/get-wallet-summary.md)

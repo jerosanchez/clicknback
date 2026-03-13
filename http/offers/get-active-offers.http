@@ -1,0 +1,72 @@
+# Offers – Get Active Offers (User-Facing)
+# Smoke tests for GET /offers/active.
+#
+# Authenticated endpoint for regular users. Returns the paginated list of
+# offers where both the offer and its parent merchant are currently active.
+# Admins can also use this endpoint but typically prefer GET /offers for
+# the full unfiltered view.
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste a fresh user token here (use the helper login request below).
+# This placeholder value is an expired local-dev token from seed data — never a real credential.
+@userToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MjYyNzgzOX0.0CrPY4Q2ZKtfAIFGWmyoGaDTgP-UkIZ7EQOqtbVzluY
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: first page of active offers (default page size)
+# Expected: paginated envelope; only offers whose status and merchant are active.
+GET {{baseUrl}}/offers/active
+Authorization: {{userToken}}
+
+### 200 – Happy path: explicit pagination (page=1, page_size=3)
+# Verifies the envelope shape with a small page_size.
+GET {{baseUrl}}/offers/active?page=1&page_size=3
+Authorization: {{userToken}}
+
+### 200 – Happy path: second page (verifies pagination slicing)
+# Verifies offset = (2-1)*3 = 3 is applied correctly.
+GET {{baseUrl}}/offers/active?page=2&page_size=3
+Authorization: {{userToken}}
+
+### 200 – Happy path: page beyond total (expects empty items array)
+# Expected: {"items": [], "total": <N>, "page": 99, "page_size": 20}
+GET {{baseUrl}}/offers/active?page=99
+Authorization: {{userToken}}
+
+### 200 – Boundary: minimum valid page_size (page_size=1)
+# One offer per page; verifies the service handles the edge case.
+GET {{baseUrl}}/offers/active?page_size=1
+Authorization: {{userToken}}
+
+### 200 – Boundary: maximum valid page_size
+# Verifies the service accepts the upper bound without error.
+GET {{baseUrl}}/offers/active?page_size=10
+Authorization: {{userToken}}
+
+### 422 – Sad path: page=0 (below minimum)
+# Schema validator enforces page >= 1.
+GET {{baseUrl}}/offers/active?page=0
+Authorization: {{userToken}}
+
+### 422 – Sad path: page_size=0 (below minimum)
+# Schema validator enforces page_size >= 1.
+GET {{baseUrl}}/offers/active?page_size=0
+Authorization: {{userToken}}
+
+### 422 – Sad path: page_size above maximum
+# Schema validator enforces page_size <= 100 (or the configured max).
+GET {{baseUrl}}/offers/active?page_size=101
+Authorization: {{userToken}}
+
+### 401 – Sad path: missing or expired token
+# No Authorization header; expects 401 UNAUTHORIZED from the auth middleware.
+GET {{baseUrl}}/offers/active

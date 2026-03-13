@@ -125,13 +125,15 @@ make clean       # Remove .venv, __pycache__, coverage reports, etc.
 
 The application lives under `app/`. Every domain is a self-contained module (e.g., `app/users/`, `app/merchants/`) that follows the same layered structure: `api` (HTTP routing), `services` (business logic), `policies` (pure business rules), `repositories` (data access), `models`, `schemas`, `exceptions`, `errors`, and `composition` (dependency wiring).
 
-Cross-cutting infrastructure (config, DB session factory, JWT, logging, audit trail, message brokers, schedulers, error builders) lives in `app/core/`. Domain-specific background jobs live under their domain (e.g., `app/purchases/jobs/verify_purchases/`) following the Fan-Out Dispatcher + Per-Item Runner pattern; see `docs/agents/background-jobs.md` and ADR-016.
+Cross-cutting infrastructure (config, DB session factory, JWT, logging, audit trail, message brokers, schedulers, error builders) lives in `app/core/`. Domain-specific background jobs live under their domain (e.g., `app/purchases/jobs/verify_purchases/`) following the Fan-Out Dispatcher + Per-Item Runner pattern; see `docs/guidelines/background-jobs.md` and ADR-016.
+
+The feature flag system lives in `app/feature_flags/` and follows the same layered module structure as all other domain modules. To query flag state from another module, treat `feature_flags` as a foreign module and apply the standard client pattern (the same one used for any cross-module dependency): add a `clients/feature_flags.py` file to the **consuming module's own** `clients/` package, with an ABC exposing `is_enabled()` and an in-process concrete implementation calling `FeatureFlagService` directly. If `feature_flags` is later promoted to a microservice, only that concrete class is replaced with one calling the HTTP evaluate endpoint. See [ADR-018](docs/design/adr/018-feature-flag-system.md) for resolution semantics and the evaluate endpoint design.
 
 **All new modules must use the async database stack** (ADR 010, `docs/design/adr/010-async-database-layer.md`): repositories accept `AsyncSession`, service methods are `async def`, and route handlers use `async def` with `Depends(get_async_db)`. Existing modules (`users`, `merchants`, `offers`, `auth`) use the synchronous session and are migrated incrementally.
 
 Tests mirror the module structure under `tests/`. Async service tests use `pytest-asyncio` (`@pytest.mark.asyncio`, `AsyncMock(spec=AsyncSession)`). The `conftest.py` at the root provides factory fixtures used across all test suites.
 
-For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/feature-guide.md](docs/agents/feature-guide.md). For guidelines on how to organize and split files as a module grows, see [docs/agents/code-organization.md](docs/agents/code-organization.md).
+For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/guidelines/feature-architecture.md](docs/guidelines/feature-architecture.md). For guidelines on how to organize and split files as a module grows, see [docs/guidelines/code-organization.md](docs/guidelines/code-organization.md).
 
 ## Architecture & Design Decisions
 
@@ -158,7 +160,7 @@ make security   # Bandit scan — must exit 0 before pushing
 
 If you have completed the one-time `pre-commit install` step (see Initial Setup above), Git runs these checks automatically before every commit.
 
-Refer to `docs/agents/quality-gates.md` for the full gate sequence and coverage grading scale.
+Refer to `docs/guidelines/quality-gates.md` for the full gate sequence and coverage grading scale.
 
 ## Production Deployment
 

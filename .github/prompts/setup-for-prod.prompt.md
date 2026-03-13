@@ -24,14 +24,14 @@ The values below are specific to this project. When adapting this runbook for a 
 
 Before starting any step, read the following project context files in full:
 
-- `docs/agents/feature-guide.md` — coding conventions, module structure, and layering rules
-- `docs/agents/quality-gates.md` — mandatory quality gate sequence
-- `docs/agents/testing-guidelines.md` — how tests are structured and what to test
-- `docs/agents/project-context.md` — domain model and overall system purpose
+- `docs/guidelines/feature-architecture.md` — coding conventions, module structure, and layering rules
+- `docs/guidelines/quality-gates.md` — mandatory quality gate sequence
+- `docs/guidelines/unit-testing.md` — how tests are structured and what to test
+- `docs/guidelines/project-context.md` — domain model and overall system purpose
 - `docs/design/architecture-overview.md` — system structure; the API version prefix decision (Step 1) is documented here
 - `docs/design/security-strategy.md` — governs CORS allowed origins (Step 2), non-root container requirement (Step 4), and secrets handling rules (Steps 9–10)
 - `docs/design/deployment-plan.md` — read the current state before updating it in Steps 24–26
-- `docs/agents/markdown-guidelines.md` — all rules for writing `.md` files; every doc updated in Phase 10 must comply and pass `markdownlint`
+- `docs/guidelines/markdown-docs.md` — all rules for writing `.md` files; every doc updated in Phase 10 must comply and pass `markdownlint`
 
 ## Known Constraints
 
@@ -45,8 +45,8 @@ Before starting any step, read the following project context files in full:
 - The `migrate` service must use `restart: "no"` — never `on-failure` — migration failures are not transient errors and must not be retried automatically.
 - Do not re-seed the database as part of any automated step — seeding is a one-time manual operation (Step 20 only).
 - Phase 9 steps are manual and performed directly on the VPS; describe the exact commands to run but do not attempt to execute them remotely.
-- All `.md` files created or updated must comply with `docs/agents/markdown-guidelines.md` and pass `markdownlint` — `make lint` must be green before committing any documentation step.
-- All tests written must comply with `docs/agents/testing-guidelines.md` — use module-level functions (not classes), the `test_{sut}_{result}_on_{condition}` naming pattern with the `_on_` connector, AAA comments, and section separators as specified in that document.
+- All `.md` files created or updated must comply with `docs/guidelines/markdown-docs.md` and pass `markdownlint` — `make lint` must be green before committing any documentation step.
+- All tests written must comply with `docs/guidelines/unit-testing.md` — use module-level functions (not classes), the `test_{sut}_{result}_on_{condition}` naming pattern with the `_on_` connector, AAA comments, and section separators as specified in that document.
 
 ## Commit Protocol
 
@@ -98,7 +98,7 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 26 — Document rollback procedure in deployment-plan.md
 - [x] Step 27 — Document production log access in deployment-plan.md
 - [x] Step 28 — Update `docs/design/deployment-plan.md`
-- [x] Step 29 — Update `docs/agents/quality-gates.md`
+- [x] Step 29 — Update `docs/guidelines/quality-gates.md`
 - [x] Step 30 — Update `README.md`
 - [x] Step 31 — Update `.env.example`
 
@@ -828,7 +828,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 28. **Update `docs/design/deployment-plan.md`**: reflect the full production architecture — Dockerfile two-stage build, ghcr.io image registry, `clicknback.com` domain, Nginx reverse proxy with Certbot, CD on merge to main, migration container pattern, secrets strategy, backup cron, nightly reseed schedule, rollback runbook, and log access one-liner.
 
-29. **Update `docs/agents/quality-gates.md`**: add `make coverage`, `make security`, and `pre-commit run --all-files` to the mandatory gate sequence, document the coverage grading scale, note the one-time `pre-commit install` setup required for local development, and explain the CI job order (`lint` → `test` → `coverage` → `security`).
+29. **Update `docs/guidelines/quality-gates.md`**: add `make coverage`, `make security`, and `pre-commit run --all-files` to the mandatory gate sequence, document the coverage grading scale, note the one-time `pre-commit install` setup required for local development, and explain the CI job order (`lint` → `test` → `coverage` → `security`).
 
 30. **Update `README.md`**: add the following sections:
 

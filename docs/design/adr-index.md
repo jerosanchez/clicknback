@@ -35,3 +35,4 @@ ADRs serve several essential purposes:
 - [ADR 015: Persistent Audit Trail for Critical Operations](adr/015-persistent-audit-trail.md)
 - [ADR 016: Background Job Architecture Pattern — Fan-Out Dispatcher with Per-Item Retry Runners](adr/016-background-job-architecture-pattern.md)
 - [ADR 017: Fixed-Interval Retry Strategy for Background Jobs](adr/017-fixed-interval-retry-strategy.md)
+- [ADR 018: Database-Backed Feature Flag System](adr/018-feature-flag-system.md)

@@ -19,19 +19,19 @@ ClickNBack models how a real cashback application works: users earn rewards on p
 
 A complete [glossary](/docs/specs/domain-glossary.md) and [product spec documents](/docs/specs/) are available to better understand the business domain.
 
-The system is intentionally small in surface area but deep in engineering rigor. It is not a tutorial or scaffold — it is a working backend continuously deployed to a real VPS, publicly accessible (see the [Try the Live API](#try-the-live-api) section below), demonstrating the kind of decisions, tradeoffs, and discipline expected in a production codebase.
+The system is intentionally small in surface area but deep in engineering rigor. It is not a tutorial or scaffold — it is a working backend that is continuously being deployed to a real VPS, publicly accessible at <https://clicknback.com/docs> (see the [Try the Live API](#try-the-live-api) section below), demonstrating the kind of decisions, tradeoffs, and discipline expected in a production codebase.
 
-If you want to understand this particular business domain and test the system end-to-end without reading all the documentation, you can also [explore the workflows](#explore-the-workflows) directly from your VS Code using a curated series of step by step, extensively commented HTTP request files.
+If you want to test the system end-to-end without reading all the documentation, you can also [explore the workflows](#explore-the-workflows) directly from your VS Code using a curated series of step by step, extensively commented HTTP request files.
 
-Product specs are still evolving, see the [feature roadmap](#feature-roadmap) to see an up-to-date feature availability status.
+Product specs are still evolving (see the [feature roadmap](#feature-roadmap) to see an up-to-date feature status).
 
 ---
 
-## What This Showcases
+## What This Project Showcases
 
 - **Layered architecture** — strict separation between HTTP routing, business logic, and data access, with each layer only knowing about the layer directly below it
 - **Dependency injection** — services receive all dependencies (repositories, policy callables, token providers) via constructors; FastAPI `Depends()` handles wiring at the boundary
-- **Repository pattern with ABCs** — data access sits behind abstract interfaces, enabling full unit testing without touching the database
+- **Repository pattern** — data access sits behind abstract interfaces, enabling full unit testing without touching the database
 - **Business rule isolation** — policies are pure functions that raise domain exceptions; services orchestrate them; the API layer translates to HTTP
 - **Consistent error handling** — a layered pipeline from domain exception → `HTTPException` → normalized JSON response `{ "error": { "code", "message", "details" } }`
 - **Financial precision** — `Decimal` for all monetary values; row-level locking (`SELECT FOR UPDATE`) for wallet updates
@@ -41,12 +41,13 @@ Product specs are still evolving, see the [feature roadmap](#feature-roadmap) to
 - **Background job architecture** — background jobs follow a deliberate _Fan-Out Dispatcher + Per-Item Runner_ pattern: a lightweight dispatcher spawns one independent `asyncio.Task` per pending item on each scheduler tick; each task owns its own retry lifecycle and DB session; an abstracted in-flight tracker prevents duplicate processing; and a swappable Strategy interface decouples the external-system integration from all orchestration logic. The design is fully documented in [ADR-016](docs/design/adr/016-background-job-architecture-pattern.md)
 - **Test discipline** — unit tests (mocked dependencies via `create_autospec`), API-level tests (HTTP via `TestClient` + `dependency_overrides`), and integration tests; full coverage reporting; background job components tested in isolation without spawning real asyncio tasks
 - **Modular monolith** — module boundaries are explicit and ready for extraction into separate services if the system grows
+- **Feature flag system** — a DB-backed flag module (`app/feature_flags/`) allows capabilities to be enabled or disabled at runtime without redeployment; flags are scoped globally or per-merchant/user, enabling targeted demo workflows, safe incident response, and progressive delivery strategies (canary rollouts, A/B tests); resolution is fail-open
 
 ---
 
 ## Feature Roadmap
 
-Last updated: 2026.03.05
+Last updated: 2026.03.12
 
 _Status legend:_
 
@@ -87,8 +88,8 @@ _Status legend:_
 | Purchase Confirmation (manual) | Purchases | ⚪ backlog |
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
-| User Purchases Listing | Purchases | 🟡 ongoing |
-| Cashback Calculation Engine | Purchases | ⚪ backlog |
+| User Purchases Listing | Purchases | ⚪ backlog |
+| Cashback Calculation (worker) | Purchases | 🟢 done |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
 | Wallet Summary | Wallets | ⚪ backlog |
@@ -97,6 +98,11 @@ _Status legend:_
 | Payout Request (Withdrawal) | Payouts | ⚪ backlog |
 | Payout Processing | Payouts | ⚪ backlog |
 | Payouts Listing | Payouts | ⚪ backlog |
+| **Feature Flags** | | |
+| Set Feature Flag | Feature Flags | 🟡 ongoing |
+| Delete Feature Flag | Feature Flags | ⚪ backlog |
+| List Feature Flags | Feature Flags | ⚪ backlog |
+| Evaluate Feature Flag | Feature Flags | ⚪ backlog |
 | **Notifications** | | |
 | Purchase Creation Notification | Notifications | ⚫ planned |
 | Purchase Confirmation Notification | Notifications | ⚫ planned |

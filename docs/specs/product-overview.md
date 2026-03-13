@@ -9,7 +9,9 @@ The system allows:
 - Users to earn cashback on purchases made at partner merchants
 - Merchants to define cashback offers and promotional campaigns
 - The platform to track purchases, calculate rewards, manage pending/confirmed balances, and process withdrawals
-- Administrators to monitor usage, enforce rules, and prevent abuse
+- Background jobs to automate asynchronous tasks such as purchase verification and settlement, without requiring manual admin intervention
+- Administrators to monitor usage, enforce rules, prevent abuse, and control platform behaviour at runtime
+- Operators to enable or disable features at runtime without redeployment, supporting safe incident response, demo workflows, and progressive rollouts
 
 The primary goal of ClickNBack is to simulate a **real-world financial incentive system** with correctness, concurrency, idempotency, and fraud-awareness constraints.
 
@@ -28,6 +30,8 @@ Cashback products are compelling demo systems because they combine:
 - Concurrency-sensitive balance updates
 - Reporting and analytics
 - Role-based access control
+- Asynchronous background processing (purchase verification, settlement)
+- Runtime configuration management (feature flags for demos, incident response, progressive delivery)
 
 Unlike generic CRUD applications, cashback systems must:
 
@@ -241,6 +245,38 @@ Must handle:
 
 ---
 
+### 4.8 Background Job Architecture
+
+Several platform operations are asynchronous by nature and run as scheduled background jobs rather than being directly triggered by API calls.
+
+The purchase confirmation job is the primary example: after a user ingests a purchase, an in-process scheduler drives a job every configurable interval (default: 60 seconds). The job follows the **Fan-Out Dispatcher + Per-Item Runner** pattern:
+
+1. A lightweight dispatcher queries for all pending purchases on each tick.
+2. For each pending item, it spawns an independent `asyncio.Task` (the runner).
+3. Each runner owns its own DB session and retry lifecycle, isolating failures.
+4. An in-flight tracker prevents the same item from being processed concurrently across ticks.
+5. The runner delegates external verification to a swappable Strategy, keeping orchestration and integration logic separate.
+
+This pattern makes job components independently testable without spawning real asyncio tasks, and makes the external integration point (the Strategy) replaceable without touching the dispatcher or runner. See [ADR-016](../design/adr/016-background-job-architecture-pattern.md) for full rationale.
+
+Background jobs check the feature flag system before processing, allowing operators to pause a job instantly without redeployment (see §4.9).
+
+---
+
+### 4.9 Feature Flag System
+
+The platform includes a lightweight, database-backed feature flag system that allows capabilities to be enabled or disabled at runtime.
+
+Key use cases:
+
+- **Demo and testing workflows**: pause the purchase confirmation job while inspecting state mid-workflow, without restarting the process.
+- **Incident response**: disable a misbehaving feature immediately, reducing blast radius and mean time to recovery.
+- **Progressive delivery**: enable a new feature for a specific merchant or user before rolling it out to the entire platform (canary releases, A/B tests).
+
+Flags are scoped globally or narrowed to a specific merchant or user via a `(key, scope_type, scope_id)` triple. Resolution is fail-open: the absence of a flag record means the feature is enabled, preserving backward compatibility.
+
+---
+
 ## 5. Concurrency & Consistency Model
 
 Critical sections:
@@ -328,7 +364,10 @@ This project intentionally explores:
 - Monetary precision handling
 - State machine modeling
 - Role-based authorization
-- Background job simulation
+- Background job architecture (Fan-Out Dispatcher + Per-Item Runner pattern, swappable Strategy, in-flight deduplication)
+- Internal message broker (in-process pub/sub for decoupled event propagation between jobs and domain services)
+- Runtime feature flags (DB-backed, scoped, fail-open; microservice-extraction-ready via client abstraction)
+- Persistent audit trail (append-only, queryable, independent of log rotation)
 - Reporting and aggregation queries
 - Observability patterns
 
