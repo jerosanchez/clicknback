@@ -1,0 +1,157 @@
+# Purchases – Ingest Purchase
+# Smoke tests for POST /purchases.
+#
+# Authenticated endpoint. A user can only ingest a purchase on their own behalf
+# (user_id in the request body must match the authenticated user's id). Admins
+# are subject to the same self-ingestion policy in the MVP.
+#
+# A purchase requires an active merchant with at least one active offer to
+# qualify for cashback calculation. The external_id acts as an idempotency key:
+# re-submitting the same external_id returns 409 Conflict.
+#
+# Seed data used:
+#   alice   – user_id  b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d
+#   carol   – user_id  d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a (admin)
+#   Shoply  – merchant_id  a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d (active, has active offer)
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste fresh tokens here (use helper login requests below).
+# These placeholder values are expired local-dev tokens from seed data — never real credentials.
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzI4Nzc3NDN9.nHuDW6kZlb9GRpCwoqNlA-3_8tIgwd4rZeK8gNJQbcw
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3Mjg3Nzc2MX0.flgscVMtKx2HKrvX4mYuoXMOEcqOUn1qe6K-VO9X1Ys
+
+### Helper – obtain a fresh admin token (carol)
+# Returns access_token — paste as "Bearer <token>" into @adminToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 201 – Happy path: successfully ingest a new purchase
+# alice is the authenticated user AND the user_id in the body — ownership check passes.
+# Shoply has an active offer; cashback will be calculated and stored.
+# Change external_id if running multiple times to avoid 409 Conflict.
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "external_id": "txn_smoke_001",
+  "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 100.50,
+  "currency": "EUR"
+}
+
+### 201 – Happy path: ingest as the admin user (carol for herself)
+# carol is authenticated and specifies her own user_id — self-ingestion policy satisfied.
+# Replace user_id with carol's actual seed UUID if it differs.
+POST {{baseUrl}}/purchases
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "external_id": "txn_smoke_002",
+  "user_id": "d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 50.00,
+  "currency": "EUR"
+}
+
+### 409 – Sad path: duplicate external_id
+# Re-submitting txn_smoke_001 after it was already ingested.
+# Expects: 409 Conflict with DUPLICATE_PURCHASE error code.
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "external_id": "txn_smoke_001",
+  "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 100.50,
+  "currency": "EUR"
+}
+
+### 403 – Sad path: user_id in body does not match authenticated user
+# alice is authenticated but specifies carol's user_id — ownership check fails.
+# Expects: 403 FORBIDDEN (self-ingestion policy violation).
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "external_id": "txn_smoke_012",
+  "user_id": "d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 50.00,
+  "currency": "EUR"
+}
+
+### 401 – Sad path: missing authentication
+# No Authorization header; expects 401 UNAUTHORIZED from the auth middleware.
+POST {{baseUrl}}/purchases
+Content-Type: application/json
+
+{
+  "external_id": "txn_smoke_003",
+  "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 75.00,
+  "currency": "EUR"
+}
+
+### 422 – Sad path: missing required field (external_id)
+# Pydantic rejects the payload before the service layer is reached.
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 75.00,
+  "currency": "EUR"
+}
+
+### 422 – Sad path: negative amount
+# Schema validator enforces amount > 0.
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "external_id": "txn_smoke_004",
+  "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": -10.00,
+  "currency": "EUR"
+}
+
+### 422 – Sad path: malformed UUID for user_id
+# Pydantic UUID validator rejects the non-UUID string.
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "external_id": "txn_smoke_005",
+  "user_id": "not-a-valid-uuid",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 50.00,
+  "currency": "EUR"
+}

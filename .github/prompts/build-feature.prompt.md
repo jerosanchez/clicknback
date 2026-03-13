@@ -300,9 +300,19 @@ return Paginated<Entity>Out(
 )
 ```
 
-### Step 8 — `api-requests/`: manual HTTP test files
+### Step 8 — `http/<module>/`: manual HTTP smoke-test files
 
-Create one `.http` file per new route inside `app/<module>/api-requests/`, named `<verb>-<resource>.http` (e.g., `create-purchase.http`). Each file must cover every distinct HTTP response the endpoint can return — one `###` request per response code. Define `@baseUrl` at the top. Include a login request for authenticated endpoints. Never commit real tokens.
+Create one `.http` file per new route inside `http/<module>/` at the project root (e.g., `http/purchases/create-purchase.http`). These files are testing artifacts and living documentation; they live outside the application source tree and are shared across the whole project.
+
+Before writing the files, read `docs/agents/http-requests.md` in full — it documents every authoring convention in detail. A short summary of the required structure:
+
+- **Variable block at the top:** `@baseUrl`, any resource ID variables, and `@adminToken` / `@userToken` placeholder variables (expired local-dev JWTs from seed data — never real credentials).
+- **Helper login requests** immediately after the variable block, one per role exercised in the file, with a comment directing the developer to paste the returned token into the variable above.
+- **One `###` block per distinct HTTP response** the endpoint can return, titled `### <status> – <Happy/Sad path>: <description>` and followed by at least one `#` comment explaining the scenario, the expected outcome, and any seed-data dependency.
+- **Coverage order:** happy paths first, then 401 → 403 → 422 (validation) → 400/409 (business rules) → 404.
+- **Never commit real tokens, API keys, or production credentials.**
+
+See `docs/agents/http-requests.md` for the full coverage checklist, naming rules, and an annotated example.
 
 ### Step 9 — Alembic migration (only if model changed)
 

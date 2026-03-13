@@ -1,0 +1,104 @@
+# Merchants – Create Merchant
+# Smoke tests for POST /merchants.
+#
+# Admin-only endpoint. Run the helper login requests below to obtain a fresh
+# token, then paste it (as "Bearer <token>") into @adminToken above.
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste fresh tokens here (use helper login requests below).
+# These placeholder values are expired local-dev tokens from seed data — never real credentials.
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzIwMzQ3NjB9.CZIPcxbVnzjpfRSLQ6ROEp9Rty4-mcN7dyKqeBwwXwo
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MjAyNjIwNH0.wIoDDU_Y-VWzifgAtT66EylA8dmad4etL1K-DF_J_co
+
+### Helper – obtain a fresh admin token (carol)
+# Returns access_token — paste as "Bearer <token>" into @adminToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 201 – Happy path: create a new active merchant (admin)
+# Creates a merchant with a 5 % default cashback rate.
+# Expected: merchant object with generated id and the submitted fields.
+POST {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "CoolShop",
+  "default_cashback_percentage": 5.0,
+  "active": true
+}
+
+### 401 – Sad path: missing authentication
+# No Authorization header; expects 401 UNAUTHORIZED from the auth middleware.
+POST {{baseUrl}}/merchants
+Content-Type: application/json
+
+{
+  "name": "NoAuthShop",
+  "default_cashback_percentage": 5.0,
+  "active": true
+}
+
+### 403 – Sad path: authenticated as a non-admin user
+# alice has role=user; the permission check must reject this before any DB write.
+# Expects: 403 FORBIDDEN.
+POST {{baseUrl}}/merchants
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "name": "UserShop",
+  "default_cashback_percentage": 5.0,
+  "active": true
+}
+
+### 422 – Sad path: missing required field (name)
+# Pydantic rejects the payload before it reaches the service layer.
+POST {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "default_cashback_percentage": 5.0,
+  "active": true
+}
+
+### 422 – Sad path: cashback percentage exceeds maximum (> 100)
+# Schema validator enforces 0 < default_cashback_percentage <= 100.
+POST {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "HighCashback",
+  "default_cashback_percentage": 150.0,
+  "active": true
+}
+
+### 422 – Sad path: cashback percentage is negative
+# Schema validator enforces a positive lower bound.
+POST {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "NegativeCashback",
+  "default_cashback_percentage": -5.0,
+  "active": true
+}

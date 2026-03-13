@@ -1,0 +1,86 @@
+# Offers – Set Offer Status
+# Smoke tests for PATCH /offers/{offer_id}/status.
+#
+# Admin-only endpoint. Toggles an offer between "active" and "inactive".
+# Run the helper login requests below to obtain a fresh token.
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste fresh tokens here (use helper login requests below).
+# These placeholder values are expired local-dev tokens from seed data — never real credentials.
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzI3MDIwODd9.zXxSyHdHIJUUAs3zVfLE888Lsa2nniatAUmvQY0m0QE
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MjcwMjEzNH0.klw2AgtMILwzQaRB_3DEHIC8DshZjlViUB68heup6e0
+
+# Seeded offers used for toggling below.
+@activeOfferId   = c1d2e3f4-0000-0000-0001-000000000001
+@inactiveOfferId = c1d2e3f4-0000-0000-0002-000000000002
+
+### Helper – obtain a fresh admin token (carol)
+# Returns access_token — paste as "Bearer <token>" into @adminToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: deactivate an active offer (admin)
+# Sets the offer to inactive. Run the activate request below to restore it.
+PATCH {{baseUrl}}/offers/{{activeOfferId}}/status
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "inactive"
+}
+
+### 200 – Happy path: activate an inactive offer (admin)
+# Restores the offer to active. Run after the deactivation above to verify the round-trip.
+PATCH {{baseUrl}}/offers/{{inactiveOfferId}}/status
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "active"
+}
+
+### 404 – Sad path: offer does not exist
+# All-zero UUID is guaranteed to have no database row.
+PATCH {{baseUrl}}/offers/00000000-0000-0000-0000-000000000000/status
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "active"
+}
+
+### 422 – Sad path: invalid status value
+# Pydantic rejects values outside the allowed enum (active | inactive).
+PATCH {{baseUrl}}/offers/{{activeOfferId}}/status
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "archived"
+}
+
+### 403 – Sad path: authenticated as a non-admin user
+# alice has role=user; expects 403 FORBIDDEN.
+PATCH {{baseUrl}}/offers/{{activeOfferId}}/status
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "status": "inactive"
+}

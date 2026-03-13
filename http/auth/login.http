@@ -1,0 +1,53 @@
+# Auth – Login
+# Smoke tests for POST /auth/login.
+#
+# Run the happy-path request first to obtain a fresh JWT token, then paste the
+# returned access_token (prefixed with "Bearer ") into the @adminToken /
+# @userToken variables at the top of the other .http files in this folder.
+
+@baseUrl = http://localhost:8001/api/v1
+
+### 200 – Happy path: valid credentials → returns JWT access token
+# Expected: {"access_token": "...", "token_type": "bearer"}
+# Copy the returned access_token and paste it as "Bearer <token>" into token
+# variables in other .http files before running their authenticated requests.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 401 – Sad path: non-existent user
+# Email is not registered in the system.
+# Expects: 401 with INVALID_CREDENTIALS error code (not 404, to avoid user enumeration).
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "notfound@example.com",
+  "password": "irrelevant"
+}
+
+### 401 – Sad path: wrong password
+# Valid registered email but incorrect password.
+# Expects: 401 with INVALID_CREDENTIALS error code (same shape as non-existent user).
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "wrongpassword"
+}
+
+### 422 – Sad path: malformed email format
+# Pydantic rejects the payload before the service layer is reached.
+# Expects: 422 Unprocessable Entity with a validation detail array.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "irrelevant"
+}

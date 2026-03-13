@@ -1,0 +1,52 @@
+# Purchases – Get Purchase Details
+# Smoke tests for GET /purchases/{purchase_id}.
+#
+# Authenticated endpoint. A user can only retrieve their own purchases;
+# accessing another user's purchase yields 403 (not 404, to avoid
+# information leakage about purchase existence).
+#
+# Seed data used:
+#   alice owns:  aa000001-0000-0000-0000-000000000001 (txn_seed_001, status=pending, Shoply)
+#                aa000001-0000-0000-0000-000000000005 (txn_seed_005, status=confirmed, Shoply)
+#   bob owns:    aa000001-0000-0000-0000-000000000003 (txn_seed_003)
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste a fresh user token here (use the helper login request below).
+# This placeholder value is an expired local-dev token from seed data — never a real credential.
+@userToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MzA3ODUwMX0.Ca9bXYtSnqUnLrH8tc5s5ns7hsfJ70YipKUFOJ8Ce8Q
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: owner retrieves their own pending purchase
+# alice requests her own purchase; full detail object expected.
+GET {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000001
+Authorization: {{userToken}}
+
+### 200 – Happy path: owner retrieves their own confirmed purchase
+# Verifies the response includes cashback amount and confirmed status.
+GET {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000005
+Authorization: {{userToken}}
+
+### 403 – Sad path: user attempts to view another user's purchase
+# alice requests bob's purchase — ownership check fails.
+# Expects: 403 FORBIDDEN (not 404, to avoid leaking purchase existence).
+GET {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000003
+Authorization: {{userToken}}
+
+### 404 – Sad path: purchase does not exist
+# All-zero UUID is guaranteed to have no database row.
+GET {{baseUrl}}/purchases/00000000-0000-0000-0000-000000000000
+Authorization: {{userToken}}
+
+### 401 – Sad path: missing authentication
+# No Authorization header; expects 401 UNAUTHORIZED from the auth middleware.
+GET {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000001
