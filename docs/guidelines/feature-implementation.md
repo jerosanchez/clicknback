@@ -29,7 +29,7 @@ app/<feature>/
 
 Not every module needs all files (e.g., `auth` has no `repositories.py` — it delegates to `users` via a client). The `clients/` package is only present when the module reads data owned by another module.
 
-As a module grows, individual files may be replaced by packages (e.g., `api/`, `services/`, `schemas/`). For the full decision framework — thresholds, split strategies, naming conventions, and the decoupling rules — see `docs/agents/code-organization.md`.
+As a module grows, individual files may be replaced by packages (e.g., `api/`, `services/`, `schemas/`). For the full decision framework — thresholds, split strategies, naming conventions, and the decoupling rules — see `docs/guidelines/code-organization.md`.
 
 ### Layer Responsibilities
 
@@ -190,7 +190,7 @@ async def ingest_purchase(
 
 **The API layer never contains business logic.** It only translates between HTTP and the service layer.
 
-When `api.py` exceeds ~200 lines or serves clearly distinct role groups, replace it with an `api/` package. See `docs/agents/code-organization.md` §3 for the sub-router pattern, naming conventions, and `main.py` wiring.
+When `api.py` exceeds ~200 lines or serves clearly distinct role groups, replace it with an `api/` package. See `docs/guidelines/code-organization.md` §3 for the sub-router pattern, naming conventions, and `main.py` wiring.
 
 **ORM → Schema conversion for list responses**: Services return ORM model instances. When building a response schema that contains a list of items (e.g., `PaginatedOut`), explicitly convert each item with `model_validate()` to satisfy the type checker and avoid lint errors:
 
@@ -538,7 +538,7 @@ See the `core/audit/` section above and [ADR-015](../design/adr/015-persistent-a
 
 ## 7. Testing Conventions
 
-For all testing patterns, fixture conventions, test levels, and checklists, see the authoritative reference: `docs/agents/testing-guidelines.md`.
+For all testing patterns, fixture conventions, test levels, and checklists, see the authoritative reference: `docs/guidelines/testing-guidelines.md`.
 
 ---
 
@@ -549,4 +549,4 @@ Step-by-step implementation guides live in the prompt files, which reference thi
 - `.github/prompts/new-feature.prompt.md` — implementing a single endpoint or operation within an existing module
 - `.github/prompts/new-module.prompt.md` — scaffolding a complete new domain module with multiple endpoints
 
-For guidelines on how to keep files at a readable size as modules grow, see `docs/agents/code-organization.md`.
+For guidelines on how to keep files at a readable size as modules grow, see `docs/guidelines/code-organization.md`.

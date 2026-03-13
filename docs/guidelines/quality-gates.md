@@ -142,7 +142,7 @@ Common violations and fixes:
 | `MD013` – Line too long | Prose line exceeds configured limit | Wrap the line |
 | `MD041` – First line must be a top-level heading | File does not start with `# Title` | Add the heading or check the file structure |
 
-See `docs/agents/markdown-guidelines.md` for the project's full markdown conventions.
+See `docs/guidelines/markdown-guidelines.md` for the project's full markdown conventions.
 
 ### 4.2 `flake8` Failures
 

@@ -1,16 +1,16 @@
 # Prompt: Implement a New Feature
 
-Use this prompt to implement a single feature (one or more related endpoints) inside an **existing module**. If the module does not exist yet, scaffold it first with `create-module.prompt.md`, then return here.
+Use this prompt to implement a single feature (one single endpoint or component) inside an **existing module**. If the module does not exist yet, scaffold it first with `create-module.prompt.md`, then return here.
 
 ## Context Files (Read First)
 
 Before writing any code, read the following files in full:
 
-- `docs/agents/project-context.md` — domain model and system purpose
-- `docs/agents/feature-implementation.md` — module anatomy, layer responsibilities, coding conventions
-- `docs/agents/code-organization.md` — when and how to split large files; naming conventions for split packages and their tests
-- `docs/agents/testing-guidelines.md` — test structure, patterns, and what to test at each level
-- `docs/agents/quality-gates.md` — mandatory quality gate sequence
+- `docs/guidelines/project-context.md` — domain model and system purpose
+- `docs/guidelines/feature-implementation.md` — module anatomy, layer responsibilities, coding conventions
+- `docs/guidelines/code-organization.md` — when and how to split large files; naming conventions for split packages and their tests
+- `docs/guidelines/testing-guidelines.md` — test structure, patterns, and what to test at each level
+- `docs/guidelines/quality-gates.md` — mandatory quality gate sequence
 - `docs/design/architecture-overview.md` — system structure and module boundaries
 - `docs/design/data-model.md` — entity relationships and field conventions
 - `docs/design/error-handling-strategy.md` — error response shape, exception hierarchy, handler rules
@@ -30,8 +30,8 @@ Before writing any code, read the following files in full:
 - Do not import ORM models from other modules into `repositories.py`, `policies.py`, or `services.py` — use a `clients/` package and DTOs instead (see Step 4a).
 - **Small infrastructure/support modules** (broker, scheduler, token provider, etc.) must keep the ABC and the default in-memory/simple implementation in the **same file**, placed directly under `app/core/` (e.g., `app/core/broker.py`, `app/core/scheduler.py`). Do not split the interface and its default implementation into separate files (`broker_abc.py` + `broker.py`) — that fragmentation adds no value at this scale and forces unnecessary cross-file navigation. **Exception:** when an infrastructure component grows to encompass its own model, repository, service, and factory (as `app/core/audit/` does), promote it to a sub-package under `app/core/` following the same layered structure as domain feature modules. The sub-package must expose all public symbols through its `__init__.py` so call sites remain unchanged.
 - Event or message payload definitions that are domain-specific belong in a sub-package (e.g., `app/core/events/`) and are kept separate from the infrastructure files. See `app/core/broker.py`, `app/core/scheduler.py`, and `app/auth/token_provider.py` as reference examples.
-- Critical state-changing operations (purchase confirmation/rejection, cashback crediting, withdrawal processing, payout settlement, admin overrides) **must** call `AuditTrail.record(...)` in the service method, after the operation succeeds. Inject `AuditTrail` via `__init__()` and wire it in `composition.py`. See `docs/agents/feature-implementation.md` §2 (`core/audit/`) and ADR-015.
-- **Domain-specific background jobs** (polling loops, confirmation jobs, settlement jobs) belong under `app/<domain>/jobs/<job_name>/`, following the Fan-Out Dispatcher + Per-Item Runner pattern documented in ADR-016. Use `app/core/jobs/` only for cross-cutting jobs with no clear domain owner. Wire the task in the domain's `composition.py` (e.g. `get_<job_name>_task()`), then schedule it in `app/main.py`. Tests live under `tests/<domain>/jobs/`, one file per module (`test_<job>_runner.py`, `test_<job>_dispatcher.py`, etc.). See `docs/agents/background-jobs.md` for the full checklist.
+- Critical state-changing operations (purchase confirmation/rejection, cashback crediting, withdrawal processing, payout settlement, admin overrides) **must** call `AuditTrail.record(...)` in the service method, after the operation succeeds. Inject `AuditTrail` via `__init__()` and wire it in `composition.py`. See `docs/guidelines/feature-implementation.md` §2 (`core/audit/`) and ADR-015.
+- **Domain-specific background jobs** (polling loops, confirmation jobs, settlement jobs) belong under `app/<domain>/jobs/<job_name>/`, following the Fan-Out Dispatcher + Per-Item Runner pattern documented in ADR-016. Use `app/core/jobs/` only for cross-cutting jobs with no clear domain owner. Wire the task in the domain's `composition.py` (e.g. `get_<job_name>_task()`), then schedule it in `app/main.py`. Tests live under `tests/<domain>/jobs/`, one file per module (`test_<job>_runner.py`, `test_<job>_dispatcher.py`, etc.). See `docs/guidelines/background-jobs.md` for the full checklist.
 - **Feature flags:** If the feature being implemented should be controllable at runtime (e.g. a background job, an experimental endpoint, or a behaviour that may need to be disabled during testing, demos, or incident response), gate it behind a feature flag. Treat `feature_flags` as a foreign module and follow **the same Step 4a client pattern** already used for cross-module dependencies: add a `clients/feature_flags.py` file to the **current module's own** `clients/` package (creating the package if it doesn't exist yet). Define a `FeatureFlagsClientABC` with an `is_enabled(key)` method and a concrete `FeatureFlagsClient` that calls `FeatureFlagService` via the shared database. Inject the ABC into the gated component via `__init__()` and call `await feature_flags.is_enabled("<flag_key>")` at the relevant entry point. Wire the concrete class in `composition.py`. If `feature_flags` is ever promoted to a standalone microservice, only that concrete class is replaced with one calling `GET /api/v1/feature-flags/{key}/evaluate` — no other code in the consuming module changes. Resolution is fail-open: if no flag record exists, `is_enabled()` returns `True`. See [ADR-018](../../docs/design/adr/018-feature-flag-system.md) for resolution semantics and the evaluate endpoint design. Seed the flag key in `seeds/all.sql` with `enabled = true` so the system behaves normally out of the box.
 
 ## Commit Protocol
@@ -77,7 +77,7 @@ def amount_scale_must_not_exceed_2(cls, v: Decimal) -> Decimal:
     return v
 ```
 
-Test every `@field_validator` in a dedicated `test_{module}_schemas.py` file. See `docs/agents/testing-guidelines.md` §8a for the pattern.
+Test every `@field_validator` in a dedicated `test_{module}_schemas.py` file. See `docs/guidelines/testing-guidelines.md` §8a for the pattern.
 
 ### Step 2 — `exceptions.py` and `errors.py`: domain exceptions and error codes
 
@@ -287,7 +287,7 @@ async def create_entity(
     ...
 ```
 
-If `api.py` already exceeds ~200 lines or this feature introduces a clearly distinct endpoint group (e.g., public vs. admin), consult `docs/agents/code-organization.md` §3 and split into an `api/` package before adding new routes.
+If `api.py` already exceeds ~200 lines or this feature introduces a clearly distinct endpoint group (e.g., public vs. admin), consult `docs/guidelines/code-organization.md` §3 and split into an `api/` package before adding new routes.
 
 For list responses with nested items, use explicit `model_validate()` conversion:
 
@@ -304,7 +304,7 @@ return Paginated<Entity>Out(
 
 Create one `.http` file per new route inside `http/<module>/` at the project root (e.g., `http/purchases/create-purchase.http`). These files are testing artifacts and living documentation; they live outside the application source tree and are shared across the whole project.
 
-Before writing the files, read `docs/agents/http-requests.md` in full — it documents every authoring convention in detail. A short summary of the required structure:
+Before writing the files, read `docs/guidelines/http-requests.md` in full — it documents every authoring convention in detail. A short summary of the required structure:
 
 - **Variable block at the top:** `@baseUrl`, any resource ID variables, and `@adminToken` / `@userToken` placeholder variables (expired local-dev JWTs from seed data — never real credentials).
 - **Helper login requests** immediately after the variable block, one per role exercised in the file, with a comment directing the developer to paste the returned token into the variable above.
@@ -312,7 +312,7 @@ Before writing the files, read `docs/agents/http-requests.md` in full — it doc
 - **Coverage order:** happy paths first, then 401 → 403 → 422 (validation) → 400/409 (business rules) → 404.
 - **Never commit real tokens, API keys, or production credentials.**
 
-See `docs/agents/http-requests.md` for the full coverage checklist, naming rules, and an annotated example.
+See `docs/guidelines/http-requests.md` for the full coverage checklist, naming rules, and an annotated example.
 
 ### Step 9 — Alembic migration (only if model changed)
 

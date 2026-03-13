@@ -6,7 +6,7 @@ Use this prompt after a feature is fully implemented and all manual smoke tests 
 
 Before writing any code, read the following files in full:
 
-- `docs/agents/testing-guidelines.md` — all conventions, patterns, naming rules, and examples. Follow it exactly; do not invent alternatives.
+- `docs/guidelines/testing-guidelines.md` — all conventions, patterns, naming rules, and examples. Follow it exactly; do not invent alternatives.
 - `docs/design/architecture-overview.md` — system structure and module boundaries
 - `docs/design/data-model.md` — entity relationships and field conventions; needed to write accurate fixtures
 - `docs/design/error-handling-strategy.md` — error response shape and exception hierarchy; needed to assert on error responses correctly
@@ -38,7 +38,7 @@ Extend existing files if they already exist. Only create new files if the module
 
 ### What not to test
 
-Do not test repository implementations directly (thin DB wrappers). Do not test FastAPI routing or SQLAlchemy internals. See `docs/agents/testing-guidelines.md §1` for the full list.
+Do not test repository implementations directly (thin DB wrappers). Do not test FastAPI routing or SQLAlchemy internals. See `docs/guidelines/testing-guidelines.md §1` for the full list.
 
 ## Commit Protocol
 

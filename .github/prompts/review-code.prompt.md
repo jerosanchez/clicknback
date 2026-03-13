@@ -6,9 +6,9 @@ This is not a substitute for human peer review. Its purpose is to catch layer vi
 
 ## Context Files (Read First)
 
-- `docs/agents/feature-implementation.md` — layer responsibilities, error handling convention, logging rules
-- `docs/agents/testing-guidelines.md` — what must be tested and at which level
-- `docs/agents/quality-gates.md` — mandatory gates and their scope
+- `docs/guidelines/feature-implementation.md` — layer responsibilities, error handling convention, logging rules
+- `docs/guidelines/testing-guidelines.md` — what must be tested and at which level
+- `docs/guidelines/quality-gates.md` — mandatory gates and their scope
 - `docs/design/error-handling-strategy.md` — the canonical error response shape
 
 ## Instructions
@@ -113,4 +113,4 @@ Do not suggest changes that contradict established decisions documented in `docs
 ### Documentation
 
 - [ ] If a design decision was made that is not self-evident from the code, an ADR or inline comment explains it.
-- [ ] If `docs/` files are affected, they follow the markdown style guide in `docs/agents/markdown-guidelines.md`.
+- [ ] If `docs/` files are affected, they follow the markdown style guide in `docs/guidelines/markdown-guidelines.md`.

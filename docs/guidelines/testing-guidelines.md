@@ -74,7 +74,7 @@ tests/
 **Rule:** `tests/{module}/test_{module_name}_{layer}.py`
 Maps exactly to the source file it exercises: `app/{module}/{layer}.py` → `test_{module}_{layer}.py`. When `{layer}` is itself a package (e.g., `api/admin.py`), the test file name encodes the sub-module: `test_{module}_{sub_module}_{layer}.py` — e.g., `test_offers_admin_api.py` mirrors `app/offers/api/admin.py`.
 
-See `docs/agents/code-organization.md` §6 for the full naming table.
+See `docs/guidelines/code-organization.md` §6 for the full naming table.
 
 ---
 
