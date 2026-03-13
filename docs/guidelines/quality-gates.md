@@ -106,7 +106,7 @@ Hooks run automatically on every `git commit` after `pre-commit install`. Use `p
 
 Follow this sequence for every task, no matter how small:
 
-1. **Implement the change** following the project conventions in `feature-implementation.md`.
+1. **Implement the change** following the project conventions in `feature-architecture.md`.
 2. **Run the full gate sequence** from the project root (see Section 7 Quick Reference for the exact command).
 3. **Fix every failure autonomously** — see Section 4 for specific remedies.
 4. **Re-run the full sequence** until all four gates exit with code 0.
@@ -142,7 +142,7 @@ Common violations and fixes:
 | `MD013` – Line too long | Prose line exceeds configured limit | Wrap the line |
 | `MD041` – First line must be a top-level heading | File does not start with `# Title` | Add the heading or check the file structure |
 
-See `docs/guidelines/markdown-guidelines.md` for the project's full markdown conventions.
+See `docs/guidelines/markdown-docs.md` for the project's full markdown conventions.
 
 ### 4.2 `flake8` Failures
 
@@ -213,7 +213,7 @@ The quality gate requirement applies without exception to:
 
 | Change type | Applies? |
 | --- | --- |
-| New feature module | Yes — always (see `feature-implementation.md` Step 13) |
+| New feature module | Yes — always (see `feature-architecture.md` Step 13) |
 | Bug fix | Yes |
 | Refactor (no behavior change) | Yes |
 | Schema / model change | Yes |

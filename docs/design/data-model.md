@@ -244,7 +244,7 @@ Runtime configuration records that enable or disable platform capabilities witho
 | key          | string   | Feature identifier, e.g. `purchase_confirmation_job`        |
 | enabled      | boolean  |                                                             |
 | scope_type   | string   | `global` \| `merchant` \| `user`; default `global`          |
-| scope_id     | string   | nullable; UUID of the scoped entity; `null` for global flags |
+| scope_id     | string   | nullable; UUID of the scoped entity; `null` for global flags|
 | description  | string   | nullable; human-readable description of the flag's intent   |
 | created_at   | datetime |                                                             |
 | updated_at   | datetime |                                                             |

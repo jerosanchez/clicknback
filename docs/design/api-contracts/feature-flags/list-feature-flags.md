@@ -7,7 +7,7 @@
 
 ## Request
 
-**Query parameters**
+**Query parameters**:
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -19,19 +19,19 @@ All filters are optional. When multiple filters are provided they are combined w
 
 **Example — no filter:**
 
-```
+```http
 GET /api/v1/feature-flags
 ```
 
 **Example — filtered by key:**
 
-```
+```http
 GET /api/v1/feature-flags?key=purchase_confirmation_job
 ```
 
 **Example — filtered by scope:**
 
-```
+```http
 GET /api/v1/feature-flags?scope_type=merchant&scope_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 

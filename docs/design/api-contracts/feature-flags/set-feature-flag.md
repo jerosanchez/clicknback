@@ -7,13 +7,13 @@
 
 ## Request
 
-**Path parameters**
+**Path parameters**:
 
 | Parameter | Type | Description |
 | --- | --- | --- |
 | `key` | string | Feature flag key, e.g. `purchase_confirmation_job` |
 
-**Body**
+**Body**:
 
 ```json
 {

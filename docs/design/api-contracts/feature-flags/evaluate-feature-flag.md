@@ -7,13 +7,13 @@
 
 ## Request
 
-**Path parameters**
+**Path parameters**:
 
 | Parameter | Type | Description |
 | --- | --- | --- |
 | `key` | string | Feature flag key to evaluate, e.g. `purchase_confirmation_job` |
 
-**Query parameters**
+**Query parameters**:
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -22,7 +22,7 @@
 
 **Examples:**
 
-```
+```http
 GET /api/v1/feature-flags/purchase_confirmation_job/evaluate
 GET /api/v1/feature-flags/purchase_confirmation_job/evaluate?scope_type=merchant&scope_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```

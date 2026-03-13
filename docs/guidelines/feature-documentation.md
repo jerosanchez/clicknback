@@ -35,117 +35,68 @@ Each functional spec covers **exactly one feature**. A feature is a single user-
 
 ## 2. Functional Spec Format
 
-Each spec file must contain the following sections in order:
+For the **authoritative guide** on writing functional specifications, see [Writing Functional Specifications](functional-specification.md). That document includes the complete mandatory section order, validation checklist, common mistakes, and detailed examples.
 
-```markdown
-# XX-NN: Feature Name
+**Quick reference:**
 
-IMPORTANT: This is a living document, specs are subject to change.
+Each spec file must contain these sections in order:
 
-## User Story
+1. **Title and Preamble** – `# XX-NN: Feature Name` with "IMPORTANT: This is a living document..."
+2. **User Story** – `As a <role>, I want to <action> so that <benefit>.`
+3. **Domain Concepts** (optional) – Table of unfamiliar terms
+4. **Constraints** – Authorization, Input, Data, and Behavior constraints (be exhaustive)
+5. **BDD Acceptance Criteria** – Scenarios in Given–When–Then format; must cover: happy path, auth failures, validation failures, business-rule failures
+6. **Use Cases** – Numbered step-by-step flows for happy and sad paths (one per failure mode)
+7. **API Contract** – Link(s) to `docs/design/api-contracts/<domain>/`
 
-_As a <role>, I want to <action> so that <benefit>._
+**Essential rules:**
 
----
+- One feature per spec file (e.g., "Set Feature Flag", not "Feature Flags").
+- Naming: `XX-NN-short-name.md` (two-letter domain prefix, two-digit sequence number, kebab-case description).
+- Never embed JSON or HTTP details — put those in the API Contract.
+- Constraints must be exhaustive; every validation rule and authorization check goes here.
+- BDD scenarios must be concrete with examples, not abstract placeholders.
+- Use cases must trace complete flows and include error codes.
 
-## Domain Concepts
+See well-formed examples for reference:
 
-| Term | Description |
-| --- | --- |
-| **Term** | Explanation |
-
----
-
-## Constraints
-
-### Authorization Constraints
-### Input Constraints
-### Behavior Constraints   ← omit if not needed
-
----
-
-## BDD Acceptance Criteria
-
-**Scenario:** ...
-**Given** ... **When** ... **Then** ...
-
-(Repeat for each significant case: happy path, main sad paths, auth failures)
-
----
-
-## Use Cases
-
-### Happy Path
-1. Numbered steps.
-
-### Sad Paths
-
-#### Descriptive heading
-1. Numbered steps.
-
-## API Contract
-
-See [Link text](../../../design/api-contracts/<domain>/file.md) for detailed API specifications.
-```
-
-**Rules:**
-
-- The `## API Contract` section must link to a file in `docs/design/api-contracts/`, never embed raw JSON or endpoint details inline.
-- Do not include implementation notes, code snippets, or technology references in a functional spec.
-- Every spec must have at least one happy path scenario and at least one auth failure scenario in the BDD section.
-
-See [FF-01-set-feature-flag.md](../specs/functional/feature-flags/FF-01-set-feature-flag.md) and [PU-01](../specs/functional/purchases/PU-01-create-purchase.md) as well-formed examples.
+- [A-01-user-login.md](../specs/functional/auth/A-01-user-login.md)
+- [FF-01-set-feature-flag.md](../specs/functional/feature-flags/FF-01-set-feature-flag.md)
+- [PU-01-purchase-ingestion.md](../specs/functional/purchases/PU-01-purchase-ingestion.md)
 
 ---
 
 ## 3. API Contract Format
 
-API contracts live separately from functional specs. Each contract covers **one endpoint**.
+For the **authoritative guide** on writing API contracts, see [Writing API Contracts](api-contracts.md). That document includes the complete mandatory section order, validation checklist, common mistakes, HTTP status code reference, and detailed examples.
 
-**Location:** `docs/design/api-contracts/<domain>/<verb>-<resource>.md`
+**Quick reference:**
 
-**Format:**
+Each contract file describes **one endpoint** and must contain:
 
-```markdown
-# Operation Name
+1. **Title and Endpoint Declaration** – Operation name, HTTP method + path, allowed roles
+2. **Request** – Tables for path params, query params, and JSON body with field descriptions
+3. **Success Response** – HTTP status code and realistic JSON response example
+4. **Failure Responses** – All error modes with error codes, status codes, and context
 
-**Endpoint:** `METHOD /api/v1/path/{param}`
-**Roles:** Admin | User | Public
+**Naming:** `<verb>-<resource>.md` (e.g., `set-feature-flag.md`, `list-merchants.md`)
 
----
+**Location:** `docs/design/api-contracts/<domain>/`
 
-## Request
+**Essential rules:**
 
-**Path parameters** (table if any)
-**Query parameters** (table if any)
-**Body** (JSON block if any)
+- One endpoint per contract (e.g., PUT `/feature-flags/{key}`, not multiple endpoints).
+- Every failure scenario from the functional spec must have a response in the contract.
+- Error codes must be specific (e.g., `MERCHANT_NOT_FOUND`, not generic `NOT_FOUND`).
+- Use realistic but fictional data: valid UUIDs (not `xxx`), real timestamps (ISO 8601), actual enum values.
+- Always include mandatory auth failures (401, 403 if applicable) and 500 Internal Server Error.
+- Error response shape: `{ "error": { "code": "...", "message": "...", "details": {...} } }`.
 
----
+See well-formed examples for reference:
 
-## Success Response
-
-**Status:** `2XX Code`
-
-(JSON block)
-
----
-
-## Failure Responses
-
-### 4XX Code – Description
-
-(JSON block with `{ "error": { "code": "...", "message": "...", "details": {...} } }`)
-
-(Repeat for each distinct failure mode)
-```
-
-**Rules:**
-
-- Use realistic but fictional UUIDs and timestamps — no `xxx` placeholders.
-- Every `4XX` response must include the corresponding internal error code string.
-- Common auth failures (`401`, `403`) must always be listed.
-
-See [set-feature-flag.md](../design/api-contracts/feature-flags/set-feature-flag.md) and [create-merchant.md](../design/api-contracts/merchants/create-merchant.md) as well-formed examples.
+- [set-feature-flag.md](../design/api-contracts/feature-flags/set-feature-flag.md)
+- [create-merchant.md](../design/api-contracts/merchants/create-merchant.md)
+- [list-feature-flags.md](../design/api-contracts/feature-flags/list-feature-flags.md)
 
 ---
 

@@ -6,12 +6,14 @@ Use this prompt after a feature is fully implemented and all manual smoke tests 
 
 Before writing any code, read the following files in full:
 
-- `docs/guidelines/testing-guidelines.md` — all conventions, patterns, naming rules, and examples. Follow it exactly; do not invent alternatives.
+- `docs/guidelines/unit-testing.md` — all conventions, patterns, naming rules, and examples. Follow it exactly; do not invent alternatives.
+- `docs/guidelines/api-contracts.md` — reference the contract(s) for the feature to understand all success and failure response codes when writing API tests
 - `docs/design/architecture-overview.md` — system structure and module boundaries
 - `docs/design/data-model.md` — entity relationships and field conventions; needed to write accurate fixtures
 - `docs/design/error-handling-strategy.md` — error response shape and exception hierarchy; needed to assert on error responses correctly
 - `docs/design/security-strategy.md` — auth model and token handling; needed for auth scenario tests
-- All ADR files under `docs/design/adr/` — rationale behind conventions; helps avoid testing anti-patterns that conflict with architectural decisions
+- `docs/guidelines/arch-decision-records.md` — how to read and understand ADRs
+- Relevant ADR files under `docs/design/adr/` — particularly [ADR 007: Layered Testing Strategy](../../docs/design/adr/007-layered-testing-strategy.md) — rationale behind testing conventions; helps avoid testing anti-patterns that conflict with architectural decisions
 - The functional spec listed in the **Test Specification** section below — BDD scenarios are the test coverage checklist.
 - The implemented files for the feature: `models.py`, `schemas.py`, `policies.py`, `repositories.py`, `services.py`, `api.py`, etc. — understand the code before writing tests for it.
 
@@ -38,7 +40,7 @@ Extend existing files if they already exist. Only create new files if the module
 
 ### What not to test
 
-Do not test repository implementations directly (thin DB wrappers). Do not test FastAPI routing or SQLAlchemy internals. See `docs/guidelines/testing-guidelines.md §1` for the full list.
+Do not test repository implementations directly (thin DB wrappers). Do not test FastAPI routing or SQLAlchemy internals. See `docs/guidelines/unit-testing.md §1` for the full list.
 
 ## Commit Protocol
 

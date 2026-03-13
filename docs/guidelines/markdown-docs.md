@@ -59,6 +59,38 @@ More content.
 ## Error Handling:
 ```
 
+### No Duplicate Headings (MD024)
+
+Every heading in a file must be unique. When the same concept appears in multiple sections (e.g., "Structure" used multiple times), use a bolded label with a semicolon instead of a duplicate heading.
+
+```markdown
+<!-- ✅ correct — second instance uses bold label instead of heading -->
+## Section A
+
+### Structure
+
+Description of structure for section A.
+
+## Section B
+
+**Structure:**
+
+Description of structure for section B.
+
+<!-- ❌ wrong — duplicate heading -->
+## Section A
+
+### Structure
+
+Description of structure for section A.
+
+## Section B
+
+### Structure
+
+Description of structure for section B.
+```
+
 ---
 
 ## 2. Code Blocks
@@ -109,6 +141,40 @@ More prose.
 ### Use Consistent Fence Style (MD048)
 
 Use triple backticks ` ``` ` exclusively. Do not mix with `~~~`.
+
+### Escaping Code Fences: Four Backticks for Markdown Content
+
+When a code block contains Markdown code (examples showing syntax, templates, or documentation snippets), use four backticks (` ```` `) to fence the outer block. This prevents the linter from confusing inner Markdown fences with the block's own delimiters.
+
+`````markdown
+<!-- ✅ correct — four backticks for outer fence when inner content is markdown -->
+````markdown
+<!-- This is a markdown example inside a documentation block -->
+# Example
+
+Here is some code:
+```python
+def foo():
+    pass
+```
+````
+
+<!-- ❌ wrong — three backticks cause linter confusion with inner triple-backtick fence -->
+```markdown
+# Example
+
+Here is some code:
+
+```python
+def foo():
+    pass
+```
+
+````
+
+`````
+
+Always apply the same blank-line spacing rules around four-backtick blocks as you would for three-backtick blocks.
 
 ### No Dollar Signs on Commands Without Output (MD014)
 
@@ -325,6 +391,24 @@ Use a real heading (`##`), not bold or italic text on its own line.
 **Configuration**
 
 ...
+```
+
+If a bolded label is intentionally *not* meant to be a heading (e.g., in tables or lists), end it with a colon to disambiguate from a heading attempt:
+
+```markdown
+<!-- ✅ acceptable — colon signals this is a label, not a heading -->
+**Path parameters:**
+
+| Parameter | Type |
+| --- | --- |
+| id | string |
+
+<!-- ❌ wrong — no colon; linter flags as problematic emphasis -->
+**Path parameters**
+
+| Parameter | Type |
+| --- | --- |
+| id | string |
 ```
 
 ### Consistent Emphasis Style (MD049 / MD050)
