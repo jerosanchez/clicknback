@@ -208,7 +208,7 @@ All routers use the API prefix `/api/v1`.
 
 All errors follow a consistent path to ensure a uniform API response shape:
 
-```
+```text
 Domain Exception (from exceptions.py)
   ↓
 Caught in api.py route handler
