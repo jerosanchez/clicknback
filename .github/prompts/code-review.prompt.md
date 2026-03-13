@@ -6,7 +6,7 @@ This is not a substitute for human peer review. Its purpose is to catch layer vi
 
 ## Context Files (Read First)
 
-- `docs/agents/feature-guide.md` — layer responsibilities, error handling convention, logging rules
+- `docs/agents/feature-implementation.md` — layer responsibilities, error handling convention, logging rules
 - `docs/agents/testing-guidelines.md` — what must be tested and at which level
 - `docs/agents/quality-gates.md` — mandatory gates and their scope
 - `docs/design/error-handling-strategy.md` — the canonical error response shape

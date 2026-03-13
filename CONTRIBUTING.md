@@ -133,7 +133,7 @@ The feature flag system lives in `app/feature_flags/` and follows the same layer
 
 Tests mirror the module structure under `tests/`. Async service tests use `pytest-asyncio` (`@pytest.mark.asyncio`, `AsyncMock(spec=AsyncSession)`). The `conftest.py` at the root provides factory fixtures used across all test suites.
 
-For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/feature-guide.md](docs/agents/feature-guide.md). For guidelines on how to organize and split files as a module grows, see [docs/agents/code-organization.md](docs/agents/code-organization.md).
+For a detailed walkthrough of each layer, its responsibilities, and the architectural rationale, see [docs/agents/feature-implementation.md](docs/agents/feature-implementation.md). For guidelines on how to organize and split files as a module grows, see [docs/agents/code-organization.md](docs/agents/code-organization.md).
 
 ## Architecture & Design Decisions
 

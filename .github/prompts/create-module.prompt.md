@@ -7,7 +7,7 @@ Use this prompt to create the empty skeleton of a brand-new domain area (e.g., `
 Before writing any code, read the following files in full:
 
 - `docs/agents/project-context.md` — domain model and system purpose
-- `docs/agents/feature-guide.md` — module anatomy, layer responsibilities, coding conventions
+- `docs/agents/feature-implementation.md` — module anatomy, layer responsibilities, coding conventions
 - `docs/agents/code-organization.md` — when and how to split files as a module grows
 
 Also read at least one existing module for structural reference:

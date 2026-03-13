@@ -24,7 +24,7 @@ The values below are specific to this project. When adapting this runbook for a 
 
 Before starting any step, read the following project context files in full:
 
-- `docs/agents/feature-guide.md` — coding conventions, module structure, and layering rules
+- `docs/agents/feature-implementation.md` — coding conventions, module structure, and layering rules
 - `docs/agents/quality-gates.md` — mandatory quality gate sequence
 - `docs/agents/testing-guidelines.md` — how tests are structured and what to test
 - `docs/agents/project-context.md` — domain model and overall system purpose

@@ -1,4 +1,4 @@
-# ClickNBack – Feature Development Guide
+# Feature Implementation Guidelines
 
 This document is the authoritative reference for adding new feature modules to ClickNBack. It covers module anatomy, layer responsibilities, application wiring, error handling, logging, and testing conventions.
 
