@@ -8,7 +8,7 @@ This document provides a unified overview of all system requirements for the Cli
 
 The system requirements are organized into two complementary domains:
 
-- **Functional Requirements (FRs)**: Define what the system should do in terms of features, workflows, and user capabilities across 6 domain areas.
+- **Functional Requirements (FRs)**: Define what the system should do in terms of features, workflows, and user capabilities across 7 domain areas (authentication, merchants, offers, purchases, payouts, users, wallets, and feature flags).
 - **Non-Functional Requirements (NFRs)**: Define how the system should behave in terms of reliability, performance, security, and operational aspects across 12 key areas.
 
 Together, these requirements ensure ClicknBack operates as a production-grade financial backend serving merchants, offers, purchases, payouts, users, and wallets.
@@ -17,7 +17,7 @@ Together, these requirements ensure ClicknBack operates as a production-grade fi
 
 ## Functional Requirements
 
-FRs are organized into domain areas covering authentication, merchants, offers, payouts, purchases, users, and wallets. Each FR includes clear user stories, constraints, acceptance criteria, and use cases. FRs are identified with a domain prefix (M, O, PA, PU, U, W) for easy reference.
+FRs are organized into domain areas covering authentication, merchants, offers, payouts, purchases, users, wallets, and feature flags. Each FR includes clear user stories, constraints, acceptance criteria, and use cases. FRs are identified with a domain prefix (A, M, O, PA, PU, U, W, FF) for easy reference.
 
 ### Authentication
 
@@ -63,11 +63,18 @@ FRs are organized into domain areas covering authentication, merchants, offers, 
 - **[W-01: Wallet Summary View](functional/wallets/W-01-wallet-summary-view.md)** — Users can view their wallet balances: pending, available, and paid amounts.
 - **[W-02: Wallet Transactions Listing](functional/wallets/W-02-wallet-transactions-listing.md)** — Users can audit paginated wallet transaction history including credits, reversals, and payouts.
 
+### Feature Flag Management
+
+- **[FF-01: Set Feature Flag](functional/feature-flags/FF-01-set-feature-flag.md)** — Admin users can create or update a feature flag (upsert semantics) for a given key and scope.
+- **[FF-02: Delete Feature Flag](functional/feature-flags/FF-02-delete-feature-flag.md)** — Admin users can delete an exact flag record identified by key, scope type, and scope ID.
+- **[FF-03: List Feature Flags](functional/feature-flags/FF-03-list-feature-flags.md)** — Admin users can list all feature flag records with optional filters by key, scope type, or scope ID.
+- **[FF-04: Evaluate Feature Flag](functional/feature-flags/FF-04-evaluate-feature-flag.md)** — Resolves the effective enabled/disabled state for a key and scope, applying the scoped → global → fail-open resolution algorithm.
+
 ### FR Key Relationships & User Journeys
 
 #### New User Onboarding
 
-Users enter the system through **U-01** (registration) and gain access via **U-02** (login). They then typically navigate to **W-01** (wallet summary) to understand their current state.
+Users enter the system through **U-01** (registration) and gain access via **A-01** (login). They then typically navigate to **W-01** (wallet summary) to understand their current state.
 
 #### Discovering & Making Purchases
 
@@ -90,6 +97,7 @@ Admins manage the ecosystem:
 - **Offers**: Create (**O-01**) → Activate/Deactivate (**O-02**) → Monitor (**O-05**)
 - **Purchases**: Confirm (**PU-02**) → Reverse if needed (**PU-07**) → Monitor (**PU-05**)
 - **Payouts**: Process (**PA-02**) → Monitor (**PA-03**)
+- **Feature Flags**: Set (**FF-01**) → Evaluate (**FF-04**) → Delete when no longer needed (**FF-02**) → Inspect current state (**FF-03**)
 
 #### User Withdrawal Flow
 
@@ -100,14 +108,15 @@ Users initiate withdrawals via **PA-01** (payout request), and admins process th
 #### User Roles & Authorization
 
 - **Anonymous**: Can only call U-01 (registration)
-- **Authenticated User**: Can access U-02, O-03, O-04, PU-04, PU-06, PA-01, PA-04, W-01, W-02
-- **Admin**: Full access to all FRs including M-*, O-*, PU-*, PA-*, and respective listing endpoints
+- **Authenticated User**: Can access A-01, O-03, O-04, PU-01, PU-04, PU-06, PA-01, PA-04, W-01, W-02
+- **Admin**: Full access to all FRs including M-*, O-*, PU-*, PA-*, W-*, and FF-*
 
 #### Data Flows
 
 - Purchase flow (**PU-01** → **PU-03** → **PU-02**) ensures atomic cashback allocation
 - Wallet consistency across **PA-01**, **PA-02**, **PU-02**, **PU-03**, **PU-07** relies on database transactions and state machine validation
-- All listing endpoints (**M-03, O-05, PA-03, PA-04, PU-05, PU-06, W-02**) support pagination and filtering
+- All listing endpoints (**M-03, O-05, PA-03, PA-04, PU-05, PU-06, W-02, FF-03**) support pagination and filtering
+- Feature flag resolution (**FF-04**) follows scoped → global → fail-open priority; background jobs and event handlers query flag state before executing gated work
 
 ---
 

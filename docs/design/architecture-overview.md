@@ -146,6 +146,7 @@ version-agnostic: introducing a v2 router requires no changes inside feature mod
 - **Background job isolation**: Background jobs follow the Fan-Out Dispatcher + Per-Item Runner pattern — each pending item is processed by an independent `asyncio.Task` with its own retry lifecycle and DB session; an abstracted in-flight tracker prevents duplicate processing; a Strategy interface decouples the external integration from orchestration code (see ADR-016)
 - **Testability**: Repository abstraction enables unit testing sans database; clean layer separation
 - **Extensibility**: Domain boundaries enable future extraction to services; message queues would slot in naturally
+- **Feature flags**: DB-backed flag system allows runtime enable/disable of features and background jobs without redeployment; flags are scoped globally or per-merchant/user for targeted testing and progressive delivery (see ADR-018)
 - **Maintainability**: Consistent layering across modules; business logic isolated from HTTP/DB details
 
 ---
@@ -172,6 +173,7 @@ This design signals to evaluators:
 | **Purchases** | Purchase ingestion, idempotency, state transitions | Idempotency key enforcement, DB constraints |
 | **Wallets** | Balance tracking (pending/available/paid), concurrency | Row-level locking, atomic updates |
 | **Payouts** | Withdrawal requests, payout processing, settlement | Financial correctness, audit trails |
+| **Feature Flags** | Runtime enable/disable of features; scoped flags per merchant or user | DB-backed flag store, fail-open resolution, admin-only API |
 | **Core** | Config, database sessions, security middleware, audit trail | Shared infrastructure, cross-cutting concerns |
 
 ---
@@ -183,3 +185,15 @@ All critical state-changing operations — purchase confirmation/rejection, cash
 The `AuditTrail` component lives in `app/core/audit.py` and follows the same repository-pattern as all other data-access code. Feature services receive it via constructor injection. This keeps the audit write within the same database transaction as the business operation when required.
 
 See [ADR-015](adr/015-persistent-audit-trail.md) for rationale and full design details.
+
+---
+
+## 9. Feature Flag System
+
+Feature flags allow platform capabilities to be enabled or disabled at runtime without a code redeployment. This supports manual testing and demo workflows, incident response (disabling a misbehaving feature instantly), and progressive delivery strategies (canary releases, per-merchant rollouts).
+
+The `app/feature_flags/` module implements a standard layered DB-backed flag store. Flags can be scoped globally or narrowed to a specific merchant or user. Consuming modules treat `feature_flags` as a foreign module and apply the standard client pattern: each consumer owns a `clients/feature_flags.py` in its own `clients/` package, with an ABC and an in-process concrete implementation that calls `FeatureFlagService` via the shared DB. If the module is extracted to a standalone microservice, only that concrete class is replaced with one calling the HTTP evaluate endpoint (`GET /api/v1/feature-flags/{key}/evaluate`).
+
+Resolution is fail-open: if no flag record exists for a key, the feature is treated as enabled.
+
+See [ADR-018](adr/018-feature-flag-system.md) for rationale, client pattern, and full design details.

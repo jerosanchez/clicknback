@@ -41,6 +41,7 @@ Product specs are still evolving, see the [feature roadmap](#feature-roadmap) to
 - **Background job architecture** — background jobs follow a deliberate _Fan-Out Dispatcher + Per-Item Runner_ pattern: a lightweight dispatcher spawns one independent `asyncio.Task` per pending item on each scheduler tick; each task owns its own retry lifecycle and DB session; an abstracted in-flight tracker prevents duplicate processing; and a swappable Strategy interface decouples the external-system integration from all orchestration logic. The design is fully documented in [ADR-016](docs/design/adr/016-background-job-architecture-pattern.md)
 - **Test discipline** — unit tests (mocked dependencies via `create_autospec`), API-level tests (HTTP via `TestClient` + `dependency_overrides`), and integration tests; full coverage reporting; background job components tested in isolation without spawning real asyncio tasks
 - **Modular monolith** — module boundaries are explicit and ready for extraction into separate services if the system grows
+- **Feature flag system** — a DB-backed flag module (`app/feature_flags/`) allows capabilities to be enabled or disabled at runtime without redeployment; flags are scoped globally or per-merchant/user, enabling targeted demo workflows, safe incident response, and progressive delivery strategies (canary rollouts, A/B tests); resolution is fail-open
 
 ---
 
@@ -87,8 +88,8 @@ _Status legend:_
 | Purchase Confirmation (manual) | Purchases | ⚪ backlog |
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
-| User Purchases Listing | Purchases | 🟡 ongoing |
-| Cashback Calculation Engine | Purchases | ⚪ backlog |
+| User Purchases Listing | Purchases | ⚪ backlog |
+| Cashback Calculation (worker) | Purchases | 🟢 done |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
 | Wallet Summary | Wallets | ⚪ backlog |
@@ -97,6 +98,11 @@ _Status legend:_
 | Payout Request (Withdrawal) | Payouts | ⚪ backlog |
 | Payout Processing | Payouts | ⚪ backlog |
 | Payouts Listing | Payouts | ⚪ backlog |
+| **Feature Flags** | | |
+| Set Feature Flag | Feature Flags | 🟡 ongoing |
+| Delete Feature Flag | Feature Flags | ⚪ backlog |
+| List Feature Flags | Feature Flags | ⚪ backlog |
+| Evaluate Feature Flag | Feature Flags | ⚪ backlog |
 | **Notifications** | | |
 | Purchase Creation Notification | Notifications | ⚫ planned |
 | Purchase Confirmation Notification | Notifications | ⚫ planned |

@@ -234,6 +234,33 @@ Append-only record of every critical operation. Written by `app/core/audit/` alo
 
 ---
 
+### 5.9 feature_flags
+
+Runtime configuration records that enable or disable platform capabilities without redeployment. Flags are scoped globally or narrowed to a specific merchant or user. Resolution is fail-open: the absence of a record means the feature is enabled.
+
+| Field        | Type     | Constraints/Notes                                           |
+|--------------|----------|-------------------------------------------------------------|
+| id           | UUID     | PK                                                          |
+| key          | string   | Feature identifier, e.g. `purchase_confirmation_job`        |
+| enabled      | boolean  |                                                             |
+| scope_type   | string   | `global` \| `merchant` \| `user`; default `global`          |
+| scope_id     | string   | nullable; UUID of the scoped entity; `null` for global flags |
+| description  | string   | nullable; human-readable description of the flag's intent   |
+| created_at   | datetime |                                                             |
+| updated_at   | datetime |                                                             |
+
+**Constraints:**
+
+`UNIQUE (key, scope_type, COALESCE(scope_id, ''))` — prevents duplicate flag records for the same key and scope.
+
+**Indexes:**
+
+| Index Name       | Columns                     |
+|------------------|-----------------------------|
+| key_scope_idx    | key, scope_type, scope_id   |
+
+---
+
 ## 5.1 E-R Diagram
 
 ```mermaid
@@ -308,6 +335,16 @@ erDiagram
   string outcome "success | failure"
   json details "nullable"
  }
+ feature_flags {
+  UUID id PK
+  string key "feature identifier"
+  boolean enabled
+  string scope_type "global | merchant | user"
+  string scope_id "nullable"
+  string description "nullable"
+  datetime created_at
+  datetime updated_at
+ }
 
  users ||--o{ purchases : "has"
  users ||--o{ cashback_transactions : "has"
@@ -325,6 +362,8 @@ erDiagram
  payouts }o--|| users : "for"
  purchases }o--|| offers : "applies offer"
  users ||--o{ audit_logs : "actioned by"
+ feature_flags }o--o| merchants : "scoped to (optional)"
+ feature_flags }o--o| users : "scoped to (optional)"
 ```
 
 ---
@@ -376,3 +415,4 @@ This data model supports the core requirements:
 - ✅ Enforcing referential integrity
 - ✅ Querying purchase history, balance evolution, and payout records
 - ✅ Isolating merchant and offer management from transaction processing
+- ✅ Runtime feature control via scoped flag records with fail-open resolution
