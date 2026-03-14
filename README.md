@@ -89,7 +89,7 @@ _Status legend:_
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
 | User Purchases Listing | Purchases | 🟢 done |
-| Cashback Calculation (worker) | Purchases | 🟢 done |
+| Cashback Calculation (worker) | Purchases | 🟡 ongoing |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
 | Wallet Summary | Wallets | ⚪ backlog |
@@ -99,7 +99,7 @@ _Status legend:_
 | Payout Processing | Payouts | ⚪ backlog |
 | Payouts Listing | Payouts | ⚪ backlog |
 | **Feature Flags** | | |
-| Set Feature Flag | Feature Flags | 🟡 ongoing |
+| Set Feature Flag | Feature Flags | ⚪ backlog |
 | Delete Feature Flag | Feature Flags | ⚪ backlog |
 | List Feature Flags | Feature Flags | ⚪ backlog |
 | Evaluate Feature Flag | Feature Flags | ⚪ backlog |
@@ -111,7 +111,7 @@ _Status legend:_
 | **AI & Augmented Features** | | |
 | Fraud Scoring | AI | ⚫ planned |
 | Smart Offer Recommendations | AI | ⚫ planned |
-| Automated FAQ/Support Chatbot | AI | ⚫ planned |
+| Automated FAQ/Support Chatbot | AI | ⚪ backlog |
 | Fraud Pattern Detection | AI | ⚫ planned |
 | Personalized Cashback Insights | AI | ⚫ planned |
 | Natural Language Query for Admins | AI | ⚫ planned |
