@@ -1,16 +1,16 @@
 # List user purchases
 
-**Endpoint:** `GET /users/purchases`
+**Endpoint:** `GET /users/me/purchases`
 
 **Roles:** Authenticated
 
 ## Query Parameters
 
-- `limit` (optional): Number of items per page (default: 10)
-- `offset` (optional): Pagination offset (default: 0)
-- `status` (optional): Filter by status (e.g., "confirmed")
+- `page` (optional): Page number, 1-based (default: 1, min: 1)
+- `page_size` (optional): Number of items per page (default: 10, min: 1, max: 100)
+- `status` (optional): Filter by status: `pending`, `confirmed`, or `reversed`
 
-**Example:** `?limit=10&offset=0&status=confirmed`
+**Example:** `?page=1&page_size=10&status=confirmed`
 
 ## Success Response
 
@@ -18,23 +18,26 @@
 
 ```json
 {
-  "purchases": [
+  "items": [
     {
       "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
       "merchant_name": "CoolShop",
-      "amount": 100.50,
+      "amount": "100.50",
       "status": "confirmed",
-      "cashback_amount": 10.05,
-      "cashback_status": "available"
+      "cashback_amount": "10.05",
+      "cashback_status": "available",
+      "created_at": "2026-03-01T10:00:00"
     }
   ],
-  "total": 1
+  "total": 1,
+  "page": 1,
+  "page_size": 10
 }
 ```
 
 ## Failure Responses
 
-### 401 Unauthorized – Missing Authentication
+### 401 Unauthorized – Missing or Invalid Authentication
 
 ```json
 {
@@ -49,22 +52,30 @@
 }
 ```
 
-### 400 Bad Request – Invalid Query Parameters
+### 422 Unprocessable Entity – Invalid Status Filter
+
+```json
+{
+  "error": {
+    "code": "INVALID_PURCHASE_STATUS",
+    "message": "'badvalue' is not a valid purchase status. Allowed values: pending, confirmed, reversed.",
+    "details": {}
+  }
+}
+```
+
+### 422 Unprocessable Entity – Invalid Pagination Parameters
 
 ```json
 {
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "Invalid query parameters.",
+    "message": "Request validation failed.",
     "details": {
       "violations": [
         {
-          "field": "limit",
-          "reason": "Limit must be a positive integer between 1 and 100."
-        },
-        {
-          "field": "status",
-          "reason": "Status must be one of: pending, confirmed, reversed."
+          "field": "page",
+          "reason": "Input should be greater than or equal to 1"
         }
       ]
     }

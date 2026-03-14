@@ -10,16 +10,26 @@ _As an authenticated user, I want to view my purchase history so that I can audi
 
 ## Constraints
 
-### User Constraints
+### Authorization Constraints
 
-- User must be authenticated
-- User can only view their own purchases
+- User must be authenticated.
+- User can only view their own purchases; the system automatically scopes results to the authenticated user.
 
-### Listing Constraints
+### Input Constraints
 
-- Results must be paginated
-- Only purchases belonging to the user should be returned
-- Each purchase should include merchant, amount, status, cashback amount, and cashback status
+- `page` must be a positive integer (≥ 1); defaults to 1 if omitted.
+- `page_size` must be between 1 and 100 (inclusive); defaults to 10 if omitted.
+- `status` filter, if provided, must be one of: `pending`, `confirmed`, `reversed`.
+
+### Data Constraints
+
+- Only purchases belonging to the authenticated user are returned.
+- Each purchase must include: merchant name, amount, purchase status, cashback amount, and cashback status.
+
+### Behavior Constraints
+
+- Results must be paginated using a page/page_size envelope.
+- Purchases are returned in reverse chronological order (newest first).
 
 ---
 
@@ -29,7 +39,7 @@ _As an authenticated user, I want to view my purchase history so that I can audi
 **Given** I am an authenticated user
 **And** I have purchases in the system
 **When** the authorization is verified
-**Then** a paginated list of my purchases with merchant, amount, purchase status, cashback amount, and cashback status is returned
+**Then** a paginated list of my purchases with merchant name, amount, purchase status, cashback amount, and cashback status is returned
 
 **Scenario:** Unauthenticated user attempts to view purchases
 **Given** I am not authenticated
@@ -42,11 +52,17 @@ _As an authenticated user, I want to view my purchase history so that I can audi
 **When** the system retrieves purchases
 **Then** an empty paginated list is returned
 
-**Scenario:** User requests purchases with invalid pagination
+**Scenario:** User requests purchases with invalid pagination parameters
 **Given** I am an authenticated user
-**And** I send a request with invalid parameters
+**And** I send a request with a `page` value below the minimum (e.g., `page=0`)
 **When** the API validates the input
 **Then** the request is rejected with a validation error
+
+**Scenario:** User requests purchases with an invalid status filter
+**Given** I am an authenticated user
+**And** I send a request with `status=badvalue`
+**When** the API validates the status parameter
+**Then** the request is rejected with error code `INVALID_PURCHASE_STATUS`
 
 ---
 
@@ -54,13 +70,14 @@ _As an authenticated user, I want to view my purchase history so that I can audi
 
 ### Happy Path
 
-Authentication user successfully retrieves purchase history
+Authenticated user successfully retrieves purchase history
 
 1. User requests their purchase list.
 2. System verifies user authentication.
 3. System retrieves paginated purchases for the user.
-4. System includes merchant, amount, status, and cashback details.
-5. System returns purchase list.
+4. System batch-loads merchant names for all returned purchases.
+5. System includes merchant name, amount, status, and cashback details in each item.
+6. System returns the paginated purchase list.
 
 ### Sad Paths
 
@@ -76,16 +93,24 @@ Authentication user successfully retrieves purchase history
 1. User requests purchase list.
 2. System verifies user authentication.
 3. System retrieves purchases for the user.
-4. System finds user has no purchases.
-5. System returns empty paginated list.
+4. System finds the user has no purchases.
+5. System returns an empty paginated list.
 
 #### Invalid Pagination Parameters
 
-1. User requests purchases with invalid page number or size.
+1. User requests purchases with an out-of-range page number or page size (e.g., `page=0`).
 2. System verifies user authentication.
-3. System validates pagination parameters.
-4. System detects invalid parameters.
-5. System rejects the request with validation error.
+3. System validates the pagination parameters.
+4. System detects that the parameters fall outside the allowed range.
+5. System rejects the request with error code `VALIDATION_ERROR`.
+
+#### Invalid Status Filter
+
+1. User requests purchases with a status value that is not recognised (e.g., `status=badvalue`).
+2. System verifies user authentication.
+3. System validates the status parameter.
+4. System detects that the status is not one of `pending`, `confirmed`, `reversed`.
+5. System rejects the request with error code `INVALID_PURCHASE_STATUS`.
 
 ## API Contract
 

@@ -88,7 +88,7 @@ _Status legend:_
 | Purchase Confirmation (manual) | Purchases | ⚪ backlog |
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
-| User Purchases Listing | Purchases | ⚪ backlog |
+| User Purchases Listing | Purchases | 🟢 done |
 | Cashback Calculation (worker) | Purchases | 🟢 done |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
