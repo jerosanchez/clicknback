@@ -684,3 +684,166 @@ async def test_get_purchase_details_calls_ownership_check_with_correct_args(
     enforce_purchase_view_ownership.assert_called_once_with(
         _DETAIL_CURRENT_USER_ID, purchase.user_id, _DETAIL_PURCHASE_ID
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.list_user_purchases — happy path
+# ──────────────────────────────────────────────────────────────────────────────
+
+_LIST_USER_ID = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
+_LIST_MERCHANT_ID = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+_LIST_MERCHANT_NAME = "Shoply"
+
+
+@pytest.mark.asyncio
+async def test_list_user_purchases_returns_enriched_purchases(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    merchants_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    purchase = purchase_factory(user_id=_LIST_USER_ID, merchant_id=_LIST_MERCHANT_ID)
+    purchase_repository.list_purchases.return_value = ([purchase], 1)
+    merchant_mock = Mock()
+    merchant_mock.name = _LIST_MERCHANT_NAME
+    merchants_client.get_merchants_by_ids.return_value = {
+        _LIST_MERCHANT_ID: merchant_mock
+    }
+
+    # Act
+    enriched, total = await purchase_service.list_user_purchases(db, _LIST_USER_ID)
+
+    # Assert
+    assert total == 1
+    assert len(enriched) == 1
+    result_purchase, result_name = enriched[0]
+    assert result_purchase == purchase
+    assert result_name == _LIST_MERCHANT_NAME
+
+
+@pytest.mark.asyncio
+async def test_list_user_purchases_returns_empty_list_when_no_purchases(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    merchants_client: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    purchase_repository.list_purchases.return_value = ([], 0)
+    merchants_client.get_merchants_by_ids.return_value = {}
+
+    # Act
+    enriched, total = await purchase_service.list_user_purchases(db, _LIST_USER_ID)
+
+    # Assert
+    assert total == 0
+    assert enriched == []
+
+
+@pytest.mark.asyncio
+async def test_list_user_purchases_batch_loads_merchants_in_one_call(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    merchants_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    """Verifies batch loading: get_merchants_by_ids is called once with all IDs."""
+    # Arrange
+    db = AsyncMock()
+    merchant_id_a = "aaaa0000-0000-0000-0000-000000000001"
+    merchant_id_b = "bbbb0000-0000-0000-0000-000000000002"
+    purchases = [
+        purchase_factory(merchant_id=merchant_id_a),
+        purchase_factory(merchant_id=merchant_id_b),
+        purchase_factory(merchant_id=merchant_id_a),  # same merchant as first
+    ]
+    purchase_repository.list_purchases.return_value = (purchases, 3)
+    merchant_a = Mock()
+    merchant_a.name = "Alpha"
+    merchant_b = Mock()
+    merchant_b.name = "Beta"
+    merchants_client.get_merchants_by_ids.return_value = {
+        merchant_id_a: merchant_a,
+        merchant_id_b: merchant_b,
+    }
+
+    # Act
+    await purchase_service.list_user_purchases(db, _LIST_USER_ID)
+
+    # Assert — batch method called exactly once (not once per purchase)
+    merchants_client.get_merchants_by_ids.assert_called_once()
+    called_ids = set(merchants_client.get_merchants_by_ids.call_args[0][1])
+    assert called_ids == {merchant_id_a, merchant_id_b}
+
+
+@pytest.mark.asyncio
+async def test_list_user_purchases_falls_back_to_unknown_when_merchant_missing(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    merchants_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    known_id = "aaaa0000-0000-0000-0000-000000000001"
+    unknown_id = "ffff0000-0000-0000-0000-000000000099"
+    purchases = [
+        purchase_factory(merchant_id=known_id),
+        purchase_factory(merchant_id=unknown_id),
+    ]
+    purchase_repository.list_purchases.return_value = (purchases, 2)
+    # Only the known merchant is returned from the batch query
+    known_merchant_mock = Mock()
+    known_merchant_mock.name = "KnownShop"
+    merchants_client.get_merchants_by_ids.return_value = {known_id: known_merchant_mock}
+
+    # Act
+    enriched, _ = await purchase_service.list_user_purchases(db, _LIST_USER_ID)
+
+    # Assert
+    names = [name for _, name in enriched]
+    assert names[0] == "KnownShop"
+    assert names[1] == "Unknown"
+
+
+@pytest.mark.asyncio
+async def test_list_user_purchases_filters_by_current_user(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    merchants_client: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    purchase_repository.list_purchases.return_value = ([], 0)
+    merchants_client.get_merchants_by_ids.return_value = {}
+
+    # Act
+    await purchase_service.list_user_purchases(db, _LIST_USER_ID)
+
+    # Assert — repository is called with the user's own ID as filter
+    call_kwargs = purchase_repository.list_purchases.call_args[1]
+    assert call_kwargs["user_id"] == _LIST_USER_ID
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.list_user_purchases — status validation
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_user_purchases_raises_on_invalid_status(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+
+    # Act & Assert
+    with pytest.raises(InvalidPurchaseStatusException) as exc_info:
+        await purchase_service.list_user_purchases(
+            db, _LIST_USER_ID, status="not_a_valid_status"
+        )
+
+    assert exc_info.value.status == "not_a_valid_status"
