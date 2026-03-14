@@ -36,3 +36,5 @@ ADRs serve several essential purposes:
 - [ADR 016: Background Job Architecture Pattern — Fan-Out Dispatcher with Per-Item Retry Runners](adr/016-background-job-architecture-pattern.md)
 - [ADR 017: Fixed-Interval Retry Strategy for Background Jobs](adr/017-fixed-interval-retry-strategy.md)
 - [ADR 018: Database-Backed Feature Flag System](adr/018-feature-flag-system.md)
+- [ADR 019: Batch Loading Strategy for Cross-Module Data Enrichment](adr/019-batch-loading-strategy.md)
+- [ADR 020: Use `/users/me` Prefix for Authenticated-User Self-Resource Endpoints](adr/020-use-users-me-prefix-for-self-resource-endpoints.md)
