@@ -1,0 +1,99 @@
+# Purchases – List User Purchases
+# Smoke tests for GET /users/me/purchases.
+#
+# Authenticated-user endpoint. Returns a paginated list of purchases belonging
+# to the currently authenticated user, enriched with merchant names.
+# Supports optional filtering by status (pending, confirmed, reversed).
+# Run the helper login request below to obtain a fresh token.
+#
+# Seed data (seeds/all.sql):
+#   Alice (b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d) has 7 purchases:
+#     txn_seed_001 – pending,   Shoply,    100.00 EUR
+#     txn_seed_002 – pending,   Shoply,     50.00 EUR
+#     txn_seed_005 – confirmed, Shoply,    300.00 EUR
+#     txn_seed_007 – pending,   QuickCart,  80.00 EUR
+#     txn_seed_009 – pending,   TechZone,   60.00 EUR
+#     txn_seed_reject_001 – pending, BankSimFail, 99.00 EUR
+#   (total 6 regular + 1 rejection-sim = 7 rows, enough to test pagination)
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Expired local-dev placeholder — never a real credential.
+@userToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MzU1NDIyNH0.zK4IUYa_zjRzQ4lQW5NRffTCSiBO2rhzuf3OciuuP30
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: list all purchases (default page)
+# Alice has 7 seed purchases. Expects a paginated envelope with total >= 7 and
+# items containing merchant_name, amount, status, cashback_amount, cashback_status.
+GET {{baseUrl}}/users/me/purchases
+Authorization: {{userToken}}
+
+### 200 – Happy path: filter by status=pending
+# Expects only alice's purchases with status=pending (txn_seed_001, 002, 007, 009 and
+# the rejection-sim row). cashback_status will be null until the cashback module is wired.
+GET {{baseUrl}}/users/me/purchases?status=pending
+Authorization: {{userToken}}
+
+### 200 – Happy path: filter by status=confirmed
+# Expects only alice's confirmed purchase (txn_seed_005, 300.00 EUR at Shoply).
+GET {{baseUrl}}/users/me/purchases?status=confirmed
+Authorization: {{userToken}}
+
+### 200 – Happy path: filter by status=reversed
+# Alice has no reversed purchases; expects an empty paginated list.
+GET {{baseUrl}}/users/me/purchases?status=reversed
+Authorization: {{userToken}}
+
+### 200 – Happy path: pagination – page 1, page_size 3
+# Verifies that items are limited to 3 and total reflects the full count.
+GET {{baseUrl}}/users/me/purchases?page=1&page_size=3
+Authorization: {{userToken}}
+
+### 200 – Happy path: pagination – page 2, page_size 3
+# Verifies offset is applied; returns rows 4-6 of alice's purchases.
+GET {{baseUrl}}/users/me/purchases?page=2&page_size=3
+Authorization: {{userToken}}
+
+### 200 – Happy path: page beyond total (empty items)
+# Page 99 with default page_size guarantees no results.
+# Expects: {"items": [], "total": <actual_total>, "page": 99, "page_size": 10}
+GET {{baseUrl}}/users/me/purchases?page=99
+Authorization: {{userToken}}
+
+### 401 – Sad path: unauthenticated request
+# No Authorization header — auth middleware rejects before the handler is reached.
+# Expects: 401 UNAUTHORIZED.
+GET {{baseUrl}}/users/me/purchases
+
+### 422 – Sad path: invalid status filter value
+# status=badvalue is not in [pending, confirmed, reversed].
+# Expects: 422 with error code INVALID_PURCHASE_STATUS.
+GET {{baseUrl}}/users/me/purchases?status=badvalue
+Authorization: {{userToken}}
+
+### 422 – Sad path: page number below minimum (page=0)
+# Schema constraint: page must be >= 1.
+# Expects: 422 VALIDATION_ERROR with field=page.
+GET {{baseUrl}}/users/me/purchases?page=0
+Authorization: {{userToken}}
+
+### 422 – Sad path: page_size below minimum (page_size=0)
+# Schema constraint: page_size must be >= 1.
+# Expects: 422 VALIDATION_ERROR with field=page_size.
+GET {{baseUrl}}/users/me/purchases?page_size=0
+Authorization: {{userToken}}
+
+### 422 – Sad path: page_size above maximum (page_size=101)
+# Schema constraint: page_size must be <= 100.
+# Expects: 422 VALIDATION_ERROR with field=page_size.
+GET {{baseUrl}}/users/me/purchases?page_size=101
+Authorization: {{userToken}}
