@@ -12,6 +12,7 @@ from app.offers.api import admin_router as offers_admin_router
 from app.offers.api import public_router as offers_public_router
 from app.purchases.api import admin_router as purchases_admin_router
 from app.purchases.api import public_router as purchases_public_router
+from app.purchases.api import users_router as purchases_users_router
 from app.purchases.composition import get_verify_purchases_task
 from app.users import api as users_api
 
@@ -65,3 +66,4 @@ app.include_router(offers_admin_router, prefix="/api/v1")
 app.include_router(offers_public_router, prefix="/api/v1")
 app.include_router(purchases_admin_router, prefix="/api/v1")
 app.include_router(purchases_public_router, prefix="/api/v1")
+app.include_router(purchases_users_router, prefix="/api/v1")

@@ -13,6 +13,7 @@ from app.main import app
 from app.purchases.composition import get_purchase_service
 from app.purchases.exceptions import (
     DuplicatePurchaseException,
+    InvalidPurchaseStatusException,
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
@@ -451,8 +452,9 @@ def test_ingest_purchase_returns_401_on_missing_auth(
 # GET /api/v1/purchases/{purchase_id} — helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
+# Used for purchase details tests (GET /api/v1/purchases/{purchase_id})
 _PURCHASE_ID = "aa000001-0000-0000-0000-000000000001"
-_MERCHANT_NAME = "Shoply"
+_MERCHANT_NAME_DETAILS = "Shoply"
 
 
 def _assert_purchase_details_response(
@@ -479,14 +481,17 @@ def test_get_purchase_details_returns_200_on_success(
 ) -> None:
     # Arrange
     purchase = purchase_factory(id=_PURCHASE_ID)
-    purchase_service_mock.get_purchase_details.return_value = (purchase, _MERCHANT_NAME)
+    purchase_service_mock.get_purchase_details.return_value = (
+        purchase,
+        _MERCHANT_NAME_DETAILS,
+    )
 
     # Act
     response = client.get(f"/api/v1/purchases/{_PURCHASE_ID}")
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
-    _assert_purchase_details_response(response.json(), purchase, _MERCHANT_NAME)
+    _assert_purchase_details_response(response.json(), purchase, _MERCHANT_NAME_DETAILS)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -583,3 +588,136 @@ def test_get_purchase_details_returns_403_with_details_on_forbidden(
     assert error["details"]["purchase_id"] == _PURCHASE_ID
     assert error["details"]["resource_owner"] == owner_id
     assert error["details"]["current_user"] == current_id
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/users/me/purchases — success
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Used for user purchases listing tests (GET /api/v1/users/me/purchases)
+_MERCHANT_ID = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+_MERCHANT_NAME_LIST = "Shoply"
+
+
+def test_list_user_purchases_returns_200_with_paginated_items(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory(merchant_id=_MERCHANT_ID)
+    purchase_service_mock.list_user_purchases.return_value = (
+        [(purchase, _MERCHANT_NAME_LIST)],
+        1,
+    )
+
+    # Act
+    response = client.get("/api/v1/users/me/purchases")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["total"] == 1
+    assert body["page"] == 1
+    assert body["page_size"] == 10
+    assert len(body["items"]) == 1
+    item = body["items"][0]
+    assert item["id"] == purchase.id
+    assert item["merchant_name"] == _MERCHANT_NAME_LIST
+    assert item["status"] == purchase.status
+
+
+def test_list_user_purchases_returns_empty_list(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_service_mock.list_user_purchases.return_value = ([], 0)
+
+    # Act
+    response = client.get("/api/v1/users/me/purchases")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["total"] == 0
+    assert body["items"] == []
+
+
+def test_list_user_purchases_passes_pagination_params_to_service(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_service_mock.list_user_purchases.return_value = ([], 0)
+
+    # Act
+    response = client.get("/api/v1/users/me/purchases?page=2&page_size=5")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert body["page"] == 2
+    assert body["page_size"] == 5
+    call_kwargs = purchase_service_mock.list_user_purchases.call_args[1]
+    assert call_kwargs["page"] == 2
+    assert call_kwargs["page_size"] == 5
+
+
+def test_list_user_purchases_passes_status_filter_to_service(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory(status="confirmed")
+    purchase_service_mock.list_user_purchases.return_value = (
+        [(purchase, _MERCHANT_NAME_LIST)],
+        1,
+    )
+
+    # Act
+    response = client.get("/api/v1/users/me/purchases?status=confirmed")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    call_kwargs = purchase_service_mock.list_user_purchases.call_args[1]
+    assert call_kwargs["status"] == "confirmed"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/users/me/purchases — failure responses
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_list_user_purchases_returns_401_when_unauthenticated(
+    unauthenticated_client: TestClient,
+) -> None:
+    response = unauthenticated_client.get("/api/v1/users/me/purchases")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_list_user_purchases_returns_422_on_invalid_status(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_service_mock.list_user_purchases.side_effect = (
+        InvalidPurchaseStatusException("bad_status")
+    )
+
+    # Act
+    response = client.get("/api/v1/users/me/purchases?status=bad_status")
+
+    # Assert
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert response.json()["error"]["code"] == "INVALID_PURCHASE_STATUS"
+
+
+def test_list_user_purchases_returns_422_on_invalid_page_param(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # FastAPI validates Query params before the handler runs; page must be >= 1
+    response = client.get("/api/v1/users/me/purchases?page=0")
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

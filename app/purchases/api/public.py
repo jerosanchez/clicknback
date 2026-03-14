@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.current_user import get_current_user
@@ -17,6 +17,7 @@ from app.purchases.composition import get_purchase_service
 from app.purchases.errors import ErrorCode
 from app.purchases.exceptions import (
     DuplicatePurchaseException,
+    InvalidPurchaseStatusException,
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
@@ -27,11 +28,18 @@ from app.purchases.exceptions import (
     UserInactiveException,
     UserNotFoundException,
 )
-from app.purchases.schemas import PurchaseCreate, PurchaseDetailsOut, PurchaseOut
+from app.purchases.schemas import (
+    PaginatedUserPurchaseOut,
+    PurchaseCreate,
+    PurchaseDetailsOut,
+    PurchaseOut,
+    UserPurchaseOut,
+)
 from app.purchases.services import PurchaseService
 from app.users.models import User
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
+users_router = APIRouter(prefix="/users", tags=["purchases"])
 
 
 @router.post(
@@ -156,6 +164,59 @@ async def ingest_purchase(
         id=purchase.id,
         status=purchase.status,
         cashback_amount=Decimal("0"),
+    )
+
+
+@users_router.get(
+    "/me/purchases",
+    description="List the authenticated user's own purchases, enriched with merchant names.",
+)
+async def list_user_purchases(
+    page: int = Query(1, ge=1, description="Page number (1-based)."),
+    page_size: int = Query(
+        10, ge=1, le=100, description="Number of results per page (max 100)."
+    ),
+    status: str | None = Query(
+        None, description="Filter by status: pending, confirmed, or reversed."
+    ),
+    service: PurchaseService = Depends(get_purchase_service),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+) -> PaginatedUserPurchaseOut:
+    try:
+        purchases_with_merchants, total = await service.list_user_purchases(
+            db,
+            str(current_user.id),
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
+    except InvalidPurchaseStatusException as e:
+        raise unprocessable_entity_error(ErrorCode.INVALID_PURCHASE_STATUS, str(e))
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while listing user purchases.",
+            extra={"error": str(e)},
+        )
+        raise internal_server_error()
+
+    # TODO: set real cashback fields once the cashback module is implemented
+    return PaginatedUserPurchaseOut(
+        items=[
+            UserPurchaseOut(
+                id=purchase.id,
+                merchant_name=merchant_name,
+                amount=purchase.amount,
+                status=purchase.status,
+                cashback_amount=Decimal("0"),
+                cashback_status=None,
+                created_at=purchase.created_at,
+            )
+            for purchase, merchant_name in purchases_with_merchants
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 

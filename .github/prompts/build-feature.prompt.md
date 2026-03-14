@@ -160,6 +160,27 @@ if conditions:
     stmt = stmt.where(*conditions)
 ```
 
+**N+1 query prevention:** Any listing endpoint that needs a field from a foreign module (e.g., `merchant_name` on each purchase) **must** use batch loading — never a per-item lookup inside a loop. See [ADR-019: Batch Loading Strategy](../../docs/design/adr/019-batch-loading-strategy.md) for the full rationale and implementation pattern.
+
+In practice:
+1. Add `get_<foreign_entities>_by_ids(db, ids: list[str]) -> dict[str, DTO]` to the foreign module's repository **and** to the consuming module's `clients/<foreign>.py` ABC and concrete class.
+2. In the service, collect unique foreign IDs from the result set, call the batch method once, then enrich with the returned map:
+
+```python
+# ✅ 2 queries total regardless of page size
+items, total = await self.repository.list_entities(db, ...)
+
+foreign_ids = list({item.foreign_id for item in items})
+foreign_map = await self.foreign_client.get_foreign_by_ids(db, foreign_ids)
+
+enriched = [
+    (item, foreign_map[item.foreign_id].name if item.foreign_id in foreign_map else "Unknown")
+    for item in items
+]
+```
+
+Always guard the batch query against an empty ID list (`if not ids: return {}`). Per-item lookups inside a listing service method are a code-review rejection criterion.
+
 ### Step 4a — `clients/`: cross-module clients (only if this feature reads data owned by another module)
 
 If this feature needs to read data from another module (e.g., look up a user, merchant, or offer), **do not** import that module's ORM models into the repository, policies, or service. Instead:
