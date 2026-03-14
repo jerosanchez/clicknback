@@ -83,3 +83,22 @@ class PurchaseDetailsOut(BaseModel):
     cashback_amount: Decimal
     cashback_status: str | None
     created_at: datetime
+
+
+class UserPurchaseOut(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: str
+    merchant_name: str
+    amount: Decimal
+    status: str
+    cashback_amount: Decimal
+    cashback_status: str | None
+    created_at: datetime
+
+
+class PaginatedUserPurchaseOut(BaseModel):
+    items: list[UserPurchaseOut]
+    total: int
+    page: int
+    page_size: int

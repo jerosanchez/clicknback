@@ -126,6 +126,48 @@ class PurchaseService:
             page_size=page_size,
         )
 
+    async def list_user_purchases(
+        self,
+        db: AsyncSession,
+        current_user_id: str,
+        *,
+        status: str | None = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> tuple[list[tuple[Purchase, str]], int]:
+        if status is not None:
+            try:
+                PurchaseStatus(status)
+            except ValueError:
+                raise InvalidPurchaseStatusException(status)
+
+        purchases, total = await self.repository.list_purchases(
+            db,
+            user_id=current_user_id,
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
+
+        # Batch-load all merchant names in a single query to avoid N+1 (ADR-019)
+        unique_merchant_ids = list({p.merchant_id for p in purchases})
+        merchants_map = await self.merchants_client.get_merchants_by_ids(
+            db, unique_merchant_ids
+        )
+
+        enriched: list[tuple[Purchase, str]] = [
+            (
+                p,
+                (
+                    merchants_map[p.merchant_id].name
+                    if p.merchant_id in merchants_map
+                    else "Unknown"
+                ),
+            )
+            for p in purchases
+        ]
+        return enriched, total
+
     async def get_purchase_details(
         self, purchase_id: str, current_user_id: str, db: AsyncSession
     ) -> tuple[Purchase, str]:
