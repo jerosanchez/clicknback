@@ -47,6 +47,7 @@ Encapsulates all database queries. Only this layer knows SQL or SQLAlchemy inter
 
 - **Interface segregation:** The abstract class defines the contract; concrete implementations satisfy it. This enables unit tests to mock repositories without touching the DB.
 - **No business logic:** Repositories query, insert, update, and delete — nothing more. Validation and decision-making belong in `policies.py` and `services.py`.
+- **No commits:** Repositories flush SQL to the session (`await db.flush()`) but **never** call `db.commit()`. Committing is a transaction-boundary concern that belongs to the Unit of Work (see `core/unit_of_work.py` and [ADR-021](../design/adr/021-unit-of-work-pattern.md)).
 - **Async by default:** New modules use `AsyncSession` and `async def` methods (see [ADR-010](../design/adr/010-async-database-layer.md)).
 
 #### `policies.py` – Business Rule Enforcement
@@ -93,15 +94,17 @@ The HTTP boundary layer. Route handlers:
 
 As routes accumulate (typically when `api.py` exceeds ~200 lines), split into an `api/` sub-package with per-feature routers. See `docs/guidelines/code-organization.md` §3 for conventions.
 
-#### `clients/` – Cross-Module Data Access (when needed)
+#### `clients/` – Cross-Module Dependencies (when needed)
 
-When this module needs to read data owned by another module, instead of importing that module's ORM models directly, create a `clients/` package. This package contains:
+Any time this module depends on data or operations **owned by another module** — whether reading foreign data or triggering a write in another module's domain (e.g. crediting a wallet) — that dependency must go through a `clients/` package. Never import another module's ORM models or repositories directly inside `services.py`, `api.py`, or background-job files. This package contains:
 
-- **DTOs** (plain `@dataclass`): Lightweight representations of foreign data carrying only the fields needed.
-- **Abstract client** (`<Foreign>ClientABC`): Interface defining the contract.
-- **Concrete implementation** (`<Foreign>Client`): Queries the shared DB and returns DTOs.
+- **DTOs** (plain `@dataclass`): Lightweight representations of foreign data carrying only the fields needed (read operations).
+- **Abstract client** (`<Foreign>ClientABC`): Interface defining the contract for all operations against the foreign module.
+- **Concrete implementation** (`<Foreign>Client`): The monolith implementation — queries the shared DB or delegates to the foreign module's repository.
 
-This pattern isolates cross-module coupling to the `clients/` package. If a collaborating module is extracted into a microservice, only its concrete client changes; services and repositories remain untouched.
+This pattern isolates **all** cross-module coupling to the `clients/` package. If a collaborating module is extracted into a microservice, only its concrete client changes (to issue HTTP or gRPC calls); every service, background job, and test that depends on the client ABC remains untouched.
+
+**Write operations:** The same rule applies when this module needs to *write* to another module's domain (e.g. `purchases` crediting a `wallets` balance). The client ABC defines the write interface; the concrete class delegates to the foreign repository in the monolith. A future microservice client would replace the repository delegation with an API call and handle its own consistency guarantees (e.g. a saga or outbox pattern).
 
 ---
 
@@ -141,6 +144,28 @@ Route handlers inject these to require authentication or admin privileges.
 **`core/errors/builders.py`** — Factory functions that create `HTTPException` objects with a standardized JSON error response shape: `{ "error": { "code", "message", "details" } }`. Each builder corresponds to an HTTP status (e.g., `validation_error` → 422, `business_rule_violation_error` → 409, etc.).
 
 **`core/errors/handlers.py`** — Registers global FastAPI exception handlers. Ensures all exceptions (including domain exceptions caught in `api.py`) are normalized to the standard JSON response shape. Called once during application startup in `main.py`.
+
+### Unit of Work (`core/unit_of_work.py`)
+
+Provides `UnitOfWorkABC` and its default `SQLAlchemyUnitOfWork` implementation. The Unit of Work owns the transaction boundary for operations that must commit atomically across multiple repositories or cross-module clients (see [ADR-021](../design/adr/021-unit-of-work-pattern.md)).
+
+**Rule:** any service method that **commits** must accept `uow: UnitOfWorkABC` rather than a raw `AsyncSession`, and call `await uow.commit()` to close the transaction. Read-only service methods that do not commit continue to accept `db: AsyncSession` directly.
+
+```python
+# ✅ Write method — use UoW
+async def ingest_purchase(self, data: dict, current_user_id: str, uow: UnitOfWorkABC) -> Purchase:
+    db = uow.session
+    result = await self.repository.add_purchase(db, new_purchase)
+    await self.wallets_client.credit_pending(db, amount)
+    await uow.commit()   # transaction boundary — not the repository's concern
+    return result
+
+# ✅ Read method — raw session is fine
+async def list_purchases(self, db: AsyncSession, ...) -> tuple[list[Purchase], int]:
+    return await self.repository.list_purchases(db, ...)
+```
+
+The `get_unit_of_work` factory in `composition.py` wraps the FastAPI-managed `AsyncSession` in a `SQLAlchemyUnitOfWork` so the route handler injects it via `Depends(get_unit_of_work)`. In tests, a plain `Mock()` with `session=AsyncMock()` and `commit=AsyncMock()` replaces it, keeping service tests fully decoupled from SQLAlchemy.
 
 ### Audit Trail (`core/audit/`)
 
