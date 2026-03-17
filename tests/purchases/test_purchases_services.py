@@ -5,7 +5,15 @@ from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 
-from app.purchases.clients import MerchantsClientABC, OffersClientABC, UsersClientABC
+from app.core.unit_of_work import UnitOfWorkABC
+from app.purchases.clients import (
+    CashbackClientABC,
+    CashbackResultDTO,
+    MerchantsClientABC,
+    OffersClientABC,
+    UsersClientABC,
+    WalletsClientABC,
+)
 from app.purchases.exceptions import (
     DuplicatePurchaseException,
     InvalidPurchaseStatusException,
@@ -27,6 +35,16 @@ from app.purchases.services import PurchaseService
 @pytest.fixture
 def purchase_repository() -> Mock:
     return create_autospec(PurchaseRepositoryABC)
+
+
+@pytest.fixture
+def wallets_client() -> Mock:
+    return create_autospec(WalletsClientABC)
+
+
+@pytest.fixture
+def cashback_client() -> Mock:
+    return create_autospec(CashbackClientABC)
 
 
 @pytest.fixture
@@ -77,6 +95,8 @@ def enforce_purchase_view_ownership() -> Mock:
 @pytest.fixture
 def purchase_service(
     purchase_repository: Mock,
+    cashback_client: Mock,
+    wallets_client: Mock,
     users_client: Mock,
     merchants_client: Mock,
     offers_client: Mock,
@@ -89,6 +109,8 @@ def purchase_service(
 ) -> PurchaseService:
     return PurchaseService(
         repository=purchase_repository,
+        cashback_client=cashback_client,
+        wallets_client=wallets_client,
         users_client=users_client,
         merchants_client=merchants_client,
         offers_client=offers_client,
@@ -117,6 +139,15 @@ def _make_ingest_data(**overrides: Any) -> dict[str, Any]:
 _CURRENT_USER_ID = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
 
 
+def _make_uow() -> Mock:
+    """Create a fresh mock UnitOfWork for ingest_purchase tests."""
+    uow = Mock()
+    uow.session = AsyncMock()
+    uow.commit = AsyncMock()
+    uow.rollback = AsyncMock()
+    return uow
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # PurchaseService.ingest_purchase — happy path
 # ──────────────────────────────────────────────────────────────────────────────
@@ -132,9 +163,11 @@ async def test_ingest_purchase_returns_purchase_on_success(
     purchase_factory: Callable[..., Purchase],
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     new_purchase = purchase_factory()
-    offer_mock = Mock(id="f0e1d2c3-b4a5-4678-9012-3456789abcde")
+    offer_mock = Mock(
+        id="f0e1d2c3-b4a5-4678-9012-3456789abcde", percentage=10.0, fixed_amount=None
+    )
 
     purchase_repository.get_by_external_id.return_value = None
     users_client.get_user_by_id.return_value = Mock(active=True)
@@ -145,7 +178,7 @@ async def test_ingest_purchase_returns_purchase_on_success(
     data = _make_ingest_data()
 
     # Act
-    result = await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, db)
+    result = await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, uow)
 
     # Assert
     assert result == new_purchase
@@ -162,9 +195,9 @@ async def test_ingest_purchase_stores_resolved_offer_id(
     purchase_factory: Callable[..., Purchase],
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     resolved_offer_id = "f0e1d2c3-b4a5-4678-9012-3456789abcde"
-    offer_mock = Mock(id=resolved_offer_id)
+    offer_mock = Mock(id=resolved_offer_id, percentage=10.0, fixed_amount=None)
 
     purchase_repository.get_by_external_id.return_value = None
     users_client.get_user_by_id.return_value = Mock(active=True)
@@ -176,11 +209,64 @@ async def test_ingest_purchase_stores_resolved_offer_id(
 
     # Act
     result = await purchase_service.ingest_purchase(
-        _make_ingest_data(), _CURRENT_USER_ID, db
+        _make_ingest_data(), _CURRENT_USER_ID, uow
     )
 
     # Assert
     assert result.offer_id == resolved_offer_id
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.ingest_purchase — UoW commit behaviour
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_commits_uow_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    wallets_client: Mock,
+    users_client: Mock,
+    merchants_client: Mock,
+    offers_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    offer_mock = Mock(
+        id="f0e1d2c3-b4a5-4678-9012-3456789abcde", percentage=10.0, fixed_amount=None
+    )
+
+    purchase_repository.get_by_external_id.return_value = None
+    users_client.get_user_by_id.return_value = Mock(active=True)
+    merchants_client.get_merchant_by_id.return_value = Mock(active=True)
+    offers_client.get_active_offer_for_merchant.return_value = offer_mock
+    purchase_repository.add_purchase.return_value = purchase_factory()
+
+    # Act
+    await purchase_service.ingest_purchase(_make_ingest_data(), _CURRENT_USER_ID, uow)
+
+    # Assert
+    uow.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_does_not_commit_uow_on_duplicate_error(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    purchase_repository.get_by_external_id.return_value = purchase_factory()
+
+    # Act & Assert
+    with pytest.raises(DuplicatePurchaseException):
+        await purchase_service.ingest_purchase(
+            _make_ingest_data(), _CURRENT_USER_ID, uow
+        )
+
+    uow.commit.assert_not_called()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -195,7 +281,7 @@ async def test_ingest_purchase_raises_on_duplicate_external_id(
     purchase_factory: Callable[..., Purchase],
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     existing = purchase_factory(
         external_id="txn_test_001",
         amount=Decimal("100.00"),
@@ -206,7 +292,7 @@ async def test_ingest_purchase_raises_on_duplicate_external_id(
     # Act & Assert
     with pytest.raises(DuplicatePurchaseException) as exc_info:
         await purchase_service.ingest_purchase(
-            _make_ingest_data(), _CURRENT_USER_ID, db
+            _make_ingest_data(), _CURRENT_USER_ID, uow
         )
 
     assert exc_info.value.external_id == "txn_test_001"
@@ -220,13 +306,13 @@ async def test_ingest_purchase_does_not_call_repository_add_on_duplicate(
     purchase_factory: Callable[..., Purchase],
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     purchase_repository.get_by_external_id.return_value = purchase_factory()
 
     # Act & Assert
     with pytest.raises(DuplicatePurchaseException):
         await purchase_service.ingest_purchase(
-            _make_ingest_data(), _CURRENT_USER_ID, db
+            _make_ingest_data(), _CURRENT_USER_ID, uow
         )
 
     purchase_repository.add_purchase.assert_not_called()
@@ -245,7 +331,7 @@ async def test_ingest_purchase_raises_on_user_not_found(
     enforce_user_active: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     missing_user_id = "00000000-0000-0000-0000-000000000001"
     purchase_repository.get_by_external_id.return_value = None
     users_client.get_user_by_id.return_value = None
@@ -255,7 +341,7 @@ async def test_ingest_purchase_raises_on_user_not_found(
 
     # Act & Assert
     with pytest.raises(UserNotFoundException) as exc_info:
-        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, db)
+        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, uow)
 
     assert exc_info.value.user_id == missing_user_id
 
@@ -268,7 +354,7 @@ async def test_ingest_purchase_raises_on_inactive_user(
     enforce_user_active: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     inactive_user_id = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
     purchase_repository.get_by_external_id.return_value = None
     users_client.get_user_by_id.return_value = Mock(active=False)
@@ -277,7 +363,7 @@ async def test_ingest_purchase_raises_on_inactive_user(
     # Act & Assert
     with pytest.raises(UserInactiveException):
         await purchase_service.ingest_purchase(
-            _make_ingest_data(), _CURRENT_USER_ID, db
+            _make_ingest_data(), _CURRENT_USER_ID, uow
         )
 
 
@@ -295,7 +381,7 @@ async def test_ingest_purchase_raises_on_merchant_not_found(
     enforce_merchant_active: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     missing_merchant_id = "00000000-0000-0000-0000-000000000002"
     purchase_repository.get_by_external_id.return_value = None
     users_client.get_user_by_id.return_value = Mock(active=True)
@@ -306,7 +392,7 @@ async def test_ingest_purchase_raises_on_merchant_not_found(
 
     # Act & Assert
     with pytest.raises(MerchantNotFoundException) as exc_info:
-        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, db)
+        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, uow)
 
     assert exc_info.value.merchant_id == missing_merchant_id
 
@@ -320,7 +406,7 @@ async def test_ingest_purchase_raises_on_inactive_merchant(
     enforce_merchant_active: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     inactive_merchant_id = "a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d"
     purchase_repository.get_by_external_id.return_value = None
     users_client.get_user_by_id.return_value = Mock(active=True)
@@ -333,7 +419,7 @@ async def test_ingest_purchase_raises_on_inactive_merchant(
 
     # Act & Assert
     with pytest.raises(MerchantInactiveException):
-        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, db)
+        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, uow)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -351,7 +437,7 @@ async def test_ingest_purchase_raises_on_no_active_offer(
     enforce_offer_available: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     merchant_id = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
     purchase_repository.get_by_external_id.return_value = None
     users_client.get_user_by_id.return_value = Mock(active=True)
@@ -362,7 +448,7 @@ async def test_ingest_purchase_raises_on_no_active_offer(
     # Act & Assert
     with pytest.raises(OfferNotAvailableException) as exc_info:
         await purchase_service.ingest_purchase(
-            _make_ingest_data(), _CURRENT_USER_ID, db
+            _make_ingest_data(), _CURRENT_USER_ID, uow
         )
 
     assert exc_info.value.merchant_id == merchant_id
@@ -378,8 +464,10 @@ async def test_ingest_purchase_queries_offer_with_todays_date(
     purchase_factory: Callable[..., Purchase],
 ) -> None:
     # Arrange
-    db = AsyncMock()
-    offer_mock = Mock(id="f0e1d2c3-b4a5-4678-9012-3456789abcde")
+    uow = _make_uow()
+    offer_mock = Mock(
+        id="f0e1d2c3-b4a5-4678-9012-3456789abcde", percentage=10.0, fixed_amount=None
+    )
 
     purchase_repository.get_by_external_id.return_value = None
     users_client.get_user_by_id.return_value = Mock(active=True)
@@ -388,7 +476,7 @@ async def test_ingest_purchase_queries_offer_with_todays_date(
     purchase_repository.add_purchase.return_value = purchase_factory()
 
     # Act
-    await purchase_service.ingest_purchase(_make_ingest_data(), _CURRENT_USER_ID, db)
+    await purchase_service.ingest_purchase(_make_ingest_data(), _CURRENT_USER_ID, uow)
 
     # Assert — the client was called with today's date for date-range validation
     call_args = offers_client.get_active_offer_for_merchant.call_args
@@ -408,14 +496,14 @@ async def test_ingest_purchase_raises_on_unsupported_currency(
     enforce_currency_supported: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     purchase_repository.get_by_external_id.return_value = None
     enforce_currency_supported.side_effect = UnsupportedCurrencyException("USD")
 
     # Act & Assert
     with pytest.raises(UnsupportedCurrencyException) as exc_info:
         await purchase_service.ingest_purchase(
-            _make_ingest_data(currency="USD"), _CURRENT_USER_ID, db
+            _make_ingest_data(currency="USD"), _CURRENT_USER_ID, uow
         )
 
     assert exc_info.value.currency == "USD"
@@ -429,14 +517,14 @@ async def test_ingest_purchase_does_not_call_clients_on_unsupported_currency(
     enforce_currency_supported: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     purchase_repository.get_by_external_id.return_value = None
     enforce_currency_supported.side_effect = UnsupportedCurrencyException("GBP")
 
     # Act & Assert
     with pytest.raises(UnsupportedCurrencyException):
         await purchase_service.ingest_purchase(
-            _make_ingest_data(currency="GBP"), _CURRENT_USER_ID, db
+            _make_ingest_data(currency="GBP"), _CURRENT_USER_ID, uow
         )
 
     users_client.get_user_by_id.assert_not_called()
@@ -453,7 +541,7 @@ async def test_ingest_purchase_raises_on_ownership_violation(
     enforce_purchase_ownership: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     other_user_id = "00000000-0000-0000-0000-000000000099"
     enforce_purchase_ownership.side_effect = PurchaseOwnershipViolationException(
         _CURRENT_USER_ID, other_user_id
@@ -463,7 +551,7 @@ async def test_ingest_purchase_raises_on_ownership_violation(
 
     # Act & Assert
     with pytest.raises(PurchaseOwnershipViolationException) as exc_info:
-        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, db)
+        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, uow)
 
     assert exc_info.value.current_user_id == _CURRENT_USER_ID
     assert exc_info.value.requested_user_id == other_user_id
@@ -476,7 +564,7 @@ async def test_ingest_purchase_does_not_check_duplicate_on_ownership_violation(
     enforce_purchase_ownership: Mock,
 ) -> None:
     # Arrange
-    db = AsyncMock()
+    uow = _make_uow()
     other_user_id = "00000000-0000-0000-0000-000000000099"
     enforce_purchase_ownership.side_effect = PurchaseOwnershipViolationException(
         _CURRENT_USER_ID, other_user_id
@@ -486,7 +574,7 @@ async def test_ingest_purchase_does_not_check_duplicate_on_ownership_violation(
 
     # Act & Assert
     with pytest.raises(PurchaseOwnershipViolationException):
-        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, db)
+        await purchase_service.ingest_purchase(data, _CURRENT_USER_ID, uow)
 
     purchase_repository.get_by_external_id.assert_not_called()
 
@@ -847,3 +935,146 @@ async def test_list_user_purchases_raises_on_invalid_status(
         )
 
     assert exc_info.value.status == "not_a_valid_status"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.ingest_purchase — wallet balance
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_credits_wallet_with_cashback_clients_amount(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    cashback_client: Mock,
+    wallets_client: Mock,
+    users_client: Mock,
+    merchants_client: Mock,
+    offers_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    offer_mock = Mock(
+        id="f0e1d2c3-b4a5-4678-9012-3456789abcde", percentage=10.0, fixed_amount=None
+    )
+    expected_cashback = Decimal("10.00")
+    cashback_client.calculate.return_value = CashbackResultDTO(
+        offer_id=offer_mock.id, cashback_amount=expected_cashback
+    )
+
+    purchase_repository.get_by_external_id.return_value = None
+    users_client.get_user_by_id.return_value = Mock(active=True)
+    merchants_client.get_merchant_by_id.return_value = Mock(active=True)
+    offers_client.get_active_offer_for_merchant.return_value = offer_mock
+    purchase_repository.add_purchase.return_value = purchase_factory()
+
+    # Act
+    await purchase_service.ingest_purchase(
+        _make_ingest_data(amount=Decimal("100.00")), _CURRENT_USER_ID, uow
+    )
+
+    # Assert — wallet receives exactly the amount returned by the cashback client
+    wallets_client.credit_pending.assert_called_once_with(
+        uow.session, _CURRENT_USER_ID, expected_cashback
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_delegates_calculation_to_cashback_client(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    cashback_client: Mock,
+    users_client: Mock,
+    merchants_client: Mock,
+    offers_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    offer_id = "f0e1d2c3-b4a5-4678-9012-3456789abcde"
+    percentage = 10.0
+    fixed_amount = None
+    purchase_amount = Decimal("100.00")
+    offer_mock = Mock(id=offer_id, percentage=percentage, fixed_amount=fixed_amount)
+    cashback_client.calculate.return_value = CashbackResultDTO(
+        offer_id=offer_id, cashback_amount=Decimal("10.00")
+    )
+
+    purchase_repository.get_by_external_id.return_value = None
+    users_client.get_user_by_id.return_value = Mock(active=True)
+    merchants_client.get_merchant_by_id.return_value = Mock(active=True)
+    offers_client.get_active_offer_for_merchant.return_value = offer_mock
+    purchase_repository.add_purchase.return_value = purchase_factory()
+
+    # Act
+    await purchase_service.ingest_purchase(
+        _make_ingest_data(amount=purchase_amount), _CURRENT_USER_ID, uow
+    )
+
+    # Assert — cashback client called with the resolved offer details
+    cashback_client.calculate.assert_called_once_with(
+        offer_id=offer_id,
+        percentage=percentage,
+        fixed_amount=fixed_amount,
+        purchase_amount=purchase_amount,
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_uses_fixed_amount_cashback_when_available(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    cashback_client: Mock,
+    wallets_client: Mock,
+    users_client: Mock,
+    merchants_client: Mock,
+    offers_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    offer_id = "f0e1d2c3-b4a5-4678-9012-3456789abcde"
+    fixed_amount = 5.0
+    fixed_offer = Mock(id=offer_id, percentage=10.0, fixed_amount=fixed_amount)
+    expected_cashback = Decimal("5.00")
+    cashback_client.calculate.return_value = CashbackResultDTO(
+        offer_id=offer_id, cashback_amount=expected_cashback
+    )
+
+    purchase_repository.get_by_external_id.return_value = None
+    users_client.get_user_by_id.return_value = Mock(active=True)
+    merchants_client.get_merchant_by_id.return_value = Mock(active=True)
+    offers_client.get_active_offer_for_merchant.return_value = fixed_offer
+    purchase_repository.add_purchase.return_value = purchase_factory()
+
+    # Act
+    await purchase_service.ingest_purchase(
+        _make_ingest_data(amount=Decimal("200.00")), _CURRENT_USER_ID, uow
+    )
+
+    # Assert — service passes cashback client's result to wallet; does not recalculate
+    wallets_client.credit_pending.assert_called_once_with(
+        uow.session, _CURRENT_USER_ID, expected_cashback
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_wallet_not_credited_on_failure(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    wallets_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    existing = purchase_factory(external_id="txn_test_001")
+    purchase_repository.get_by_external_id.return_value = existing
+
+    # Act & Assert
+    with pytest.raises(DuplicatePurchaseException):
+        await purchase_service.ingest_purchase(
+            _make_ingest_data(), _CURRENT_USER_ID, db
+        )
+
+    wallets_client.credit_pending.assert_not_called()

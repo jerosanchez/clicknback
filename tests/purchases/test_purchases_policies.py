@@ -139,6 +139,8 @@ def test_enforce_offer_available_raises_nothing_on_offer_present() -> None:
         active=True,
         start_date=date(2026, 1, 1),
         end_date=date(2026, 12, 31),
+        percentage=10.0,
+        fixed_amount=None,
     )
     merchant_id = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 
