@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +11,8 @@ from app.core.errors.builders import (
     unprocessable_entity_error,
 )
 from app.core.logging import logging
-from app.purchases.composition import get_purchase_service
+from app.core.unit_of_work import UnitOfWorkABC
+from app.purchases.composition import get_purchase_service, get_unit_of_work
 from app.purchases.errors import ErrorCode
 from app.purchases.exceptions import (
     DuplicatePurchaseException,
@@ -38,6 +37,8 @@ from app.purchases.schemas import (
 from app.purchases.services import PurchaseService
 from app.users.models import User
 
+# pylint: disable=redefined-outer-name,too-many-arguments,too-many-positional-arguments
+
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 users_router = APIRouter(prefix="/users", tags=["purchases"])
 
@@ -54,12 +55,12 @@ users_router = APIRouter(prefix="/users", tags=["purchases"])
 async def ingest_purchase(
     data: PurchaseCreate,
     service: PurchaseService = Depends(get_purchase_service),
-    db: AsyncSession = Depends(get_async_db),
+    uow: UnitOfWorkABC = Depends(get_unit_of_work),
     current_user: User = Depends(get_current_user),
 ) -> PurchaseOut:
     try:
         purchase = await service.ingest_purchase(
-            data.model_dump(), str(current_user.id), db
+            data.model_dump(), str(current_user.id), uow
         )
 
     except PurchaseOwnershipViolationException:
@@ -72,7 +73,7 @@ async def ingest_purchase(
             details={
                 "reason": "The user_id in the request does not match the authenticated user."
             },
-        )
+        ) from None
 
     except DuplicatePurchaseException as exc:
         logging.debug(
@@ -93,7 +94,7 @@ async def ingest_purchase(
                     "You will receive the same result."
                 ),
             },
-        )
+        ) from None
 
     except (UserNotFoundException, UserInactiveException) as exc:
         logging.debug(
@@ -107,7 +108,7 @@ async def ingest_purchase(
                 "user_id": exc.user_id,
                 "reason": "Purchase cannot be ingested for users who are non-existent or inactive.",
             },
-        )
+        ) from None
 
     except (MerchantNotFoundException, MerchantInactiveException) as exc:
         logging.debug(
@@ -121,7 +122,7 @@ async def ingest_purchase(
                 "merchant_id": exc.merchant_id,
                 "reason": "Purchases cannot be processed for merchants who are non-existent or inactive.",
             },
-        )
+        ) from None
 
     except OfferNotAvailableException as exc:
         logging.debug(
@@ -137,7 +138,7 @@ async def ingest_purchase(
                     "Purchases cannot be processed without a valid active offer for the merchant."
                 ),
             },
-        )
+        ) from None
 
     except UnsupportedCurrencyException as exc:
         logging.debug(
@@ -151,19 +152,19 @@ async def ingest_purchase(
                 "currency": exc.currency,
                 "reason": "The platform currently processes purchases in EUR only.",
             },
-        )
+        ) from None
 
     except Exception as e:
         logging.error(
             "An unexpected error occurred while ingesting a purchase.",
             extra={"error": str(e)},
         )
-        raise internal_server_error()
+        raise internal_server_error() from None
 
     return PurchaseOut(
         id=purchase.id,
         status=purchase.status,
-        cashback_amount=Decimal("0"),
+        cashback_amount=purchase.cashback_amount,
     )
 
 
@@ -192,15 +193,16 @@ async def list_user_purchases(
             page_size=page_size,
         )
     except InvalidPurchaseStatusException as e:
-        raise unprocessable_entity_error(ErrorCode.INVALID_PURCHASE_STATUS, str(e))
+        raise unprocessable_entity_error(
+            ErrorCode.INVALID_PURCHASE_STATUS, str(e)
+        ) from None
     except Exception as e:
         logging.error(
             "An unexpected error occurred while listing user purchases.",
             extra={"error": str(e)},
         )
-        raise internal_server_error()
+        raise internal_server_error() from None
 
-    # TODO: set real cashback fields once the cashback module is implemented
     return PaginatedUserPurchaseOut(
         items=[
             UserPurchaseOut(
@@ -208,7 +210,7 @@ async def list_user_purchases(
                 merchant_name=merchant_name,
                 amount=purchase.amount,
                 status=purchase.status,
-                cashback_amount=Decimal("0"),
+                cashback_amount=purchase.cashback_amount,
                 cashback_status=None,
                 created_at=purchase.created_at,
             )
@@ -242,7 +244,7 @@ async def get_purchase_details(
                 "resource_type": "purchase",
                 "resource_id": exc.purchase_id,
             },
-        )
+        ) from None
 
     except PurchaseViewForbiddenException as exc:
         logging.debug(
@@ -256,22 +258,21 @@ async def get_purchase_details(
                 "resource_owner": exc.resource_owner_id,
                 "current_user": exc.current_user_id,
             },
-        )
+        ) from None
 
     except Exception as e:
         logging.error(
             "An unexpected error occurred while retrieving purchase details.",
             extra={"error": str(e)},
         )
-        raise internal_server_error()
+        raise internal_server_error() from None
 
-    # cashback fields will be wired to the cashback module once it is implemented
     return PurchaseDetailsOut(
         id=purchase.id,
         merchant_name=merchant_name,
         amount=purchase.amount,
         status=purchase.status,
-        cashback_amount=Decimal("0"),
+        cashback_amount=purchase.cashback_amount,
         cashback_status=None,
         created_at=purchase.created_at,
     )
