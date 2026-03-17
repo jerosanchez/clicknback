@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.core.logging import logger
+from app.purchases.clients import WalletsClientABC
 from app.purchases.repositories import PurchaseRepositoryABC
 from app.purchases.schemas import PurchaseStatus
 
@@ -41,6 +42,7 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
     *,
     purchase_id: str,
     repository: PurchaseRepositoryABC,
+    wallets_client: WalletsClientABC,
     audit_trail: AuditTrailABC,
     broker: MessageBrokerABC,
     db_session_factory: async_sessionmaker[AsyncSession],
@@ -86,6 +88,7 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                         verified_at=now,
                         db=db,
                         repository=repository,
+                        wallets_client=wallets_client,
                         audit_trail=audit_trail,
                         broker=broker,
                     )
@@ -99,6 +102,7 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                         failed_at=now,
                         db=db,
                         repository=repository,
+                        wallets_client=wallets_client,
                         audit_trail=audit_trail,
                         broker=broker,
                     )
@@ -132,6 +136,7 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                     failed_at=now,
                     db=db,
                     repository=repository,
+                    wallets_client=wallets_client,
                     audit_trail=audit_trail,
                     broker=broker,
                 )

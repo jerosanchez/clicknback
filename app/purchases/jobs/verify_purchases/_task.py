@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.core.scheduler import ScheduledTask
+from app.purchases.clients import WalletsClientABC
 from app.purchases.repositories import PurchaseRepositoryABC
 
 from ._dispatcher import (
@@ -31,6 +32,7 @@ from ._verifiers import PurchaseVerifierABC
 def make_verify_purchases_task(
     *,
     repository: PurchaseRepositoryABC,
+    wallets_client: WalletsClientABC,
     audit_trail: AuditTrailABC,
     broker: MessageBrokerABC,
     db_session_factory: async_sessionmaker[AsyncSession],
@@ -49,6 +51,9 @@ def make_verify_purchases_task(
 
     Args:
         repository:              Async purchase repository.
+        wallets_client:          Wallet client; used to move pending balance to
+                                 available on confirmation, or to reverse it on
+                                 rejection.
         audit_trail:             Audit trail service for recording outcomes.
         broker:                  Message broker for publishing domain events.
         db_session_factory:      ``AsyncSessionLocal`` factory; each attempt
@@ -70,6 +75,7 @@ def make_verify_purchases_task(
             _run_verification_with_retry(
                 purchase_id=purchase_id,
                 repository=repository,
+                wallets_client=wallets_client,
                 audit_trail=audit_trail,
                 broker=broker,
                 db_session_factory=db_session_factory,
