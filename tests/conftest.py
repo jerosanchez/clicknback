@@ -113,6 +113,7 @@ def purchase_factory() -> Callable[..., Purchase]:
             "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
             "offer_id": "f0e1d2c3-b4a5-4678-9012-3456789abcde",
             "amount": Decimal("100.00"),
+            "cashback_amount": Decimal("0"),
             "currency": "EUR",
             "status": "pending",
             "created_at": "2026-03-01T10:00:00",
