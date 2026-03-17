@@ -38,3 +38,4 @@ ADRs serve several essential purposes:
 - [ADR 018: Database-Backed Feature Flag System](adr/018-feature-flag-system.md)
 - [ADR 019: Batch Loading Strategy for Cross-Module Data Enrichment](adr/019-batch-loading-strategy.md)
 - [ADR 020: Use `/users/me` Prefix for Authenticated-User Self-Resource Endpoints](adr/020-use-users-me-prefix-for-self-resource-endpoints.md)
+- [ADR 021: Unit of Work Pattern for Atomic Multi-Repository Operations](adr/021-unit-of-work-pattern)

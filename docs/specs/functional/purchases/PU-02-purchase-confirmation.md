@@ -21,6 +21,7 @@ _As a system, I want to automatically confirm or reject pending purchases after 
 - Purchase must exist with status `pending`
 - Associated cashback transaction must exist (created after confirmation)
 - Verification is retried up to N times before rejection
+- Purchase status update and wallet balance transition are committed atomically in a single DB transaction
 
 ---
 
@@ -30,13 +31,17 @@ _As a system, I want to automatically confirm or reject pending purchases after 
 **Given** a purchase exists with status `pending`
 **And** the background job verifies the purchase against simulated bank data
 **When** verification succeeds
-**Then** a `PurchaseConfirmed` event is published, purchase status changes to `confirmed`, cashback is calculated and credited to the user's wallet
+**Then** a `PurchaseConfirmed` event is published, purchase status changes to `confirmed`,
+  the purchase's `cashback_amount` is moved from the user's wallet `pending_balance` to
+  `available_balance` atomically with the status update, and cashback calculation is triggered
 
 **Scenario:** System rejects a purchase after failed verification
 **Given** a purchase exists with status `pending`
 **And** the background job fails to verify the purchase after N retries
 **When** retries are exhausted
-**Then** a `PurchaseRejected` event is published, purchase status changes to `rejected`, no cashback is credited
+**Then** a `PurchaseRejected` event is published, purchase status changes to `rejected`,
+  the purchase's `cashback_amount` is removed from the user's wallet `pending_balance`
+  atomically with the status update, and no cashback is credited
 
 **Scenario:** Manual confirmation endpoint is not available
 **Given** an admin or user attempts to confirm a purchase via API
