@@ -4,13 +4,16 @@ from typing import Any, Callable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
+from app.core.unit_of_work import UnitOfWorkABC
 from app.purchases.clients import (
+    CashbackClientABC,
     MerchantDTO,
     MerchantsClientABC,
     OfferDTO,
     OffersClientABC,
     UserDTO,
     UsersClientABC,
+    WalletsClientABC,
 )
 from app.purchases.exceptions import (
     DuplicatePurchaseException,
@@ -26,6 +29,8 @@ class PurchaseService:
     def __init__(
         self,
         repository: PurchaseRepositoryABC,
+        cashback_client: CashbackClientABC,
+        wallets_client: WalletsClientABC,
         users_client: UsersClientABC,
         merchants_client: MerchantsClientABC,
         offers_client: OffersClientABC,
@@ -37,6 +42,8 @@ class PurchaseService:
         enforce_purchase_view_ownership: Callable[[str, str, str], None],
     ):
         self.repository = repository
+        self.cashback_client = cashback_client
+        self.wallets_client = wallets_client
         self.users_client = users_client
         self.merchants_client = merchants_client
         self.offers_client = offers_client
@@ -48,7 +55,7 @@ class PurchaseService:
         self.enforce_purchase_view_ownership = enforce_purchase_view_ownership
 
     async def ingest_purchase(
-        self, data: dict[str, Any], current_user_id: str, db: AsyncSession
+        self, data: dict[str, Any], current_user_id: str, uow: UnitOfWorkABC
     ) -> Purchase:
         external_id: str = data["external_id"]
         user_id: str = str(data["user_id"])
@@ -58,6 +65,7 @@ class PurchaseService:
 
         self.enforce_purchase_ownership(current_user_id, user_id)
 
+        db = uow.session
         existing = await self.repository.get_by_external_id(db, external_id)
         if existing is not None:
             logger.debug(
@@ -82,16 +90,31 @@ class PurchaseService:
         )
         self.enforce_offer_available(offer, merchant_id)
 
+        cashback_result = self.cashback_client.calculate(
+            offer_id=offer.id,  # type: ignore[union-attr]
+            percentage=offer.percentage,  # type: ignore[union-attr]
+            fixed_amount=offer.fixed_amount,  # type: ignore[union-attr]
+            purchase_amount=amount,
+        )
+        cashback_amount = cashback_result.cashback_amount
+
         new_purchase = Purchase(
             external_id=external_id,
             user_id=user_id,
             merchant_id=merchant_id,
             offer_id=offer.id,  # type: ignore[union-attr]
             amount=amount,
+            cashback_amount=cashback_amount,
             currency=currency,
         )
 
+        # Flush purchase and wallet credit in the same session, then commit
+        # both atomically so the pending balance is always consistent with the
+        # purchase record (ADR-010, data-model §4.1, ADR-021).
         result = await self.repository.add_purchase(db, new_purchase)
+        await self.wallets_client.credit_pending(db, user_id, cashback_amount)
+        await uow.commit()
+
         logger.info(
             "Purchase ingested successfully.",
             extra={"purchase_id": result.id, "external_id": external_id},
@@ -113,8 +136,8 @@ class PurchaseService:
         if status is not None:
             try:
                 PurchaseStatus(status)
-            except ValueError:
-                raise InvalidPurchaseStatusException(status)
+            except ValueError as exc:
+                raise InvalidPurchaseStatusException(status) from exc
         return await self.repository.list_purchases(
             db,
             status=status,
@@ -138,8 +161,8 @@ class PurchaseService:
         if status is not None:
             try:
                 PurchaseStatus(status)
-            except ValueError:
-                raise InvalidPurchaseStatusException(status)
+            except ValueError as exc:
+                raise InvalidPurchaseStatusException(status) from exc
 
         purchases, total = await self.repository.list_purchases(
             db,

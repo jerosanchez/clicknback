@@ -15,6 +15,8 @@ class OfferDTO:
     active: bool
     start_date: date
     end_date: date
+    percentage: float
+    fixed_amount: float | None
 
 
 class OffersClientABC(ABC):
@@ -55,4 +57,6 @@ class OffersClient(OffersClientABC):
             active=offer.active,
             start_date=offer.start_date,
             end_date=offer.end_date,
+            percentage=offer.percentage,
+            fixed_amount=offer.fixed_amount,
         )

@@ -43,7 +43,9 @@ _As an external system, I want to record user purchases through a webhook so tha
 **Given** I send a purchase ingestion request where `user_id` matches my authenticated identity,
   with a valid merchant and unique external_id
 **When** the merchant has an active offer valid for today's date and the external_id is not already in the system
-**Then** the new purchase is successfully created with status `pending` and the resolved offer is associated
+**Then** the new purchase is successfully created with status `pending`, the resolved offer is associated,
+  the cashback amount is calculated from the offer and stored on the purchase, and the user's wallet
+  `pending_balance` is increased by the cashback amount atomically with the purchase record
 
 **Scenario:** User attempts to ingest a purchase for another user
 **Given** I send a purchase ingestion request where `user_id` belongs to a different user
@@ -124,8 +126,11 @@ User successfully ingests their own purchase
 4. System validates user exists and is active.
 5. System validates merchant exists and is active.
 6. System resolves the active, date-valid offer for the merchant.
-7. System creates purchase with status `pending` and associates the resolved offer.
-8. System returns new purchase info.
+7. System calculates the cashback amount from the offer (fixed amount if set, otherwise `amount × percentage / 100`, rounded to 2 decimal places).
+8. System creates purchase with status `pending`, associating the resolved offer and the calculated `cashback_amount`.
+9. System atomically increases the user's wallet `pending_balance` by the cashback amount (creating the wallet row if it does not yet exist).
+10. System commits the purchase and wallet update in a single DB transaction.
+11. System returns new purchase info.
 
 ### Sad Paths
 

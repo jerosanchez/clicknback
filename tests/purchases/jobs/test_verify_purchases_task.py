@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
+from app.purchases.clients import WalletsClientABC
 from app.purchases.jobs.verify_purchases import (
     SimulatedPurchaseVerifier,
     make_verify_purchases_task,
@@ -65,6 +66,11 @@ def message_broker() -> MagicMock:
     return create_autospec(MessageBrokerABC)
 
 
+@pytest.fixture
+def wallets_client() -> MagicMock:
+    return create_autospec(WalletsClientABC)
+
+
 # ---------------------------------------------------------------------------
 # Factory smoke test
 # ---------------------------------------------------------------------------
@@ -75,6 +81,7 @@ async def test_factory_returns_callable_and_runs_without_error_on_no_pending_pur
     repository: MagicMock,
     audit_trail: MagicMock,
     message_broker: MagicMock,
+    wallets_client: MagicMock,
 ) -> None:
     """The factory returns a zero-arg async callable; invoking it with no pending purchases completes without error."""
     # Arrange
@@ -84,6 +91,7 @@ async def test_factory_returns_callable_and_runs_without_error_on_no_pending_pur
     # Act
     task = make_verify_purchases_task(
         repository=repository,
+        wallets_client=wallets_client,
         audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,

@@ -182,10 +182,45 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 | --- | --- |
 | An ABC / interface class | `create_autospec(TheABC)` — returns `Mock` |
 | A `Callable[[X], Y]` (e.g. `hash_password`, `enforce_*`) | `Mock()` (optionally with `return_value`) |
-| `db: Session` inside a test | `Mock(spec=Session)` — local variable, not a fixture |
+| `db: AsyncSession` inside a read-only test | `AsyncMock()` — local variable, not a fixture |
+| `uow: UnitOfWorkABC` inside a write test | use `_make_uow()` helper — see pattern below |
 
 > **Return type of mock fixtures must be `Mock`, not the ABC.**
 > `-> Mock` lets the type checker resolve `.return_value` and `.side_effect`.
+
+#### `_make_uow()` helper
+
+Service methods that commit use `UnitOfWorkABC` instead of a raw `AsyncSession`. Create a module-level `_make_uow()` helper (not a fixture — it must be called fresh inside each test) that returns a plain `Mock` with async attributes:
+
+```python
+from unittest.mock import AsyncMock, Mock
+from app.core.unit_of_work import UnitOfWorkABC
+
+def _make_uow() -> Mock:
+    uow = Mock()           # plain Mock, not create_autospec — session is a property
+    uow.session = AsyncMock()
+    uow.commit = AsyncMock()
+    uow.rollback = AsyncMock()
+    return uow
+```
+
+Usage inside a test:
+
+```python
+async def test_create_entity_commits_uow_on_success(service, repository, ...) -> None:
+    # Arrange
+    uow = _make_uow()
+    repository.add.return_value = entity_factory()
+
+    # Act
+    await service.create_entity(data, uow)
+
+    # Assert
+    uow.commit.assert_called_once()
+```
+
+> **Why `Mock()` rather than `create_autospec(UnitOfWorkABC)`?**
+> `session` is an abstract property; `create_autospec` makes it a descriptor that cannot be freely assigned. A plain `Mock()` avoids this while still being spec-ed by the type hints in the service.
 
 **Canonical example:** `tests/users/test_users_services.py` — read this file before writing a new service test. `tests/merchants/test_merchants_services.py` and `tests/auth/test_auth_services.py` follow the exact same structure.
 
@@ -193,9 +228,11 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 
 - [ ] One mock fixture per dependency
 - [ ] Service fixture assembles the class, injecting all mocks
-- [ ] `db = Mock(spec=Session)` created locally inside each test (not shared, unless referenced by nearly every test)
+- [ ] `db = AsyncMock()` created locally inside each read-only test (not shared)
+- [ ] `uow = _make_uow()` created locally inside each write test that commits
 - [ ] Each mock is configured in **Arrange**, not in the fixture
 - [ ] Happy path, every `raise`, every `side_effect` branch covered
+- [ ] Write operations: assert `uow.commit.assert_called_once()` on success, and `uow.commit.assert_not_called()` when an exception prevents reaching the commit
 - [ ] `pytest.raises` used with `# Act & Assert` comment
 
 ---
@@ -242,6 +279,28 @@ def client(service_mock: Mock) -> Generator[TestClient, None, None]:
     yield test_client
 
     app.dependency_overrides.clear()   # always clean up
+```
+
+**For endpoints that use `get_unit_of_work`** (write endpoints), override it with a plain `Mock()` that has async attributes — the service is already mocked so the UoW is never actually called, but FastAPI still needs to resolve the dependency:
+
+```python
+from unittest.mock import AsyncMock, Mock
+from app.purchases.composition import get_unit_of_work
+
+@pytest.fixture
+def client(service_mock: Mock) -> Generator[TestClient, None, None]:
+    uow_mock = Mock()
+    uow_mock.session = AsyncMock()
+    uow_mock.commit = AsyncMock()
+    uow_mock.rollback = AsyncMock()
+
+    app.dependency_overrides[get_unit_of_work] = lambda: uow_mock
+    app.dependency_overrides[get_the_service] = lambda: service_mock
+
+    test_client = TestClient(app)
+    yield test_client
+
+    app.dependency_overrides.clear()
 ```
 
 **For endpoints that require authentication**, also override the auth dependency in `client`:

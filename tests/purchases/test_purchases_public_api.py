@@ -84,7 +84,7 @@ def _ingest_input_data() -> dict[str, Any]:
 def _assert_purchase_out_response(data: dict[str, Any], purchase: Purchase) -> None:
     assert data["id"] == purchase.id
     assert data["status"] == purchase.status
-    assert Decimal(str(data["cashback_amount"])) == Decimal("0")
+    assert Decimal(str(data["cashback_amount"])) == purchase.cashback_amount
 
 
 def _assert_error_payload(data: dict[str, Any], expected_code: str) -> None:
@@ -464,7 +464,7 @@ def _assert_purchase_details_response(
     assert data["merchant_name"] == merchant_name
     assert Decimal(str(data["amount"])) == purchase.amount
     assert data["status"] == purchase.status
-    assert Decimal(str(data["cashback_amount"])) == Decimal("0")
+    assert Decimal(str(data["cashback_amount"])) == purchase.cashback_amount
     assert data["cashback_status"] is None
     assert "created_at" in data
 

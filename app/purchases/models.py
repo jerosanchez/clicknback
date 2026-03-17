@@ -19,6 +19,11 @@ class Purchase(Base):
     merchant_id: Mapped[str] = mapped_column(ForeignKey("merchants.id"), nullable=False)
     offer_id: Mapped[str | None] = mapped_column(ForeignKey("offers.id"), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=12, scale=2))
+    cashback_amount: Mapped[Decimal] = mapped_column(
+        Numeric(precision=12, scale=2),
+        server_default=text("0"),
+        default=Decimal("0"),
+    )
     currency: Mapped[str] = mapped_column(String(3))
     status: Mapped[str] = mapped_column(String, server_default=text("'pending'"))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))

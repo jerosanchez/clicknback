@@ -2,19 +2,24 @@
 
 ## Getting Started
 
-### Prerequisites (Debian/Ubuntu)
+### Prerequisites (Ubuntu 24.04)
 
-This project requires Python 3.13+, Docker, and Node.js for markdown linting. Follow the steps below to set up your development environment on a Debian-based system.
+This project requires Python 3.13+, Docker, and Node.js for markdown linting. Follow the steps below to set up your development environment on Ubuntu 24.04.
 
 #### 1. Install System Dependencies
 
 ```shell
 # Update package manager
 sudo apt update
+sudo apt install -y software-properties-common
+
+# Add the deadsnakes PPA — Ubuntu 24.04 ships with Python 3.12,
+# so Python 3.13 must be installed from this PPA
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt update
 
 # Install Python and virtual environment tools
 sudo apt install -y python3.13 python3.13-venv python3.13-dev
-
 # Install Docker (if not already installed)
 sudo apt install -y docker.io docker-compose-v2
 
@@ -22,8 +27,9 @@ sudo apt install -y docker.io docker-compose-v2
 sudo usermod -aG docker $USER
 # Log out and back in, or run: newgrp docker
 
-# Install Node.js and npm for markdown linting (optional but recommended)
-sudo apt install -y nodejs npm
+# Install Node.js 21 (required for markdownlint-cli >=0.48)
+curl -fsSL https://deb.nodesource.com/setup_21.x | sudo -E bash -
+sudo apt install -y nodejs
 sudo npm install -g markdownlint-cli
 ```
 
@@ -210,12 +216,17 @@ alembic downgrade base
 ### Virtual Environment Issues
 
 ```shell
-# If you see "command not found: python3.13"
-python3 --version  # Check your Python version
-# Create venv with your available version:
-python3 -m venv .venv
+# If you see errors about ensurepip or venv creation failing,
+# make sure python3.13-venv is installed (Ubuntu 24.04 ships Python 3.12
+# as the default `python3`, so `python3.13-venv` must be installed explicitly):
+sudo apt install python3.13-venv
 
-# If venv is broken
+# If you see "command not found: python3.13", install it via the deadsnakes PPA:
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install -y python3.13 python3.13-venv python3.13-dev
+
+# If venv is broken or you want a clean install
 make clean
 make install
 ```

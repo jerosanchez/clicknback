@@ -1,10 +1,20 @@
 from datetime import datetime, timezone
 
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.audit.composition import get_audit_trail
 from app.core.broker import broker
 from app.core.config import settings
-from app.core.database import AsyncSessionLocal
-from app.purchases.clients import MerchantsClient, OffersClient, UsersClient
+from app.core.database import AsyncSessionLocal, get_async_db
+from app.core.unit_of_work import SQLAlchemyUnitOfWork, UnitOfWorkABC
+from app.purchases.clients import (
+    CashbackClient,
+    MerchantsClient,
+    OffersClient,
+    UsersClient,
+    WalletsClient,
+)
 from app.purchases.jobs.verify_purchases import (
     SimulatedPurchaseVerifier,
     make_verify_purchases_task,
@@ -25,9 +35,23 @@ def get_purchase_repository() -> PurchaseRepository:
     return PurchaseRepository()
 
 
+def get_wallets_client() -> WalletsClient:
+    return WalletsClient()
+
+
+def get_cashback_client() -> CashbackClient:
+    return CashbackClient()
+
+
+def get_unit_of_work(db: AsyncSession = Depends(get_async_db)) -> UnitOfWorkABC:
+    return SQLAlchemyUnitOfWork(db)
+
+
 def get_purchase_service() -> PurchaseService:
     return PurchaseService(
         repository=get_purchase_repository(),
+        cashback_client=get_cashback_client(),
+        wallets_client=get_wallets_client(),
         users_client=UsersClient(),
         merchants_client=MerchantsClient(),
         offers_client=OffersClient(),
@@ -43,6 +67,7 @@ def get_purchase_service() -> PurchaseService:
 def get_verify_purchases_task():
     return make_verify_purchases_task(
         repository=PurchaseRepository(),
+        wallets_client=get_wallets_client(),
         audit_trail=get_audit_trail(),
         broker=broker,
         db_session_factory=AsyncSessionLocal,

@@ -64,7 +64,10 @@ class PurchaseRepository(PurchaseRepositoryABC):
 
     async def add_purchase(self, db: AsyncSession, purchase: Purchase) -> Purchase:
         db.add(purchase)
-        await db.commit()
+        # flush() (not commit()) so the caller can batch this insert with other
+        # operations — e.g. a wallet credit — in a single atomic transaction.
+        # The caller is responsible for calling db.commit().
+        await db.flush()
         await db.refresh(purchase)
         return purchase
 
@@ -95,7 +98,10 @@ class PurchaseRepository(PurchaseRepositoryABC):
         if purchase is None:
             return None
         purchase.status = new_status
-        await db.commit()
+        # flush() (not commit()) so the caller can batch this status update with
+        # a wallet balance transition in a single atomic transaction.
+        # The caller is responsible for calling db.commit().
+        await db.flush()
         await db.refresh(purchase)
         return purchase
 
@@ -118,7 +124,7 @@ class PurchaseRepository(PurchaseRepositoryABC):
             start_date=start_date,
             end_date=end_date,
         )
-        count_stmt = select(func.count(Purchase.id))
+        count_stmt = select(func.count(Purchase.id))  # pylint: disable=not-callable
         items_stmt = select(Purchase)
         if conditions:
             count_stmt = count_stmt.where(*conditions)

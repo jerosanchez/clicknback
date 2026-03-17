@@ -5,7 +5,7 @@ MAX_LINE_LENGTH = 88
 
 install: ## Install dependencies
 	@if [ ! -d ".venv" ]; then \
-		python3 -m venv .venv; \
+		python3.13 -m venv .venv; \
 	fi
 	@bash -c "$(VENV_ACTIVATE) pip install -e '.[dev]'"
 

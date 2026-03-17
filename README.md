@@ -89,10 +89,10 @@ _Status legend:_
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
 | User Purchases Listing | Purchases | 🟢 done |
-| Cashback Calculation (worker) | Purchases | 🟡 ongoing |
+| Cashback Calculation | Purchases | 🟢 done |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
-| Wallet Summary | Wallets | ⚪ backlog |
+| Wallet Summary | Wallets | 🟡 ongoing |
 | Wallet Transactions Listing | Wallets | ⚪ backlog |
 | **Payouts** | | |
 | Payout Request (Withdrawal) | Payouts | ⚪ backlog |
