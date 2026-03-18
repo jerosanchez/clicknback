@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 
-from app.core.unit_of_work import UnitOfWorkABC
 from app.purchases.clients import (
     CashbackClientABC,
     CashbackResultDTO,

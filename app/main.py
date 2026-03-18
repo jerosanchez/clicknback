@@ -8,13 +8,11 @@ from app.core.errors.handlers import register_error_handlers
 from app.core.health import router as health_router
 from app.core.scheduler import InMemoryTaskScheduler
 from app.merchants import api as merchants_api
-from app.offers.api import admin_router as offers_admin_router
-from app.offers.api import public_router as offers_public_router
-from app.purchases.api import admin_router as purchases_admin_router
-from app.purchases.api import public_router as purchases_public_router
-from app.purchases.api import users_router as purchases_users_router
+from app.offers import api as offers_api
+from app.purchases import api as purchases_api
 from app.purchases.composition import get_verify_purchases_task
 from app.users import api as users_api
+from app.wallets import api as wallets_api
 
 # ----- Lifespan and infrastructure
 
@@ -62,8 +60,9 @@ app.include_router(health_router)
 app.include_router(users_api.router, prefix="/api/v1")
 app.include_router(auth_api.router, prefix="/api/v1")
 app.include_router(merchants_api.router, prefix="/api/v1")
-app.include_router(offers_admin_router, prefix="/api/v1")
-app.include_router(offers_public_router, prefix="/api/v1")
-app.include_router(purchases_admin_router, prefix="/api/v1")
-app.include_router(purchases_public_router, prefix="/api/v1")
-app.include_router(purchases_users_router, prefix="/api/v1")
+app.include_router(offers_api.admin_router, prefix="/api/v1")
+app.include_router(offers_api.public_router, prefix="/api/v1")
+app.include_router(purchases_api.admin_router, prefix="/api/v1")
+app.include_router(purchases_api.public_router, prefix="/api/v1")
+app.include_router(purchases_api.users_router, prefix="/api/v1")
+app.include_router(wallets_api.router, prefix="/api/v1")

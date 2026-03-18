@@ -447,4 +447,4 @@ If for some reason you need to take shortcuts and assert on internal state, add 
 
 ### Step 12 — Quality gates and commit
 
-Run `make lint && make test && make coverage && make security`. Fix all failures. Run `make coverage` and confirm the grade is at least ✅ Approved. Then stage all changes from this step, propose a commit message, and wait for human approval before executing `git commit`.
+Run `make lint && make test && make coverage && make security`. Fix all failures. Run `make coverage` and confirm the grade is at least ✅ Approved.

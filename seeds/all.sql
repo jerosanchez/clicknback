@@ -134,3 +134,16 @@ INSERT INTO purchases (id, external_id, user_id, merchant_id, offer_id, amount, 
     -- so the job will reject them on the first run after seeding.
     ('bb000001-0000-0000-0000-000000000001', 'txn_seed_reject_001', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'f0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0001-000000000001', 99.00, 'EUR', 'pending', NOW() - INTERVAL '1 hour'),
     ('bb000001-0000-0000-0000-000000000002', 'txn_seed_reject_002', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'f0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0001-000000000001', 49.50, 'EUR', 'pending', NOW() - INTERVAL '2 hours');
+
+-- Wallets
+-- Denormalized balance view per user. Created lazily on first cashback credit.
+-- Balances below are consistent with the seeded purchases above.
+-- jero has no wallet row intentionally — exercises the zero-balance code path in
+-- GET /users/me/wallet (the service returns 200 with all zeros when no row exists).
+INSERT INTO wallets (user_id, pending_balance, available_balance, paid_balance) VALUES
+    -- alice: 5 open purchases pending + 1 confirmed (txn_seed_005) + prior paid withdrawal
+    ('b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 19.05, 15.00, 50.00),
+    -- bob: 3 open purchases pending + 1 confirmed (txn_seed_008); no paid withdrawals yet
+    ('c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 10.88,  6.00,  0.00),
+    -- carol: 1 open purchase pending (txn_seed_004); no confirmed or paid activity yet
+    ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 12.00,  0.00,  0.00);

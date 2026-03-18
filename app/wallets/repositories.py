@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,10 @@ from app.wallets.models import Wallet
 
 
 class WalletRepositoryABC(ABC):
+    @abstractmethod
+    async def get_by_user_id(self, db: AsyncSession, user_id: str) -> Wallet | None:
+        """Return the wallet row for *user_id*, or None if it does not exist yet."""
+
     @abstractmethod
     async def credit_pending(
         self, db: AsyncSession, user_id: str, amount: Decimal
@@ -43,6 +47,11 @@ class WalletRepositoryABC(ABC):
 
 
 class WalletRepository(WalletRepositoryABC):
+    async def get_by_user_id(self, db: AsyncSession, user_id: str) -> Wallet | None:
+        """Return the wallet row for *user_id*, or None if it does not exist yet."""
+        result = await db.execute(select(Wallet).where(Wallet.user_id == user_id))
+        return result.scalar_one_or_none()
+
     async def credit_pending(
         self, db: AsyncSession, user_id: str, amount: Decimal
     ) -> None:
