@@ -1,8 +1,8 @@
 # Get wallet summary
 
-**Endpoint:** `GET /users/wallet`
+**Endpoint:** `GET /users/me/wallet`
 
-**Roles:** Authenticated
+**Roles:** User, Admin
 
 ## Success Response
 
