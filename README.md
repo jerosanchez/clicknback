@@ -92,8 +92,8 @@ _Status legend:_
 | Cashback Calculation | Purchases | 🟢 done |
 | Purchase Reversal | Purchases | ⚪ backlog |
 | **Wallet Management** | | |
-| Wallet Summary | Wallets | 🟡 ongoing |
-| Wallet Transactions Listing | Wallets | ⚪ backlog |
+| Wallet Summary | Wallets | 🟢 done |
+| Wallet Transactions Listing | Wallets | 🟡 ongoing |
 | **Payouts** | | |
 | Payout Request (Withdrawal) | Payouts | ⚪ backlog |
 | Payout Processing | Payouts | ⚪ backlog |
