@@ -28,13 +28,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.core.logging import logger
-from app.purchases.clients import WalletsClientABC
+from app.purchases.clients import CashbackClientABC, WalletsClientABC
 from app.purchases.repositories import PurchaseRepositoryABC
 from app.purchases.schemas import PurchaseStatus
 
 from ._in_flight_tracker import InFlightTrackerABC
-from ._processor import _confirm_purchase  # pyright: ignore[reportPrivateUsage]
-from ._processor import _reject_purchase  # pyright: ignore[reportPrivateUsage]
+from ._processor import (
+    _confirm_purchase,  # pyright: ignore[reportPrivateUsage]
+    _reject_purchase,  # pyright: ignore[reportPrivateUsage]
+)
 from ._verifiers import PurchaseVerifierABC
 
 
@@ -43,6 +45,7 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
     purchase_id: str,
     repository: PurchaseRepositoryABC,
     wallets_client: WalletsClientABC,
+    cashback_client: CashbackClientABC,
     audit_trail: AuditTrailABC,
     broker: MessageBrokerABC,
     db_session_factory: async_sessionmaker[AsyncSession],
@@ -89,6 +92,7 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                         db=db,
                         repository=repository,
                         wallets_client=wallets_client,
+                        cashback_client=cashback_client,
                         audit_trail=audit_trail,
                         broker=broker,
                     )
@@ -103,6 +107,7 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                         db=db,
                         repository=repository,
                         wallets_client=wallets_client,
+                        cashback_client=cashback_client,
                         audit_trail=audit_trail,
                         broker=broker,
                     )
@@ -137,6 +142,7 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                     db=db,
                     repository=repository,
                     wallets_client=wallets_client,
+                    cashback_client=cashback_client,
                     audit_trail=audit_trail,
                     broker=broker,
                 )
