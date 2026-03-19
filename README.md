@@ -112,7 +112,7 @@ _Status legend:_
 | Fraud Scoring | AI | ⚫ planned |
 | Smart Offer Recommendations | AI | ⚫ planned |
 | Automated FAQ/Support Chatbot | AI | ⚪ backlog |
-| Fraud Pattern Detection | AI | ⚫ planned |
+| Fraud Pattern Detection | AI | ⚪ backlog |
 | Personalized Cashback Insights | AI | ⚫ planned |
 | Natural Language Query for Admins | AI | ⚫ planned |
 
@@ -161,8 +161,7 @@ The guide comes with ready-to-run `.http` request sequences (compatible with the
 | --- | --- | --- |
 | [`01-admin-platform-setup.http`](docs/specs/workflows/http/01-admin-platform-setup.http) | Create and activate a merchant and an offer | 🟢 live |
 | [`02-user-discovery.http`](docs/specs/workflows/http/02-user-discovery.http) | Register, log in, and browse active offers | 🟢 live |
-
- | [`03-purchase-and-cashback.http`](docs/specs/workflows/http/03-purchase-and-cashback.http) | Ingest a purchase, wait for async confirmation, verify cashback | 🟡 ongoing |
+| [`03-purchase-and-cashback.http`](docs/specs/workflows/http/03-purchase-and-cashback.http) | Ingest a purchase, wait for async confirmation, verify cashback | 🟡 ongoing |
 | [`04-wallet-and-payout.http`](docs/specs/workflows/http/04-wallet-and-payout.http) | Check wallet balances and process a withdrawal | ⚪ backlog |
 
 _The backlog files document the intended API surface for upcoming features — useful for understanding the domain model even before the endpoints are implemented._

@@ -4,11 +4,12 @@ Applies a resolved verification outcome: updates the purchase status in the
 DB, moves the wallet balance, publishes the domain event, and writes the audit
 trail row.
 
-The status update and wallet balance move are committed atomically in a single
-transaction (see data-model §4.1 — "Transactions ensure balance adjustments
-are atomic with status changes").  The audit log is written immediately after
-in a separate commit, which is acceptable: a missing audit row is far less
-harmful than an inconsistent wallet balance.
+The status update, cashback transaction update, and wallet balance move are
+committed atomically in a single transaction (see data-model §4.1 —
+"Transactions ensure balance adjustments are atomic with status changes").
+The audit log is written immediately after in a separate commit, which is
+acceptable: a missing audit row is far less harmful than an inconsistent
+wallet balance.
 """
 
 from datetime import datetime
@@ -21,7 +22,7 @@ from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.core.events.purchase_events import PurchaseConfirmed, PurchaseRejected
 from app.core.logging import logger
-from app.purchases.clients import WalletsClientABC
+from app.purchases.clients import CashbackClientABC, WalletsClientABC
 from app.purchases.models import Purchase
 from app.purchases.repositories import PurchaseRepositoryABC
 from app.purchases.schemas import PurchaseStatus
@@ -34,6 +35,7 @@ async def _confirm_purchase(  # pyright: ignore[reportUnusedFunction]
     db: AsyncSession,
     repository: PurchaseRepositoryABC,
     wallets_client: WalletsClientABC,
+    cashback_client: CashbackClientABC,
     audit_trail: AuditTrailABC,
     broker: MessageBrokerABC,
 ) -> None:
@@ -42,6 +44,7 @@ async def _confirm_purchase(  # pyright: ignore[reportUnusedFunction]
 
     cashback_amount: Decimal = purchase.cashback_amount
     if cashback_amount > Decimal("0"):
+        await cashback_client.confirm(db, purchase.id)
         await wallets_client.confirm_pending(db, purchase.user_id, cashback_amount)
 
     await db.commit()
@@ -87,6 +90,7 @@ async def _reject_purchase(  # pyright: ignore[reportUnusedFunction]
     db: AsyncSession,
     repository: PurchaseRepositoryABC,
     wallets_client: WalletsClientABC,
+    cashback_client: CashbackClientABC,
     audit_trail: AuditTrailABC,
     broker: MessageBrokerABC,
 ) -> None:
@@ -95,6 +99,7 @@ async def _reject_purchase(  # pyright: ignore[reportUnusedFunction]
 
     cashback_amount: Decimal = purchase.cashback_amount
     if cashback_amount > Decimal("0"):
+        await cashback_client.reverse(db, purchase.id)
         await wallets_client.reverse_pending(db, purchase.user_id, cashback_amount)
 
     await db.commit()

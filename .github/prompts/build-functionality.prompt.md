@@ -165,4 +165,4 @@ At minimum, cover:
 
 ### Step 11 — Quality gates and commit
 
-Run `make lint && make test && make coverage && make security`. Fix all failures. Confirm the coverage grade is at least ✅ Approved. Then stage all changes from this step, propose a commit message, and wait for human approval before executing `git commit`.
+Run `make lint && make test && make coverage && make security`. Fix all failures. Confirm the coverage grade is at least ✅ Approved.

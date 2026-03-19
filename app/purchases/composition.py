@@ -68,6 +68,7 @@ def get_verify_purchases_task():
     return make_verify_purchases_task(
         repository=PurchaseRepository(),
         wallets_client=get_wallets_client(),
+        cashback_client=get_cashback_client(),
         audit_trail=get_audit_trail(),
         broker=broker,
         db_session_factory=AsyncSessionLocal,

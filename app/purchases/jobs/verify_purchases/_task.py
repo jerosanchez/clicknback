@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.core.scheduler import ScheduledTask
-from app.purchases.clients import WalletsClientABC
+from app.purchases.clients import CashbackClientABC, WalletsClientABC
 from app.purchases.repositories import PurchaseRepositoryABC
 
 from ._dispatcher import (
@@ -33,6 +33,7 @@ def make_verify_purchases_task(
     *,
     repository: PurchaseRepositoryABC,
     wallets_client: WalletsClientABC,
+    cashback_client: CashbackClientABC,
     audit_trail: AuditTrailABC,
     broker: MessageBrokerABC,
     db_session_factory: async_sessionmaker[AsyncSession],
@@ -48,25 +49,6 @@ def make_verify_purchases_task(
     task runs ``_run_verification_with_retry`` independently, sleeping
     ``retry_interval_seconds`` between attempts — giving each purchase its own
     isolated retry lifecycle rather than a shared batch cycle.
-
-    Args:
-        repository:              Async purchase repository.
-        wallets_client:          Wallet client; used to move pending balance to
-                                 available on confirmation, or to reverse it on
-                                 rejection.
-        audit_trail:             Audit trail service for recording outcomes.
-        broker:                  Message broker for publishing domain events.
-        db_session_factory:      ``AsyncSessionLocal`` factory; each attempt
-                                 opens its own session.
-        verifier:                Verification strategy — decides the outcome of
-                                 each individual attempt.  Swap implementations
-                                 to connect a real bank gateway.
-        max_attempts:            Maximum attempts per purchase before
-                                 force-rejecting.
-        retry_interval_seconds:  Sleep between consecutive attempts on the same
-                                 purchase.
-        datetime_provider:       Returns the current UTC datetime; injected at
-                                 compose time, override in tests to freeze time.
     """
     in_flight: InFlightTrackerABC = InMemoryInFlightTracker()
 
@@ -76,6 +58,7 @@ def make_verify_purchases_task(
                 purchase_id=purchase_id,
                 repository=repository,
                 wallets_client=wallets_client,
+                cashback_client=cashback_client,
                 audit_trail=audit_trail,
                 broker=broker,
                 db_session_factory=db_session_factory,

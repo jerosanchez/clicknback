@@ -66,6 +66,8 @@ class PurchaseService:
         self.enforce_purchase_ownership(current_user_id, user_id)
 
         db = uow.session
+
+        # Get existing purchase
         existing = await self.repository.get_by_external_id(db, external_id)
         if existing is not None:
             logger.debug(
@@ -76,8 +78,10 @@ class PurchaseService:
                 external_id, existing.created_at, existing.amount
             )
 
+        # Ensure currency is supported
         self.enforce_currency_supported(currency)
 
+        # Get user, merchant and offer details
         user = await self.users_client.get_user_by_id(db, user_id)
         self.enforce_user_active(user, user_id)
 
@@ -90,6 +94,7 @@ class PurchaseService:
         )
         self.enforce_offer_available(offer, merchant_id)
 
+        # Calculate cashback amount
         cashback_result = self.cashback_client.calculate(
             offer_id=offer.id,  # type: ignore[union-attr]
             percentage=offer.percentage,  # type: ignore[union-attr]
@@ -98,6 +103,7 @@ class PurchaseService:
         )
         cashback_amount = cashback_result.cashback_amount
 
+        # Create new purchase record
         new_purchase = Purchase(
             external_id=external_id,
             user_id=user_id,
@@ -108,11 +114,12 @@ class PurchaseService:
             currency=currency,
         )
 
-        # Flush purchase and wallet credit in the same session, then commit
-        # both atomically so the pending balance is always consistent with the
-        # purchase record (ADR-010, data-model §4.1, ADR-021).
+        # Flush purchase, cashback transaction, and wallet credit
         result = await self.repository.add_purchase(db, new_purchase)
+        await self.cashback_client.create(db, result.id, user_id, cashback_amount)
         await self.wallets_client.credit_pending(db, user_id, cashback_amount)
+
+        # Commit all changes together to ensure atomicity
         await uow.commit()
 
         logger.info(
