@@ -29,15 +29,21 @@ from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.core.logging import logger
 from app.purchases.clients import CashbackClientABC, WalletsClientABC
-from app.purchases.repositories import PurchaseRepositoryABC
-from app.purchases.schemas import PurchaseStatus
 
-from ._in_flight_tracker import InFlightTrackerABC
-from ._processor import (
+# isort: off
+# For some reason isort can't figure out the correct ordering of these imports,
+# and it's easier to just disable it here than to fight with it.
+from app.purchases.jobs.verify_purchases._processor import (
     _confirm_purchase,  # pyright: ignore[reportPrivateUsage]
     _reject_purchase,  # pyright: ignore[reportPrivateUsage]
 )
-from ._verifiers import PurchaseVerifierABC
+
+# isort: on
+
+from app.purchases.jobs.verify_purchases._in_flight_tracker import InFlightTrackerABC
+from app.purchases.jobs.verify_purchases._verifiers import PurchaseVerifierABC
+from app.purchases.repositories import PurchaseRepositoryABC
+from app.purchases.schemas import PurchaseStatus
 
 
 async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
