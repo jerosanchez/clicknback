@@ -1077,3 +1077,68 @@ async def test_ingest_purchase_wallet_not_credited_on_failure(
         )
 
     wallets_client.credit_pending.assert_not_called()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.ingest_purchase — cashback transaction
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_creates_cashback_transaction_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    cashback_client: Mock,
+    users_client: Mock,
+    merchants_client: Mock,
+    offers_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    offer_mock = Mock(
+        id="f0e1d2c3-b4a5-4678-9012-3456789abcde", percentage=10.0, fixed_amount=None
+    )
+    expected_cashback = Decimal("10.00")
+    cashback_client.calculate.return_value = CashbackResultDTO(
+        offer_id=offer_mock.id, cashback_amount=expected_cashback
+    )
+    new_purchase = purchase_factory()
+
+    purchase_repository.get_by_external_id.return_value = None
+    users_client.get_user_by_id.return_value = Mock(active=True)
+    merchants_client.get_merchant_by_id.return_value = Mock(active=True)
+    offers_client.get_active_offer_for_merchant.return_value = offer_mock
+    purchase_repository.add_purchase.return_value = new_purchase
+
+    # Act
+    await purchase_service.ingest_purchase(
+        _make_ingest_data(amount=Decimal("100.00")), _CURRENT_USER_ID, uow
+    )
+
+    # Assert — cashback transaction created with purchase id, user id, and calculated amount
+    cashback_client.create.assert_called_once_with(
+        uow.session, new_purchase.id, _CURRENT_USER_ID, expected_cashback
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_purchase_cashback_transaction_not_created_on_failure(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    cashback_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    purchase_repository.get_by_external_id.return_value = purchase_factory(
+        external_id="txn_test_001"
+    )
+
+    # Act & Assert
+    with pytest.raises(DuplicatePurchaseException):
+        await purchase_service.ingest_purchase(
+            _make_ingest_data(), _CURRENT_USER_ID, uow
+        )
+
+    cashback_client.create.assert_not_called()
