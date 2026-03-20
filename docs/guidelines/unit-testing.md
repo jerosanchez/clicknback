@@ -20,6 +20,7 @@ Self-contained reference for writing tests in ClickNBack. When asked to write a 
 ✅ API response/error mapping
 ✅ Policies and validators
 ✅ Utilities and builders
+✅ **Collaborator integration** — verify that services correctly delegate to their dependencies (clients, repositories) with the right arguments and return values transformed correctly. See [ADR 022](../design/adr/022-collaborator-integration-verification-in-unit-tests.md) for the rationale behind this approach.
 ❌ Thin repository implementations
 ❌ Framework internals (FastAPI routing, SQLAlchemy engine)
 
@@ -234,6 +235,7 @@ async def test_create_entity_commits_uow_on_success(service, repository, ...) ->
 - [ ] Happy path, every `raise`, every `side_effect` branch covered
 - [ ] Write operations: assert `uow.commit.assert_called_once()` on success, and `uow.commit.assert_not_called()` when an exception prevents reaching the commit
 - [ ] `pytest.raises` used with `# Act & Assert` comment
+- [ ] **Collaborator verification** (where applicable) — assert that dependencies are called with correct arguments and their return values are transformed/mapped correctly (e.g., `dependency.method.assert_called_once_with(expected_args)`, then verify the returned data is correctly transformed)
 
 ---
 
@@ -251,7 +253,7 @@ async def test_create_entity_commits_uow_on_success(service, repository, ...) ->
 ✅ Query/path parameter constraint validation — endpoints with `ge`/`le` constraints must have boundary value tests covering both valid and invalid sides
 ❌ Unauthenticated (401) per endpoint — the 401 is raised inside the auth helper (`get_current_user`), which is already tested in `tests/core/test_current_user.py`; testing it on every endpoint is redundant
 ❌ Business logic (belongs in service tests)
-❌ Service argument forwarding — verifying that query/path params are passed through to the service is redundant; it is already covered implicitly by the success test and will be exercised further in integration/E2E tests
+❌ Service argument forwarding at the API level — parameter-to-service delegation is verified in service-layer collaborator tests and tested implicitly through the API success test; it is redundant to re-verify at the API layer
 
 ### API Test Structure
 
