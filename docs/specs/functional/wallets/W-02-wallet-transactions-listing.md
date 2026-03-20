@@ -19,7 +19,12 @@ _As an authenticated user, I want to audit my wallet transaction history so that
 
 - Results must be paginated
 - Only transactions belonging to the user should be returned
-- Transaction types include: cashback credits, reversals, payout deductions
+- Transaction types include: cashback credits, reversals. Payout deductions are deferred to a future release.
+
+### Input Constraints
+
+- `limit` must be a positive integer between 1 and 100 (default: 10)
+- `offset` must be a non-negative integer (default: 0)
 
 ---
 
@@ -43,9 +48,9 @@ _As an authenticated user, I want to audit my wallet transaction history so that
 
 **Scenario:** User requests transactions with invalid pagination
 **Given** I am an authenticated user
-**And** I send a request with invalid parameters
+**And** I send a request with invalid parameters (e.g. `limit=0` or `offset=-1`)
 **When** the API validates the input
-**Then** the request is rejected with a validation error
+**Then** the request is rejected with a `VALIDATION_ERROR`
 
 ---
 
@@ -83,8 +88,8 @@ Authenticated user successfully retrieves transaction history
 1. User requests transactions with invalid page number or size.
 2. System verifies user authentication.
 3. System validates pagination parameters.
-4. System detects invalid parameters.
-5. System rejects the request with validation error.
+4. System detects invalid parameters (e.g. `limit < 1`, `limit > 100`, `offset < 0`).
+5. System rejects the request with `VALIDATION_ERROR`.
 
 ## API Contract
 

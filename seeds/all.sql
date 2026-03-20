@@ -147,3 +147,34 @@ INSERT INTO wallets (user_id, pending_balance, available_balance, paid_balance) 
     ('c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 10.88,  6.00,  0.00),
     -- carol: 1 open purchase pending (txn_seed_004); no confirmed or paid activity yet
     ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 12.00,  0.00,  0.00);
+
+-- Cashback Transactions
+-- One row per purchase. Amounts are derived from each purchase × offer cashback rule.
+-- Statuses mirror the corresponding purchase statuses.
+INSERT INTO cashback_transactions (id, user_id, purchase_id, amount, status, created_at) VALUES
+    -- alice – Shoply 5%: 100.00 → 5.00 (pending)
+    ('ct000001-0000-0000-0000-000000000001', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'aa000001-0000-0000-0000-000000000001', 5.00,  'pending',   NOW() - INTERVAL '5 days'),
+    -- alice – Shoply 5%: 50.00 → 2.50 (pending)
+    ('ct000001-0000-0000-0000-000000000002', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'aa000001-0000-0000-0000-000000000002', 2.50,  'pending',   NOW() - INTERVAL '4 days'),
+    -- bob – QuickCart fixed 3.00: 75.00 → 3.00 (pending)
+    ('ct000001-0000-0000-0000-000000000003', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'aa000001-0000-0000-0000-000000000003', 3.00,  'pending',   NOW() - INTERVAL '3 days'),
+    -- carol – TechZone 6%: 200.00 → 12.00 (pending)
+    ('ct000001-0000-0000-0000-000000000004', 'd9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 'aa000001-0000-0000-0000-000000000004', 12.00, 'pending',   NOW() - INTERVAL '2 days'),
+    -- alice – Shoply 5%: 300.00 → 15.00 (available — purchase confirmed)
+    ('ct000001-0000-0000-0000-000000000005', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'aa000001-0000-0000-0000-000000000005', 15.00, 'available', NOW() - INTERVAL '10 days'),
+    -- bob – QuickCart fixed 3.00: 40.00 → 3.00 (reversed — purchase reversed)
+    ('ct000001-0000-0000-0000-000000000006', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'aa000001-0000-0000-0000-000000000006', 3.00,  'reversed',  NOW() - INTERVAL '8 days'),
+    -- alice – QuickCart fixed 3.00: 80.00 → 3.00 (pending)
+    ('ct000001-0000-0000-0000-000000000007', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'aa000001-0000-0000-0000-000000000007', 3.00,  'pending',   NOW() - INTERVAL '1 day'),
+    -- bob – Shoply 5%: 120.00 → 6.00 (available — purchase confirmed)
+    ('ct000001-0000-0000-0000-000000000008', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'aa000001-0000-0000-0000-000000000008', 6.00,  'available', NOW() - INTERVAL '11 days'),
+    -- alice – TechZone 6%: 60.00 → 3.60 (pending)
+    ('ct000001-0000-0000-0000-000000000009', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'aa000001-0000-0000-0000-000000000009', 3.60,  'pending',   NOW() - INTERVAL '6 days'),
+    -- carol – QuickCart fixed 3.00: 250.00 → 3.00 (reversed — purchase reversed)
+    ('ct000001-0000-0000-0000-000000000010', 'd9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 'aa000001-0000-0000-0000-000000000010', 3.00,  'reversed',  NOW() - INTERVAL '9 days'),
+    -- bob – TechZone 6%: 90.00 → 5.40 (pending)
+    ('ct000001-0000-0000-0000-000000000011', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'aa000001-0000-0000-0000-000000000011', 5.40,  'pending',   NOW() - INTERVAL '7 days'),
+    -- alice – BankSimFail 5%: 99.00 → 4.95 (pending — rejection-sim, will be reversed by job)
+    ('ct000001-0000-0000-0000-000000000012', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'bb000001-0000-0000-0000-000000000001', 4.95,  'pending',   NOW() - INTERVAL '1 hour'),
+    -- bob – BankSimFail 5%: 49.50 → 2.48 (pending — rejection-sim, will be reversed by job)
+    ('ct000001-0000-0000-0000-000000000013', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'bb000001-0000-0000-0000-000000000002', 2.48,  'pending',   NOW() - INTERVAL '2 hours');
