@@ -282,4 +282,4 @@ def test_list_wallet_transactions_returns_422_on_invalid_pagination_params(
     response = client.get(f"/api/v1/users/me/wallet/transactions?{query_string}")
 
     # Assert
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
