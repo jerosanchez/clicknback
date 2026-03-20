@@ -261,10 +261,10 @@ Each spec includes:
 
 **Usage:**
 
-- Before implementing a feature, write or review its functional spec (see `build-feature.prompt.md` Step 0).
-- During feature implementation, check the spec first to understand requirements.
-- During review, verify the implementation matches the spec.
-- Specs serve as requirements source for both code and test generation.
+- Always write or review the functional spec before implementing a feature (see `build-feature.prompt.md` Step 0).
+- Always check the spec first during implementation to understand requirements.
+- Always verify the implementation matches the spec during code review.
+- Use specs as the requirements source for both code and test generation.
 
 **Audience:** Developers, QA, product managers.
 

@@ -21,7 +21,7 @@ An ADR is only required when the feature introduces a new architectural pattern,
 
 ## 1. One Spec Per Feature
 
-Each functional spec covers **exactly one feature**. A feature is a single user-facing action: "Set a Feature Flag", "Delete a Feature Flag", "List Feature Flags". These are three features, not one.
+Write one spec file per user-facing action; do not group multiple actions into a domain-area document. Examples of single features: "Set a Feature Flag", "Delete a Feature Flag", "List Feature Flags" — these are three separate specs, not one.
 
 **Naming convention:** `XX-NN-short-name.md`
 

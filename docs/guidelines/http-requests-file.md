@@ -12,12 +12,9 @@ http/
     <verb>-<resource>.http   ← one file per endpoint (or closely related group)
 ```
 
-- One file per endpoint. If a single resource has several distinct operations
-  (create, list, get-details, set-status), each gets its own file.
-- File names follow the pattern `<verb>-<resource>.http`, all lowercase with
-  hyphens: `create-merchant.http`, `list-offers.http`, `get-purchase-details.http`.
-- Module directories mirror the domain modules under `app/` (e.g., `http/auth/`,
-  `http/users/`, `http/merchants/`).
+- One file per endpoint. If a single resource has several distinct operations (create, list, get-details, set-status), each gets its own file.
+- File names follow the pattern `<verb>-<resource>.http`, all lowercase with hyphens: `create-merchant.http`, `list-offers.http`, `get-purchase-details.http`.
+- Module directories mirror the domain modules under `app/` (e.g., `http/auth/`, `http/users/`, `http/merchants/`).
 
 ---
 
@@ -213,7 +210,7 @@ For sad paths, name the specific error code when one is defined in `errors.py`:
 
 - **Never commit real tokens.** The `@adminToken` / `@userToken` variables must always hold expired local-dev placeholder values taken from seed data (`seeds/all.sql`). Their only purpose is to preserve the variable names so the developer knows what to paste after running a helper login request.
 - **Never commit production, staging, or CI passwords.** The seed passwords (`Str0ng!Pass`) are safe because they are used only against the local dev database populated by `seeds/all.sql`.
-- Local dev tokens are short-lived JWTs; once expired they are harmless. Still, keep the pattern consistent so reviewers can tell at a glance that no real secrets are present.
+- Treat local dev tokens as short-lived JWTs; keep the pattern consistent so reviewers can confirm at a glance that no real secrets are present.
 
 ---
 
