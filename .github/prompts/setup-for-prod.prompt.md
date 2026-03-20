@@ -20,50 +20,28 @@ The values below are specific to this project. When adapting this runbook for a 
 | Coexisting service on VPS | Hugo blog at `jerosanchez.com` (Phase 9, Step 22) | remove or replace if not applicable |
 | Python version | `python:3.13-slim` | your required version |
 
-## Context Files (Read First)
+## Context
 
-Before starting any step, read the following project context files in full:
+- `AGENTS.md` — project conventions, module anatomy, layering rules, and all quality gates.
+- `docs/design/security-strategy.md` — governs CORS allowed origins (Step 2), non-root container requirement (Step 4), and secrets handling rules (Steps 9–10).
+- `docs/design/deployment-plan.md` — read the current state before updating it in Steps 24–26.
+- `docs/guidelines/markdown-docs.md` — all rules for writing `.md` files; every doc updated in Phase 10 must comply and pass `markdownlint`.
 
-- `docs/guidelines/feature-architecture.md` — coding conventions, module structure, and layering rules
-- `docs/guidelines/quality-gates.md` — mandatory quality gate sequence
-- `docs/guidelines/unit-testing.md` — how tests are structured and what to test
-- `docs/guidelines/project-context.md` — domain model and overall system purpose
-- `docs/design/architecture-overview.md` — system structure; the API version prefix decision (Step 1) is documented here
-- `docs/design/security-strategy.md` — governs CORS allowed origins (Step 2), non-root container requirement (Step 4), and secrets handling rules (Steps 9–10)
-- `docs/design/deployment-plan.md` — read the current state before updating it in Steps 24–26
-- `docs/guidelines/markdown-docs.md` — all rules for writing `.md` files; every doc updated in Phase 10 must comply and pass `markdownlint`
-
-## Known Constraints
+## Constraints
 
 - Do not use allow-all CORS or wildcard origins (`*`) in any configuration that reaches production.
-- Do not log passwords, tokens, or secrets at any log level.
-- Do not commit `.env` files or real credentials at any point — `.env` is in `.gitignore` and must stay there.
+- Do not commit `.env` files or real credentials; `.env` is in `.gitignore` and must stay there.
 - Never inject production secrets through CI environment variables — they belong in `/home/clicknback/app/.env` on the VPS, placed manually once with `chmod 600`.
-- Do not add dependencies to `pyproject.toml` without flagging the addition for human review before proceeding.
-- Do not modify `app/core/errors/handlers.py` or the global error response shape.
 - The application container must run as a non-root user — do not omit the `USER` instruction from the Dockerfile.
 - The `migrate` service must use `restart: "no"` — never `on-failure` — migration failures are not transient errors and must not be retried automatically.
 - Do not re-seed the database as part of any automated step — seeding is a one-time manual operation (Step 20 only).
 - Phase 9 steps are manual and performed directly on the VPS; describe the exact commands to run but do not attempt to execute them remotely.
-- All `.md` files created or updated must comply with `docs/guidelines/markdown-docs.md` and pass `markdownlint` — `make lint` must be green before committing any documentation step.
-- All tests written must comply with `docs/guidelines/unit-testing.md` — use module-level functions (not classes), the `test_{sut}_{result}_on_{condition}` naming pattern with the `_on_` connector, AAA comments, and section separators as specified in that document.
 
-## Commit Protocol
+## Completing Steps
 
-Each step that produces code, configuration, or documentation is a **separate commit**. Do not begin the next step until the current step's commit is approved and executed by the human.
+Run `make lint && make test && make coverage && make security` — all must pass before marking a step complete.
 
-**AI agents may run any read-only or research commands autonomously, without asking permission.** This includes, but is not limited to: `make lint`, `make test`, `make coverage`, `make security`, listing files, searching, or any command that does not modify project state. Only state-changing actions (e.g., `git commit`, file edits, deployments) require explicit human approval.
-
-To close a step:
-
-1. Run `make lint && make test && make coverage && make security` — all must pass.
-2. Stage the changes and output `git diff --staged`.
-3. Propose a commit message. Keep it short and outcome-focused — state what the step achieves, not which files were
-   changed or how it was implemented. File-level details are already visible in the diff. One line is almost always
-   enough; use a body paragraph only when the *why* is non-obvious from the step description.
-4. **Wait for explicit human approval before executing `git commit`.**
-
-When resuming work after a break, read the **Progress** section first to identify the next incomplete step, then continue from there without re-doing completed ones. After the human approves a commit for a step, mark that step's checkbox as done (`- [x]`) and include that change in the same commit.
+When resuming work after a break, read the **Progress** section first to identify the next incomplete step, then continue from there without re-doing completed ones. Mark a step's checkbox as done (`- [x]`) after completing it.
 
 ---
 
@@ -139,7 +117,7 @@ Two-stage builds keep the final image small (no build tools, no test libraries) 
 6. Confirm the non-root user: `docker exec <container> whoami` must return `appuser`, not `root`.
 7. Clean up: `docker rm -f <container>`, `docker rmi clicknback:smoke-test`, `docker compose down`.
 
-Only after all six checks pass may the step be committed.
+Only after all six checks pass may the step be completed.
 
 5. **Add `.dockerignore`** at repo root, excluding: `.venv/`, `__pycache__/`, `htmlcov/`, `tests/`, `.github/`, `.env`, `.env.example`, `*.egg-info`, `coverage.*`, `Makefile`, `docs/`, and `CONTRIBUTING.md`.
 
@@ -175,7 +153,7 @@ Without this file, Docker's build context includes every file in the repo, which
 
    Note: the `migrate` and `clicknback-app` services override `DATABASE_URL` in compose to point at `clicknback-db` (the Docker service name) rather than `localhost`. This is intentional — `localhost` in the local `.env` works for `make test` (direct pytest against the host Postgres), while the compose override ensures containers reach the DB over the Docker network.
 
-   Only after all checks pass may the step be committed.
+   Only after all checks pass may the step be completed.
 
 8. **Update `Makefile`**: rename the existing `make run` to `make dev` (local uvicorn with `--reload`, dev only). Add a `make logs` target (`docker compose logs -f clicknback-app`) for tailing production-style container logs locally. `make up` already starts compose — after this phase it starts the full stack (DB + migrations + app). Keeping `make dev` distinct from `make up` preserves the fast inner-loop workflow without a container rebuild on every code change.
 
@@ -299,7 +277,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
     pct=92%: exit=0
     ```
 
-    Only after all five exit codes match may the step be committed.
+    Only after all five exit codes match may the step be completed.
 
 13. **Add `make coverage`** target in `Makefile`:
 
@@ -400,7 +378,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
     pre-commit run --all-files
     ```
 
-    All hooks must pass on the current codebase before the step is committed.
+    All hooks must pass on the current codebase before the step is complete.
 
 ---
 
@@ -855,12 +833,12 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 ## Decisions
 
-- **CD trigger**: merge to `main` (over semver tag) — simpler for a demo/showcase workflow; a tag-based strategy can be layered on top later.
-- **Image registry**: `ghcr.io` — free, requires a `GHCR_PAT` secret (`write:packages` PAT) because `workflow_run` triggers do not carry `write:packages` permission via `GITHUB_TOKEN`; images are private by default.
-- **Security scanning**: Bandit over SonarCloud — no external service, no tokens, runs identically locally and in CI; sufficient for Python security hotspot detection at this scale.
-- **Pre-commit hooks**: enforces the same lint, format, and security gates locally that CI enforces remotely — closes the feedback loop without waiting for a pipeline run.
-- **Coverage threshold**: 70% hard gate in CI, 80% aspirational goal documented in deployment plan.
-- **Secrets**: static `.env` on VPS, never written by CI — clean separation of deployment and operational concerns.
-- **No re-seeding on deploy**: seeds are dev/demo only (`make db-reset`); automated re-seeding in CD would destroy production data.
-- **API versioning**: `/api/v1/` prefix applied now — zero cost to add, high cost to add after a public API exists.
-- **CORS**: explicit allowlist (not wildcard) — production-safe from day one, easy to extend.
+- CD trigger: merge to `main` over semver tag — simpler for a demo/showcase workflow; a tag-based strategy can be layered on top later.
+- Image registry: `ghcr.io` — free, requires a `GHCR_PAT` secret (`write:packages` PAT) because `workflow_run` triggers do not carry `write:packages` permission via `GITHUB_TOKEN`; images are private by default.
+- Security scanning: Bandit over SonarCloud — no external service, no tokens, runs identically locally and in CI; sufficient for Python security hotspot detection at this scale.
+- Pre-commit hooks: enforces the same lint, format, and security gates locally that CI enforces remotely — closes the feedback loop without waiting for a pipeline run.
+- Coverage threshold: 70% hard gate in CI, 80% aspirational goal documented in deployment plan.
+- Secrets: static `.env` on VPS, never written by CI — clean separation of deployment and operational concerns.
+- No re-seeding on deploy: seeds are dev/demo only (`make db-reset`); automated re-seeding in CD would destroy production data.
+- API versioning: `/api/v1/` prefix applied now — zero cost to add, high cost to add after a public API exists.
+- CORS: explicit allowlist (not wildcard) — production-safe from day one, easy to extend.

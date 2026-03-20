@@ -1,91 +1,56 @@
 # Prompt: Write Tests for a Feature
 
-Use this prompt after a feature is fully implemented and all manual smoke tests in the `api-requests/` `.http` files are passing. Do not write tests speculatively — the implementation must be stable first.
+Use this prompt after a feature is fully implemented and all manual smoke tests in the `.http` files are passing. Do not write tests speculatively — the implementation must be stable first.
 
-## Context Files (Read First)
+## Context
 
-Before writing any code, read the following files in full:
+- Read `AGENTS.md` for project context, testing conventions, and quality gates.
+- Read `docs/guidelines/unit-testing.md` — all conventions, patterns, naming rules; follow it exactly.
+- Read the functional spec for this feature — BDD scenarios are the test coverage checklist.
+- Read the implemented files: `models.py`, `schemas.py`, `policies.py`, `services.py`, `api.py`, etc.
+- Read `tests/conftest.py` before writing any fixtures — reuse existing factories.
 
-- `docs/guidelines/unit-testing.md` — all conventions, patterns, naming rules, and examples. Follow it exactly; do not invent alternatives.
-- `docs/guidelines/api-contracts.md` — reference the contract(s) for the feature to understand all success and failure response codes when writing API tests
-- `docs/design/architecture-overview.md` — system structure and module boundaries
-- `docs/design/data-model.md` — entity relationships and field conventions; needed to write accurate fixtures
-- `docs/design/error-handling-strategy.md` — error response shape and exception hierarchy; needed to assert on error responses correctly
-- `docs/design/security-strategy.md` — auth model and token handling; needed for auth scenario tests
-- `docs/guidelines/arch-decision-records.md` — how to read and understand ADRs
-- Relevant ADR files under `docs/design/adr/` — particularly [ADR 007: Layered Testing Strategy](../../docs/design/adr/007-layered-testing-strategy.md) — rationale behind testing conventions; helps avoid testing anti-patterns that conflict with architectural decisions
-- The functional spec listed in the **Test Specification** section below — BDD scenarios are the test coverage checklist.
-- The implemented files for the feature: `models.py`, `schemas.py`, `policies.py`, `repositories.py`, `services.py`, `api.py`, etc. — understand the code before writing tests for it.
+## Constraints
 
----
-
-## What to Write
-
-### Coverage target
-
-Every BDD scenario in the functional spec must produce exactly one test. Use the scenario description as the test name, converted to snake_case with the project naming convention (`test_{sut}_{result}_on_{condition}`). No scenario may be left untested; no test may lack a corresponding scenario.
-
-### Test files
-
-| File | What it covers |
-| --- | --- |
-| `tests/<module>/test_<module>_<support>.py` | One test per public method of any support module (e.g., `token_provider.py`, `clients.py`, `password_utils.py`) — happy path and each failure mode |
-| `tests/<module>/test_<module>_policies.py` | One test per policy function — happy path and each violation scenario |
-| `tests/<module>/test_<module>_services.py` | One test per service method call — happy path and each sad path/exception scenario |
-| `tests/<module>/test_<module>_api.py` | One test per HTTP response code the endpoint can return, including all auth scenarios |
-
-Extend existing files if they already exist. Only create new files if the module has no tests yet. Do not modify `tests/conftest.py` unless a new shared factory is genuinely needed by multiple test files.
-
-**Support modules** are any non-standard files in the module directory that contain testable logic — e.g., `token_provider.py`, `clients.py`, `password_utils.py`, `validators.py`. Identify them in Step 1 before writing any tests.
-
-### What not to test
-
-Do not test repository implementations directly (thin DB wrappers). Do not test FastAPI routing or SQLAlchemy internals. See `docs/guidelines/unit-testing.md §1` for the full list.
-
-## Commit Protocol
-
-Each step that produces code is a **separate commit**. Do not begin the next step until the current step's commit is approved and executed by the human.
-
-To close a step:
-1. Run `make lint && make test && make coverage && make security` — all must pass.
-2. Stage the changes and output `git diff --staged`.
-3. Propose a commit message.
-4. **Wait for explicit human approval before executing `git commit`.**
-
-**Commit message style:** Write a single summary line. Add a body only when it carries genuine value — a non-obvious rationale, a constraint that isn't self-evident from the diff, or a trade-off worth preserving. Never list files or restate what the diff already shows.
+- Every BDD scenario must produce exactly one test; no scenario may be left untested.
+- Do not test thin repository implementations or framework internals.
+- Do not modify `tests/conftest.py` unless a new shared factory is genuinely needed by multiple test files.
+- Extend existing test files if they already exist; only create new files if the module has no tests yet.
 
 ---
 
 ## Steps
 
-### Step 1 — Read the spec and map scenarios to tests
+### Step 1 — Map BDD scenarios to tests
 
-First, scan the module directory for any **support modules** — non-standard files beyond `policies.py`, `services.py`, and `api.py` that contain testable logic (e.g., `policies.py`, `token_provider.py`, `clients.py`, `password_utils.py`). List them and identify which public methods need tests.
-
-Then go through each BDD scenario in the functional spec. For each one, note:
-- which layer it exercises (support module / policy / service / API)
-- what the test name will be
-- what inputs and expected output or exception it implies
-
-Do not write any code yet. Output the full mapping — support modules first, then scenarios — as a list for human review before proceeding.
+- Scan the module directory for support modules with testable logic beyond `policies.py`, `services.py`, and `api.py` (e.g., `token_provider.py`, `clients.py`).
+- For each BDD scenario, note which layer it exercises, what the test name will be, and what inputs and expected output it implies.
+- Output the full mapping as a list for human review before writing any code.
 
 ### Step 2 — Write support module tests (if any)
 
-For each support module identified in Step 1, create `tests/<module>/test_<module>_<support>.py`. Test every public method — happy path and each failure mode or exception it can raise. Inject or mock any dependencies via the constructor. Skip this step if no support modules were identified. Then close the step per the Commit Protocol above.
+- Create `tests/<module>/test_<module>_<support>.py` for each support module identified in Step 1.
+- Test every public method — happy path and each failure mode.
+- Skip if no support modules were identified.
 
 ### Step 3 — Write policy tests
 
-Implement `tests/<module>/test_<module>_policies.py`. One test per scenario. Policies are pure functions — no mocks needed, just inputs and assertions. Then close the step per the Commit Protocol above.
+- Create or extend `tests/<module>/test_<module>_policies.py`.
+- Policies are pure functions — no mocks needed, just inputs and assertions.
+- Write one test per scenario.
 
 ### Step 4 — Write service tests
 
-Implement `tests/<module>/test_<module>_services.py`. Use constructor injection to provide mocked dependencies. Mock the repository and any policy callables. Test that the service calls them correctly and propagates or catches exceptions as expected. Then close the step per the Commit Protocol above.
+- Create or extend `tests/<module>/test_<module>_services.py`.
+- Mock ABCs with `create_autospec(TheABC)`; mock callables with `Mock()`; mock `UnitOfWorkABC` with a plain `Mock` (not `create_autospec`).
+- Create `db = AsyncMock()` locally in each read-only test; create `uow = _make_uow()` locally in each write test.
+- Assert `uow.commit.assert_called_once()` on success; assert `uow.commit.assert_not_called()` on failure paths.
+- Assert that dependencies are called with the correct arguments and their return values are mapped correctly.
 
 ### Step 5 — Write API tests
 
-Implement `tests/<module>/test_<module>_api.py`. Use `TestClient` with `app.dependency_overrides` to replace the service. Test every HTTP response code — successful responses, domain exception mappings, auth failures (401, 403), and validation errors (422). Then close the step per the Commit Protocol above.
-
-When writing API tests, the following two tests are **mandatory** for every endpoint that returns a response body:
-
-1. **All-fields success-response test** — stub the service to return a factory-built model instance and assert **every** field in the response schema individually (id, all value fields, all derived/computed fields such as `status`). Assertions must be extracted into a `_assert_*_response` helper.
-2. **Exhaustive parametrized exception test** — inspect `api.py` to enumerate every exception handler; include one parametrize entry per exception (including the generic `Exception` → 500 fallback). No exception may be omitted. The parametrized test checks status code + error code only; separate tests cover full error-body detail.
+- Create or extend `tests/<module>/test_<module>_api.py`.
+- Use `TestClient` with `app.dependency_overrides` to replace the service.
+- Write one all-fields success test asserting every field in the response schema individually; extract assertions into a `_assert_*_response` helper.
+- Write one parametrized test enumerating every domain exception the handler can raise, including the generic `Exception` → 500 fallback — no exception may be omitted.
+- Cover all HTTP response codes: success, validation errors, domain errors, and auth failures (401, 403).
