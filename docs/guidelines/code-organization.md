@@ -226,10 +226,10 @@ External modules import from the module root. The module root re-exports from it
 
 When a module needs to read data from another module, it does not import the foreign module's service or repository directly. Instead, it defines its own **`clients/` package** with abstractions that encapsulate the foreign dependency.
 
-This pattern achieves two goals:
+This pattern serves two purposes:
 
-1. **Explicit intent**: A consuming module clearly documents what it needs from foreign modules.
-2. **Microservice readiness**: If the foreign module is later extracted into a separate service, only the client implementation changes — the consuming module's service logic is unaffected.
+1. **Explicit intent** — Document precisely what the consuming module needs from foreign modules.
+2. **Microservice readiness** — Ensure that if a foreign module is extracted into a separate service, only the client implementation changes; the consuming module's service logic remains unaffected.
 
 ### Structure and Pattern
 

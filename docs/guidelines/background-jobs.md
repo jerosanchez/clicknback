@@ -112,7 +112,7 @@ Use `AsyncSessionLocal` (from `app.core.database`) as the factory. Pass it as an
 
 ## 5. Audit Trail
 
-Every job that changes critical state (status transitions, financial records) must record an audit row via `AuditTrail.record(...)`:
+Every job that transitions a purchase status, updates a wallet balance, or records a financial transaction must record an audit row via `AuditTrail.record(...):`
 
 ```python
 await audit_trail.record(

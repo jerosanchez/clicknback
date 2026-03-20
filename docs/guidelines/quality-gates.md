@@ -161,7 +161,7 @@ Flake8 checks Python style and correctness. Common violations:
 
 ### 4.3 Test Failures
 
-Test failures require understanding the root cause before acting. Follow this decision tree:
+Identify the root cause before acting on any test failure. Follow this decision tree:
 
 ```text
 Test fails
@@ -187,7 +187,7 @@ If a test reveals that the intended behavior is genuinely ambiguous, implement t
 
 ### 4.4 Import / Syntax Errors
 
-If `pytest` fails at collection time (before any test runs), there is likely a Python syntax error or a broken import. Identify the file from the traceback and fix it directly. Rerun `make test` to confirm collection succeeds.
+When `pytest` fails at collection time (before any test runs), identify the failing file from the traceback and fix the syntax error or broken import. Rerun `make test` to confirm collection succeeds.
 
 Common causes:
 

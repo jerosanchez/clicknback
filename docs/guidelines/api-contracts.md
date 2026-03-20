@@ -109,9 +109,9 @@ Every API contract must include these sections **in this exact order**:
 **Rules for path, query, and body parameters:**
 
 - **Path parameters** – Always required. Never optional. Placed in `{curly_braces}` in the endpoint path.
-- **Query parameters** – Optional unless marked with ✅. Used for filtering, pagination, sorting. Never embed secrets or sensitive data in query strings.
+- **Query parameters** – Mark required parameters with ✅; treat all others as optional. Use query parameters only for filtering, pagination, or sorting. Never embed secrets or sensitive data in query strings.
 - **Body** – For POST, PUT, PATCH requests only. Format as a JSON block followed by a table describing each field. Use realistic but fictional UUIDs and timestamps.
-- **Type annotations** – Be precise: `string`, `integer`, `boolean`, `array`, `object`, `UUID`, `decimal`, `datetime` (ISO 8601 format).
+- **Type annotations** – Use exact type names: `string`, `integer`, `boolean`, `array`, `object`, `UUID`, `decimal`, `datetime` (ISO 8601 format).
 - **Descriptions** – Clarify format, constraints, and examples (e.g., "max 100 characters", "lowercase snake_case", "valid email").
 
 **When a section is not needed:** Omit it entirely (e.g., no **Query parameters** section if the endpoint takes no query params, no **Body** section for GET requests).

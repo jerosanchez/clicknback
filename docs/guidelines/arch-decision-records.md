@@ -114,10 +114,10 @@ Describe what this decision means for the codebase, development process, and tea
 
 ### Structure
 
-- **Status line first** — readers see immediately whether this is proposed (not yet decided), accepted (being followed), superseded (replaced by a newer ADR), etc.
-- **Context before options** — readers understand the problem before evaluating solutions.
-- **Balanced alternatives** — present competing options fairly. Avoid strawman options designed to make the chosen one look obviously correct.
-- **Explicit tradeoffs** — name what the chosen option gives up. This honesty is why ADRs are valuable.
+- **Put the status line first** — readers see immediately whether this is proposed (not yet decided), accepted (being followed), superseded (replaced by a newer ADR), etc.
+- **Present context before options** — readers understand the problem before evaluating solutions.
+- **Balance alternatives** — present competing options fairly. Avoid strawman options designed to make the chosen one look obviously correct.
+- **State explicit tradeoffs** — name what the chosen option gives up. This honesty is why ADRs are valuable.
 
 ### Tone
 

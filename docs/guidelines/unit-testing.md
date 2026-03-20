@@ -16,13 +16,13 @@ Self-contained reference for writing tests in ClickNBack. When asked to write a 
 
 ### What to Test
 
-✅ Service business logic
-✅ API response/error mapping
-✅ Policies and validators
-✅ Utilities and builders
-✅ **Collaborator integration** — verify that services correctly delegate to their dependencies (clients, repositories) with the right arguments and return values transformed correctly. See [ADR 022](../design/adr/022-collaborator-integration-verification-in-unit-tests.md) for the rationale behind this approach.
-❌ Thin repository implementations
-❌ Framework internals (FastAPI routing, SQLAlchemy engine)
+- Always test service business logic.
+- Always test API response/error mapping.
+- Always test policies and validators.
+- Always test utilities and builders.
+- Always verify **collaborator integration** — that services correctly delegate to their dependencies (clients, repositories) with the right arguments and return values transformed correctly. See [ADR 022](../design/adr/022-collaborator-integration-verification-in-unit-tests.md) for the rationale behind this approach.
+- Never test thin repository implementations.
+- Never test framework internals (FastAPI routing, SQLAlchemy engine).
 
 ### Quality Standards
 
@@ -245,15 +245,15 @@ async def test_create_entity_commits_uow_on_success(service, repository, ...) ->
 
 ### Testing Scope
 
-✅ Status codes match `fastapi.status` constants
-✅ Response body maps **every** field in the response schema correctly — the success test must assert each field individually, not just the status code
-✅ Domain exceptions → correct HTTP status + error code — a single parametrized test must enumerate **every** exception the endpoint can raise; no exception may be omitted
-✅ Unhandled exceptions → 500
-✅ Non-admin (403) — verifies the endpoint calls the correct admin-guarded dependency
-✅ Query/path parameter constraint validation — endpoints with `ge`/`le` constraints must have boundary value tests covering both valid and invalid sides
-❌ Unauthenticated (401) per endpoint — the 401 is raised inside the auth helper (`get_current_user`), which is already tested in `tests/core/test_current_user.py`; testing it on every endpoint is redundant
-❌ Business logic (belongs in service tests)
-❌ Service argument forwarding at the API level — parameter-to-service delegation is verified in service-layer collaborator tests and tested implicitly through the API success test; it is redundant to re-verify at the API layer
+- Always test: status codes matching `fastapi.status` constants.
+- Always assert every field in the response body individually — the success test must not check only the status code.
+- Always cover every domain exception the endpoint can raise with a single parametrized test; never omit an exception.
+- Always test that unhandled exceptions produce a 500 response.
+- Always test the non-admin (403) case — verifies the endpoint calls the correct admin-guarded dependency.
+- Always test query/path parameter constraint validation for endpoints with `ge`/`le` constraints, covering both valid and invalid boundary values.
+- Never test unauthenticated (401) per endpoint — the 401 is raised inside the auth helper (`get_current_user`), which is already tested in `tests/core/test_current_user.py`; repeating it on every endpoint is redundant.
+- Never test business logic in API tests (belongs in service tests).
+- Never re-verify service argument forwarding at the API level — parameter-to-service delegation is verified in service-layer collaborator tests and tested implicitly through the API success test.
 
 ### API Test Structure
 

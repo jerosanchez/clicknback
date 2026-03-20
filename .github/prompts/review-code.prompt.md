@@ -4,30 +4,16 @@ Use this prompt to perform a structured self-review of a diff, branch, or set of
 
 This is not a substitute for human peer review. Its purpose is to catch layer violations, missing tests, security oversights, and style inconsistencies before a human reviewer spends time on them.
 
-## Context Files (Read First)
+## Context
 
-- `docs/guidelines/feature-architecture.md` — layer responsibilities, error handling convention, logging rules
-- `docs/guidelines/api-contracts.md` — API design standards, status code conventions, error response format
-- `docs/guidelines/unit-testing.md` — what must be tested and at which level
-- `docs/guidelines/quality-gates.md` — mandatory gates and their scope
-- `docs/design/error-handling-strategy.md` — the canonical error response shape
+- Read `AGENTS.md` for the full project context, architecture, conventions, and quality gates.
 
 ## Instructions
 
-Run `git diff main...HEAD` (or the diff provided below) and evaluate every changed file against the checklist that follows. For each finding, state:
-
-1. **File and approximate line** — where the issue is
-2. **Category** — which checklist item it violates
-3. **Severity** — `blocking` (must fix before merge) or `advisory` (recommended improvement)
-4. **Suggested fix** — a concrete, actionable recommendation
-
-After the full checklist pass, produce a summary:
-
-- **Verdict:** `approved` / `approved with advisories` / `changes required`
-- **Blocking findings:** numbered list (empty if none)
-- **Advisory findings:** numbered list (empty if none)
-
-Do not suggest changes that contradict established decisions documented in `docs/design/` ADRs or the `Decisions` section of any relevant prompt file.
+- Run `git diff main...HEAD` (or use the diff provided below) and evaluate every changed file against the checklist that follows.
+- For each finding, state: the file and approximate line, which checklist item it violates, severity (blocking or advisory), and a concrete suggested fix.
+- After the full checklist pass, produce a summary with a verdict (`approved` / `approved with advisories` / `changes required`), a numbered list of blocking findings, and a numbered list of advisory findings.
+- Do not suggest changes that contradict established decisions documented in `docs/design/` ADRs.
 
 ---
 

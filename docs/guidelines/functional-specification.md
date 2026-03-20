@@ -19,7 +19,7 @@ The spec is **implementation-agnostic** — it does not mention code, databases,
 
 ## One Spec Per Feature
 
-A feature is a **single user-facing action**. Not a domain area, not a module.
+Write one spec per user-facing action; do not group multiple actions into a domain-area document.
 
 **Correct:**
 
@@ -101,7 +101,7 @@ Explain each term once, clearly. Developers will reference this when reading acc
 
 ### 4. Constraints
 
-This is the **most critical section**. Constraints encode all business rules, input validation, authorization, and data logic that shape the feature.
+Include every input validation rule, authorization check, and data dependency in this section — it is the most critical part of the spec. Constraints encode all business rules, input validation, authorization, and data logic that shape the feature.
 
 Organize constraints by category:
 
@@ -146,7 +146,7 @@ Organize constraints by category:
 
 ### 5. BDD Acceptance Criteria
 
-Acceptance Criteria describe the scenarios in which the feature succeeds or fails using Behavior-Driven Development (BDD) syntax:
+Use BDD syntax to describe each scenario in which the feature succeeds or fails:
 
 ```markdown
 ## BDD Acceptance Criteria
@@ -181,9 +181,9 @@ Every functional spec must include at least one scenario for each of these categ
 
 **Per-scenario rules:**
 
-1. **Given** — The precondition. What is the state before the action?
-2. **When** — The trigger. What does the user do?
-3. **Then** — The outcome. What is the result?
+1. **Given** — State the precondition: what is true before the action.
+2. **When** — State the trigger: what the user does or what event occurs.
+3. **Then** — State the expected outcome: what the result is.
 
 Keep each scenario short: one **Given**, one **When**, one **Then** per scenario. If a scenario requires multiple steps, break it into numbered steps within the **Then** clause:
 
@@ -200,7 +200,7 @@ Keep each scenario short: one **Given**, one **When**, one **Then** per scenario
 **How to write good scenarios:**
 
 - Use concrete examples in **Given** (specific error codes, specific UUIDs from seed data) rather than abstract placeholders.
-- Each scenario is independent; do not assume state from previous scenarios.
+- Keep each scenario independent; never assume state from previous scenarios.
 - Cover the happy path first, then auth failures, then validation failures, then business-rule failures.
 - List scenarios in order of **likelihood**/**importance**: happy path first, then most common sad paths.
 
@@ -208,7 +208,7 @@ Keep each scenario short: one **Given**, one **When**, one **Then** per scenario
 
 ### 6. Use Cases
 
-Use cases describe the **step-by-step flows** in prose. They answer the question: "How does the system actually execute this feature?"
+Write use cases as **step-by-step numbered flows** in prose. They answer the question: "How does the system actually execute this feature?"
 
 **Structure:**
 
