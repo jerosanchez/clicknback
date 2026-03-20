@@ -1,0 +1,116 @@
+# Wallets – List Wallet Transactions
+# Smoke tests for GET /users/me/wallet/transactions.
+#
+# Authenticated-user endpoint. Returns a paginated list of the requesting
+# user's wallet transactions (cashback credits and reversals), ordered newest
+# first. Query parameters: limit (1–100, default 10) and offset (≥0, default 0).
+# The user identity is derived from the JWT, so no user_id is in the path.
+#
+# Seed data (seeds/all.sql):
+#   alice (b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d)
+#     7 transactions (5 pending credits, 1 available credit, 1 pending from rejection-sim)
+#   bob (c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a)
+#     6 transactions (3 pending credits, 1 available credit, 1 reversal, 1 pending from rejection-sim)
+#   carol (d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a)
+#     2 transactions (1 pending credit, 1 reversal)
+#   jero (d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1b)
+#     0 transactions (no cashback activity)
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Expired local-dev placeholder — never a real credential.
+# Run the login helper below and paste the returned access_token to refresh.
+@aliceToken = Bearer insert_token_here
+@bobToken   = Bearer insert_token_here
+@jeroToken  = Bearer insert_token_here
+
+### Helper – obtain a fresh alice token
+# Returns access_token — paste as "Bearer <token>" into @aliceToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+###
+
+### Helper – obtain a fresh bob token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "bob@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+###
+
+### 200 – Happy path: alice's transactions (default pagination)
+# Expects: 7 transactions total, all types present (cashback_credit / pending+available,
+# and whatever the rejection-sim purchase yields).
+GET {{baseUrl}}/users/me/wallet/transactions
+Authorization: {{aliceToken}}
+
+###
+
+### 200 – Happy path: bob's transactions — includes a reversed cashback
+# Expects: transactions including one with type=reversal, status=reversed.
+GET {{baseUrl}}/users/me/wallet/transactions
+Authorization: {{bobToken}}
+
+###
+
+### 200 – Happy path: jero's transactions — no cashback activity
+# Expects: { "transactions": [], "total": 0 }
+GET {{baseUrl}}/users/me/wallet/transactions
+Authorization: {{jeroToken}}
+
+###
+
+### 200 – Pagination: alice's transactions, first page of 3
+# Expects: 3 items returned (the 3 most recent), total reflects full count (7).
+GET {{baseUrl}}/users/me/wallet/transactions?limit=3&offset=0
+Authorization: {{aliceToken}}
+
+###
+
+### 200 – Pagination: alice's transactions, second page of 3
+# Expects: next 3 items, skipping the first 3.
+GET {{baseUrl}}/users/me/wallet/transactions?limit=3&offset=3
+Authorization: {{aliceToken}}
+
+###
+
+### 200 – Pagination: beyond the last page
+# Expects: empty transactions array, total still reflects full count.
+GET {{baseUrl}}/users/me/wallet/transactions?limit=10&offset=100
+Authorization: {{aliceToken}}
+
+###
+
+### 422 – Sad path: invalid limit (below minimum)
+# Expects: 422 Unprocessable Entity
+GET {{baseUrl}}/users/me/wallet/transactions?limit=0
+Authorization: {{aliceToken}}
+
+###
+
+### 422 – Sad path: invalid limit (above maximum)
+# Expects: 422 Unprocessable Entity
+GET {{baseUrl}}/users/me/wallet/transactions?limit=101
+Authorization: {{aliceToken}}
+
+###
+
+### 422 – Sad path: invalid offset (negative)
+# Expects: 422 Unprocessable Entity
+GET {{baseUrl}}/users/me/wallet/transactions?offset=-1
+Authorization: {{aliceToken}}
+
+###
+
+### 401 – Sad path: unauthenticated request (no Authorization header)
+# Expects: 401 Unauthorized
+GET {{baseUrl}}/users/me/wallet/transactions
