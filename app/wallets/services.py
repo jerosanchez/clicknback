@@ -2,13 +2,24 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.wallets.clients.cashback import CashbackClientABC
 from app.wallets.repositories import WalletRepositoryABC
-from app.wallets.schemas import WalletSummaryOut
+from app.wallets.schemas import (
+    PaginatedWalletTransactionOut,
+    WalletSummaryOut,
+    WalletTransactionOut,
+    WalletTransactionType,
+)
 
 
 class WalletService:
-    def __init__(self, repository: WalletRepositoryABC) -> None:
+    def __init__(
+        self,
+        repository: WalletRepositoryABC,
+        cashback_client: CashbackClientABC,
+    ) -> None:
         self.repository = repository
+        self.cashback_client = cashback_client
 
     async def get_wallet_summary(
         self, user_id: str, db: AsyncSession
@@ -25,3 +36,21 @@ class WalletService:
             available_balance=wallet.available_balance,
             paid_balance=wallet.paid_balance,
         )
+
+    async def list_wallet_transactions(
+        self, user_id: str, limit: int, offset: int, db: AsyncSession
+    ) -> PaginatedWalletTransactionOut:
+        txns, total = await self.cashback_client.list_by_user_id(
+            db, user_id, limit, offset
+        )
+        transactions = [
+            WalletTransactionOut(
+                id=txn.id,
+                type=WalletTransactionType.CASHBACK_CREDIT,
+                amount=txn.amount,
+                status=txn.status,
+                related_purchase_id=txn.purchase_id,
+            )
+            for txn in txns
+        ]
+        return PaginatedWalletTransactionOut(transactions=transactions, total=total)
