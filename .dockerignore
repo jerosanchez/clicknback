@@ -23,6 +23,7 @@ Makefile
 # break the build.
 docs/
 CONTRIBUTING.md
+AGENTS.md
 
 # Secrets — must never be baked into an image layer
 .env
