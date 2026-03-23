@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Parses total coverage from coverage.txt (captured pytest-cov stdout) and
-# prints an emoji-graded result. Exits non-zero if coverage is below 70%.
+# prints an emoji-graded result. Exits non-zero if coverage is below 85%.
 #
 # Usage:
 #   bash scripts/coverage-grade.sh              # reads coverage.txt
@@ -31,12 +31,12 @@ echo ""
 if (( PCT < 50 )); then
     echo "❌  Poor — significant gaps, must improve"
     exit 1
-elif (( PCT < 70 )); then
+elif (( PCT < 85 )); then
     echo "⚠️  Low — almost there, keep going"
     exit 1
-elif (( PCT < 80 )); then
-    echo "✅  Approved — minimum bar cleared"
 elif (( PCT < 90 )); then
+    echo "✅  Approved — minimum bar cleared"
+elif (( PCT < 95 )); then
     echo "🌟  High — above expectations"
 else
     echo "🚀  Excellent — outstanding coverage"

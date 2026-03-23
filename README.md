@@ -6,10 +6,28 @@
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?logo=fastapi)
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
-![status: early development](https://img.shields.io/badge/status-early%20development-orange)
+![coverage: 89%](https://img.shields.io/badge/coverage-89%25-brightgreen)
+![status: actively maintained](https://img.shields.io/badge/status-actively%20maintained-green)
+
 <!-- markdownlint-enable MD041 -->
 
-**A production-grade cashback platform backend.**
+**A production-grade cashback platform backend.** Live at [clicknback.com](https://clicknback.com/docs) — no setup required.
+
+This is a reference implementation, not a startup — there are no paying customers, and no shortcuts taken because of it. It was built exactly the way it would need to be built for a real company: financial precision, idempotency guarantees, row-level locking, documented tradeoffs, and a CI/CD pipeline enforcing quality on every commit. Zero external pressure. Zero compromises.
+
+Built during a deliberate sabbatical by a software engineer who previously shipped to millions of users — 6+ years as a mobile engineer and 1+ year as a backend engineer, both at scale-up startups. Every architectural decision is documented, justified, and open for technical review.
+
+---
+
+## The Story
+
+ClickNBack did not emerge from a tutorial. It was built during a deliberate sabbatical — the chance to take the time to build something properly, with the right constraints, and document every decision along the way. The full journey is on the blog:
+
+- **Why the sabbatical**: [A Sabbatical With Intent](https://jerosanchez.com/posts/20251203-a-sabbatical-with-intent/) — context, intent, and what "building with intent" looks like in practice
+- **Why this domain**: [The Pivot: Why I Dropped a Marketplace for a Cashback System](https://jerosanchez.com/posts/20260321-the-pivot-why-i-dropped-a-marketplace/) — why financial systems were the right backdrop, not a tutorial topic
+- **The technical tour**: [Before You Ask: What You'll Find If You Read ClickNBack](https://jerosanchez.com/posts/20260323-before-you-ask/) — guided walkthrough of the ADRs, the architecture, the tests, and the honest tradeoffs
+
+_If you are a recruiter or hiring manager evaluating this project, the technical tour post is the most efficient starting point._
 
 ---
 
@@ -19,15 +37,21 @@ ClickNBack models how a real cashback application works: users earn rewards on p
 
 A complete [glossary](/docs/specs/domain-glossary.md) and [product spec documents](/docs/specs/) are available to better understand the business domain.
 
-The system is a working backend that is continuously being deployed to a real VPS, publicly accessible at <https://clicknback.com/docs>, demonstrating the kind of decisions, tradeoffs, and discipline expected in a production codebase.
-
-See the [Try the Live API](#try-the-live-api) section below to play with the API.
+The system is continuously deployed to a real VPS with a full CI/CD pipeline — lint, tests (85% coverage hard gate), and security scanning run on every commit. See [Try the Live API](#try-the-live-api) to interact with it directly.
 
 Product specs are still evolving (see the [feature roadmap](#feature-roadmap) to see an up-to-date feature status).
 
 ---
 
 ## What This Project Showcases
+
+Three design decisions worth examining closely:
+
+- **Financial correctness** — `Decimal` everywhere (never `float`), `SELECT FOR UPDATE` row-level locking on wallet mutations, and idempotency by `external_id`. Money bugs are unrecoverable.
+- **[Async purchase confirmation](docs/design/adr/013-async-purchase-confirmation.md)** — purchases are ingested immediately; a background job simulates bank reconciliation before cashback is allocated. Both confirmed and rejected flows are fully handled.
+- **[Background job architecture](docs/design/adr/016-background-job-architecture-pattern.md)** — Fan-Out Dispatcher + Per-Item Runner: each task owns its own DB session, retry lifecycle, and in-flight lock. Fully tested in isolation without spawning real asyncio tasks.
+
+The full engineering surface this project demonstrates:
 
 - **Layered architecture** — strict separation between HTTP routing, business logic, and data access, with each layer only knowing about the layer directly below it
 - **Dependency injection** — services receive all dependencies (repositories, policy callables, token providers) via constructors; FastAPI `Depends()` handles wiring at the boundary
@@ -47,7 +71,7 @@ Product specs are still evolving (see the [feature roadmap](#feature-roadmap) to
 
 ## Feature Roadmap
 
-Last updated: 2026.03.12
+Last updated: 2026.03.23
 
 _Status legend:_
 
@@ -120,20 +144,17 @@ _Status legend:_
 
 ## Try the Live API
 
-The API is continuosly deployed at **<https://clicknback.com>**. No setup required.
+The API is continuously deployed at **[clicknback.com/docs](https://clicknback.com/docs)** — no setup required.
 
-- **Interactive docs (Swagger UI):** <https://clicknback.com/docs>
-- **Demo admin credentials:** `carol@clicknback.com` / `Str0ng!Pass` — use these to access admin-only endpoints
-- **Self-register:** anyone can create a personal account via `POST /api/v1/users`
-- **Nightly reset:** the database resets every night at 03:00 UTC — any data you create will not persist
-- **Rate limits:** login and registration are capped at 5 requests/min per IP; all other endpoints at 60 requests/min per IP — you will get a `429` if you exceed these
-- _This is a shared demo environment; please be considerate._
+See [QUICKSTART.md](QUICKSTART.md) for a complete guided tour: demo credentials, a step-by-step
+REST client walkthrough ([http/quickstart.http](http/quickstart.http)), and a curl reference —
+the full cashback lifecycle from login to wallet balance in under five minutes.
 
 ---
 
 ## Architecture Decisions
 
-Significant design choices are documented as Architecture Decision Records (ADRs) under [`docs/design/adr/`](docs/design/adr/). Each record captures the context, the options considered, and the reasoning behind the decision taken — including what was explicitly rejected and why.
+Twenty-three architectural decisions (and counting) are documented as ADRs under [`docs/design/adr/`](docs/design/adr/). Each record captures the context, the options considered, and the reasoning behind the decision — including what was explicitly rejected and why. This is the paper trail of how a production-grade backend is designed, not just built.
 
 Topics covered include:
 

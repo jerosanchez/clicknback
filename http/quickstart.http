@@ -1,0 +1,226 @@
+# ClickNBack – Guided API Tour
+# ============================
+#
+# A nine-step walkthrough of the full cashback lifecycle, designed for
+# recruiters, hiring managers, and technical reviewers who want to
+# experience the product before reading the code.
+#
+# Requirements:
+#   VS Code with the REST Client extension (humao.rest-client), or
+#   IntelliJ IDEA / WebStorm (built-in HTTP client).
+#
+# Instructions:
+#   1. Run the login requests in Steps 1 and 3 first.
+#   2. Copy each returned access_token and paste it (prefixed with "Bearer ")
+#      into @adminToken or @userToken below.
+#   3. Execute the remaining requests in order.
+#
+# The live API resets nightly at 03:00 UTC — any data you create will not
+# persist beyond that. Change external_id in Step 7 on each run to avoid
+# a 409 Conflict from a previous session.
+#
+# Full guided tour with context: https://jerosanchez.com/posts/20260323-before-you-ask/
+
+@baseUrl = https://clicknback.com/api/v1
+
+# Paste fresh tokens here after running the login steps below.
+# These are intentionally empty — the steps tell you when to fill them.
+@adminToken = Bearer PASTE_ADMIN_TOKEN_HERE
+@userToken  = Bearer PASTE_USER_TOKEN_HERE
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 1 — Admin Login
+# ══════════════════════════════════════════════════════════════════════════════
+# Carol is the pre-seeded platform admin.
+# The JWT payload carries role=admin, which unlocks merchant management and
+# platform-wide visibility. Role is verified by a stateless middleware on
+# every request — no DB lookup per call.
+#
+# → Run this request, copy the access_token from the response,
+#   paste it as "Bearer <token>" into @adminToken above.
+
+### Login as admin (carol)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 2 — Browse Merchants (Admin View)
+# ══════════════════════════════════════════════════════════════════════════════
+# Admins can see all merchants regardless of activation status.
+# Only active merchants are eligible for cashback — inactive merchants are
+# excluded from the offers visible to users (see Step 6).
+# This endpoint returns 403 Forbidden if called with a user token.
+
+### List all merchants (admin-only)
+GET {{baseUrl}}/merchants
+Authorization: {{adminToken}}
+
+### Filter to active merchants only
+GET {{baseUrl}}/merchants?active=true
+Authorization: {{adminToken}}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 3 — User Login
+# ══════════════════════════════════════════════════════════════════════════════
+# Alice is a pre-seeded user with existing wallet history:
+#   pending_balance=19.05  — cashback from purchases awaiting confirmation
+#   available_balance=15.00 — confirmed cashback ready to withdraw
+#   paid_balance=50.00      — cashback already paid out
+#
+# This pre-populated state lets you see the three-bucket model immediately
+# without waiting for the background job to run.
+#
+# → Run this request, copy the access_token from the response,
+#   paste it as "Bearer <token>" into @userToken above.
+
+### Login as user (alice, pre-seeded with wallet history)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 4 — Self-Register (Optional)
+# ══════════════════════════════════════════════════════════════════════════════
+# Registration is public — no token required.
+# Password policy: 8+ chars, at least one uppercase, lowercase, digit, special.
+# The response includes your new user's id — you would need it in Step 7
+# to ingest a purchase on your own account instead of alice's.
+#
+# Note: change the email on each run (emails are unique; re-registration
+# returns 409 EMAIL_ALREADY_REGISTERED).
+
+### Register a new user
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "recruiter@example.com",
+  "password": "Str0ng!Pass"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 5 — Browse All Offers (Admin View)
+# ══════════════════════════════════════════════════════════════════════════════
+# Admins see all offers — active, inactive, and those with expired date ranges.
+# Each offer is linked to a specific merchant and specifies a cashback type
+# (percent or fixed), optional monthly cap, and validity window.
+
+### List all offers (admin sees full unfiltered list)
+GET {{baseUrl}}/offers
+Authorization: {{adminToken}}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 6 — Browse Active Offers (User View)
+# ══════════════════════════════════════════════════════════════════════════════
+# Users only see offers where BOTH the offer AND the parent merchant are active.
+# This endpoint enforces the business rule at the query level: an inactive
+# merchant removes all its offers from user visibility automatically.
+# Response is paginated; page and page_size query params are supported.
+
+### List active offers (user-facing, both merchant and offer must be active)
+GET {{baseUrl}}/offers/active
+Authorization: {{userToken}}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 7 — Ingest a Purchase
+# ══════════════════════════════════════════════════════════════════════════════
+# Purchases are ingested immediately (optimistic ingest). On receipt, three
+# things happen atomically in a single DB transaction:
+#   1. A Purchase row is created with status=pending.
+#   2. A CashbackTransaction row is created with status=pending.
+#   3. The user's pending_balance in the wallet is incremented.
+#
+# A background job then simulates bank reconciliation asynchronously.
+# When it runs, confirmed purchases move cashback from pending → available;
+# rejected ones remove the pending amount.
+#
+# Idempotency: external_id is a UNIQUE constraint at the DB level.
+# Re-submitting the same external_id returns 409 Conflict — no double-crediting.
+# Change external_id on each run to avoid this.
+#
+# user_id must match the authenticated user (alice's id is shown below).
+# Shoply (5% cashback) is the active merchant used here; a 75.00 EUR purchase
+# will credit 3.75 EUR to alice's pending balance.
+
+### Ingest a purchase (change external_id on each run to avoid 409)
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "external_id": "qs_tour_001",
+  "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 75.00,
+  "currency": "EUR"
+}
+
+### Retry with the same external_id — returns 409 Conflict (idempotency in action)
+POST {{baseUrl}}/purchases
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "external_id": "qs_tour_001",
+  "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
+  "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "amount": 75.00,
+  "currency": "EUR"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 8 — Check Wallet Balance
+# ══════════════════════════════════════════════════════════════════════════════
+# The wallet tracks three balance buckets:
+#   pending   — cashback from purchases awaiting background confirmation
+#   available — confirmed cashback ready to withdraw
+#   paid      — cashback already paid out via a withdrawal
+#
+# After Step 7, alice's pending_balance will have increased by 3.75 EUR.
+# As the background job runs, confirmed purchases move cashback from
+# pending → available. The three buckets stay consistent across concurrent
+# wallet operations via SELECT FOR UPDATE row-level locking.
+
+### Get wallet summary (the three balance buckets)
+GET {{baseUrl}}/users/me/wallet
+Authorization: {{userToken}}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 9 — View Purchase History
+# ══════════════════════════════════════════════════════════════════════════════
+# Shows alice's full purchase history enriched with merchant names, amounts,
+# cashback amounts, and per-transaction cashback status.
+# As the background job confirms purchases over time, watch status transition
+# from pending → confirmed. Filter by status to isolate each state.
+
+### All purchases (default pagination)
+GET {{baseUrl}}/users/me/purchases
+Authorization: {{userToken}}
+
+### Filter: confirmed purchases only (cashback moved to available)
+GET {{baseUrl}}/users/me/purchases?status=confirmed
+Authorization: {{userToken}}
+
+### Filter: pending purchases only (awaiting background job)
+GET {{baseUrl}}/users/me/purchases?status=pending
+Authorization: {{userToken}}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BONUS — Wallet Transaction Log
+# ══════════════════════════════════════════════════════════════════════════════
+# A full append-only log of all cashback credits and reversals for the user,
+# ordered newest first. Useful for seeing the full history of balance changes
+# in both directions (credit on confirmation, reversal on rejection).
+
+### Wallet transaction history (limit/offset pagination)
+GET {{baseUrl}}/users/me/wallet/transactions
+Authorization: {{userToken}}

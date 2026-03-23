@@ -138,7 +138,7 @@
 - Never hand back to the user while any gate is failing; fix issues autonomously and re-run from the start.
 - `make lint` runs `markdownlint`, `flake8`, `isort --check-only`, `black --check`.
 - `make test` runs the full pytest suite with coverage; generates `htmlcov/`, `coverage.xml`, and terminal output.
-- Coverage hard gate: 70% (CI fails below this); aspirational target: 80%.
+- Coverage hard gate: 85% (CI fails below this); aspirational target: 80%.
 - `make security` runs Bandit on `app/` at medium/high severity; do not suppress with `# nosec` without documented reason.
 - Do not add `@pytest.mark.skip`, `@pytest.mark.xfail`, or stub implementations to make tests pass.
 - Do not add `# noqa` suppressions without a documented inline reason.

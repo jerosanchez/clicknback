@@ -18,7 +18,7 @@ lint: ## Run linting
 test: ## Run tests
 	@bash -c "$(VENV_ACTIVATE) python -m pytest tests/ --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml"
 
-coverage: ## Run tests, generate coverage reports, and print emoji grade (exits non-zero below 70%)
+coverage: ## Run tests, generate coverage reports, and print emoji grade (exits non-zero below 85%)
 	@$(MAKE) --no-print-directory test > coverage.txt 2>&1; bash scripts/coverage-grade.sh
 
 security: ## Run Bandit security scan on app/ (medium and high severity only)

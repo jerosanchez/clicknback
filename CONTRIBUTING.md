@@ -160,7 +160,7 @@ Always run the full gate sequence before pushing or opening a pull request:
 ```shell
 make lint       # Check code style, formatting, and docs
 make test       # Run all tests with coverage
-make coverage   # Verify coverage meets the 70% threshold
+make coverage   # Verify coverage meets the 85% threshold
 make security   # Bandit scan — must exit 0 before pushing
 ```
 
