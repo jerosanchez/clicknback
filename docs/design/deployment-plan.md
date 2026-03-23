@@ -44,7 +44,7 @@ If any hook fails, the commit is aborted and the developer sees which check fail
 
 - `make lint` — markdownlint, flake8, isort, black (read-only check)
 - `make test` — full pytest suite with coverage
-- `make coverage` — generates `coverage.xml` and prints an emoji-graded result; exits non-zero below **70%** (hard gate); **80%** is the aspirational target
+- `make coverage` — generates `coverage.xml` and prints an emoji-graded result; exits non-zero below **85%** (hard gate); **95%** is the aspirational target
 - `make security` — Bandit scan of `app/` at medium/high severity
 - Manual peer review
 
@@ -97,7 +97,7 @@ If any hook fails, the commit is aborted and the developer sees which check fail
 
 ## 5. Strategic Goals
 
-**Code Quality:** Automated testing and linting gates ensure only high-quality code reaches production. Minimum 70% test coverage.
+**Code Quality:** Automated testing and linting gates ensure only high-quality code reaches production. Minimum 85% test coverage.
 
 **Reproducibility:** Same Docker image and configuration work identically across developer computers and production VPS.
 
@@ -145,7 +145,7 @@ For a demo system, basic approach: application logs to stdout (captured by conta
 **Implemented:**
 
 - **Pre-commit hooks** — lint, format, and security gates enforced locally before every commit
-- **GitHub Actions CI** — `lint` → `test` → `coverage` (70% hard gate) → `security` (Bandit) on every PR and push to `main`
+- **GitHub Actions CI** — `lint` → `test` → `coverage` (85% hard gate) → `security` (Bandit) on every PR and push to `main`
 - **GitHub Actions CD** — on every merge to `main`: build image, push to `ghcr.io` with `sha-<commit>` and `latest` tags, deploy to VPS via SSH
 - **Two-stage Dockerfile** — minimal runtime image (no build tools, no test deps), non-root user
 - **Migration container pattern** — `migrate` service runs `alembic upgrade head` before the app starts; configured `restart: "no"` so failures are not silently retried
