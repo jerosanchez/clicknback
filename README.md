@@ -71,7 +71,7 @@ The full engineering surface this project demonstrates:
 
 ## Feature Roadmap
 
-Last updated: 2026.03.12
+Last updated: 2026.03.23
 
 _Status legend:_
 
