@@ -69,7 +69,7 @@ Runs the full test suite, captures output to `coverage.txt`, then runs `scripts/
 | `80–89%` | 🌟 High — above expectations |
 | `≥ 90%` | 🚀 Excellent — outstanding coverage |
 
-**Hard gate: 70%.** `make coverage` exits non-zero below 70%, failing CI and blocking the commit-close sequence. **80% is the aspirational target** — the grade scale makes it visible at a glance without reading numbers.
+**Hard gate: 85%.** `make coverage` exits non-zero below 85%, failing CI and blocking the commit-close sequence. **80% is the aspirational target** — the grade scale makes it visible at a glance without reading numbers.
 
 ### `make security`
 

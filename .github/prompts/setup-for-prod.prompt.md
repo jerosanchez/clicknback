@@ -36,6 +36,11 @@ The values below are specific to this project. When adapting this runbook for a 
 - The `migrate` service must use `restart: "no"` — never `on-failure` — migration failures are not transient errors and must not be retried automatically.
 - Do not re-seed the database as part of any automated step — seeding is a one-time manual operation (Step 20 only).
 - Phase 9 steps are manual and performed directly on the VPS; describe the exact commands to run but do not attempt to execute them remotely.
+- Never publish the PostgreSQL container port (`5432`) to the host in `docker-compose.yml`. Remove the `ports:` block from the database service entirely — the app and cron scripts connect via `docker exec` and the Docker internal network.
+- Always bind app-tier ports to `127.0.0.1` in `docker-compose.yml` (`"127.0.0.1:${APP_PORT}:8000"`), not `0.0.0.0`. Docker bypasses UFW via iptables for `0.0.0.0` bindings; loopback binding neutralises this.
+- Never use `POSTGRES_PASSWORD=password` or any dictionary word in production. Generate with `openssl rand -hex 24` at provisioning time before running `docker compose up` for the first time.
+- Revoke `SUPERUSER` from the database user after first boot (Step 36). `SUPERUSER` grants `COPY TO PROGRAM`, a direct shell-execution primitive that has been exploited in the wild to deploy cryptominers on this exact stack.
+- Enable UFW before the droplet's IP is added to any DNS record (Step 32). Bots scan the entire IPv4 space; an open port 5432 will be found within hours.
 
 ## Completing Steps
 
@@ -79,6 +84,11 @@ When resuming work after a break, read the **Progress** section first to identif
 - [x] Step 29 — Update `docs/guidelines/quality-gates.md`
 - [x] Step 30 — Update `README.md`
 - [x] Step 31 — Update `.env.example`
+- [x] Step 32 — VPS firewall (UFW) setup
+- [x] Step 33 — Remove database port from `docker-compose.yml`
+- [x] Step 34 — Bind app port to `127.0.0.1` in `docker-compose.yml`
+- [x] Step 35 — Rotate database password and OAUTH_HASH_KEY
+- [x] Step 36 — Revoke SUPERUSER from the database user
 
 ---
 
@@ -250,11 +260,11 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
     - `80–89%` → 🌟 **High** — above expectations
     - `≥ 90%` → 🚀 **Excellent** — outstanding coverage
 
-    Exits non-zero if coverage is below 70%, so `make coverage` fails loudly when the threshold is not met. The human-readable grade is designed to give instant visual feedback at the terminal without reading numbers — useful in code review discussions and standup demos.
+    Exits non-zero if coverage is below 85%, so `make coverage` fails loudly when the threshold is not met. The human-readable grade is designed to give instant visual feedback at the terminal without reading numbers — useful in code review discussions and standup demos.
 
     The script accepts an optional path argument (`bash scripts/coverage-grade.sh <file>`) so it can be tested against synthetic input without running pytest.
 
-    **Test the script at all five grade bands before committing.** The key properties to verify are the label text and the exit code — below 70% must exit 1, at or above 70% must exit 0. Use synthetic `coverage.txt` files to exercise each band:
+    **Test the script at all five grade bands before committing.** The key properties to verify are the label text and the exit code — below 85% must exit 1, at or above 85% must exit 0. Use synthetic `coverage.txt` files to exercise each band:
 
     ```bash
     for pct in 45 60 75 85 92; do
@@ -819,15 +829,140 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 ---
 
+## Phase 11 — VPS Security Hardening *(project-specific — manual one-time steps)*
+
+> **Background — why this phase exists:** In March 2026, this droplet was compromised via a PGMiner-family cryptominer attack. The attacker exploited three simultaneous misconfigurations: PostgreSQL port 5432 exposed to the internet, a trivially guessable database password (`password`), and the database user holding `SUPERUSER` — which exposes PostgreSQL's `COPY TO PROGRAM` RCE primitive. Automated bots found the open port within hours of initial provisioning. The miner ran under the `do-agent` (postgres container) user, consumed ~92% CPU and ~280 MB RAM, and survived reboots by being re-deployed on every successful new connection. Steps 32–36 are the permanent mitigations. They must be applied to any new droplet before DNS is pointed at it.
+
+32. **Set up UFW firewall** (manual, on VPS as root).
+
+    **Why:** Docker bypasses `iptables` rules by default — any port Docker publishes with `0.0.0.0:<port>` is accessible from the internet even if `ufw deny <port>` is in place. The fix has two layers: restrict UFW to only the ports Nginx needs, **and** stop publishing sensitive ports to `0.0.0.0` in `docker-compose.yml` (Steps 33–34). UFW's job is to be the outer firewall for ports that genuinely need to be internet-accessible.
+
+    ```bash
+    ufw --force reset
+    ufw default deny incoming
+    ufw default allow outgoing
+    ufw allow 22/tcp   comment 'SSH'
+    ufw allow 80/tcp   comment 'HTTP Nginx'
+    ufw allow 443/tcp  comment 'HTTPS Nginx'
+    echo 'y' | ufw enable
+    ufw status verbose
+    ```
+
+    **Verify:** `ufw status verbose` must show only ports 22, 80, and 443 as `ALLOW IN`. All other ports must be absent from the list.
+
+    **Do this before exposing the droplet's IP in any DNS record.** Bots scan the entire IPv4 space continuously; an unprotected port will be probed within minutes of first connection.
+
+33. **Remove the database port from `docker-compose.yml`** (edit on VPS). The `clicknback-db` service must have no `ports:` section at all. The app, migrate, and cron scripts all connect via `docker exec` or the Docker internal network (`clicknback-db:5432`) — they do not need the port published to the host.
+
+    Remove these lines from the `clicknback-db` service:
+
+    ```yaml
+    # DELETE THESE TWO LINES — they expose Postgres to the internet
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    ```
+
+    **Why:** When Docker publishes `0.0.0.0:5432:5432`, it inserts an iptables rule that bypasses UFW entirely. The database becomes accessible from the open internet regardless of UFW rules. Removing the `ports:` block means Docker creates no iptables rule for 5432 — the port simply does not exist at the host level.
+
+    **Verify:** after `docker compose up -d`, run `docker compose ps` — the `clicknback-db` container's PORTS column must show only `5432/tcp` (internal), not `0.0.0.0:5432->5432/tcp`. Also run `ss -tlnp | grep 5432` — it must return nothing.
+
+34. **Bind the app port to `127.0.0.1` in `docker-compose.yml`** (edit on VPS). Change the `clicknback-app` ports binding from `"${APP_PORT}:8000"` to `"127.0.0.1:${APP_PORT}:8000"`.
+
+    ```yaml
+    # BEFORE (bypasses UFW — port is publicly accessible)
+    ports:
+      - "${APP_PORT}:8000"
+
+    # AFTER (Docker binds to loopback only — Nginx can still reach it via 127.0.0.1)
+    ports:
+      - "127.0.0.1:${APP_PORT}:8000"
+    ```
+
+    **Why:** Nginx proxies `clicknback.com` to `127.0.0.1:<APP_PORT>`. Binding to `127.0.0.1` instead of `0.0.0.0` achieves two things: Nginx continues to work (it connects via loopback), and direct external access to `:<APP_PORT>` is eliminated. Without this change, an attacker can bypass all Nginx rate limits by connecting directly to the app's port — skipping the `limit_req` and `limit_conn` zones entirely.
+
+    **Verify:** `docker compose ps` must show `127.0.0.1:<APP_PORT>->8000/tcp`. Running `curl http://<VPS_PUBLIC_IP>:<APP_PORT>/health/live` from outside the VPS must time out or be refused.
+
+35. **Rotate database password and OAUTH_HASH_KEY** (manual, on VPS as root or clicknback user).
+
+    **Generate strong credentials:**
+
+    ```bash
+    openssl rand -hex 24   # for POSTGRES_PASSWORD (48-char hex string)
+    openssl rand -hex 32   # for OAUTH_HASH_KEY (64-char hex string)
+    ```
+
+    **Apply the new password in PostgreSQL first:**
+
+    ```bash
+    NEW_PG_PASS=$(openssl rand -hex 24)
+    docker exec app-clicknback-db-1 psql -U user -d db \
+      -c "ALTER USER \"user\" WITH PASSWORD '$NEW_PG_PASS';"
+    ```
+
+    **Then update `.env` to match:**
+
+    ```bash
+    sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$NEW_PG_PASS|" /home/clicknback/app/.env
+    ```
+
+    Update `DATABASE_URL` in `.env` to use the new password as well:
+
+    ```bash
+    # Re-source .env variables and rebuild DATABASE_URL
+    source /home/clicknback/app/.env
+    sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://${POSTGRES_USER}:${NEW_PG_PASS}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}|" \
+      /home/clicknback/app/.env
+    ```
+
+    **OAUTH_HASH_KEY** — replace the value in `.env` with the `openssl rand -hex 32` output. All existing JWT tokens will be immediately invalidated (users will need to log in again). This is acceptable and expected after a security incident.
+
+    **Important:** Do this change immediately on a fresh droplet — before running `docker compose up` for the first time — so the initial password is never `password` at any point in the deployment timeline. The `.env.example` file uses `password` as a placeholder only; production must always use a generated value.
+
+    **Never reuse the development values (`user` / `password`) in production.** The `.env.example` comment warns this explicitly, but the advice is easy to overlook. Treat it as a hard constraint: if `.env` on the VPS contains `POSTGRES_PASSWORD=password`, the deployment is insecure and must be remediated immediately.
+
+36. **Revoke SUPERUSER from the database user** (manual, on VPS).
+
+    The `user` account is created as `SUPERUSER` by the `postgres:15` Docker image when `POSTGRES_USER` is set via environment variable. `SUPERUSER` grants the `COPY TO PROGRAM` privilege, which is a direct OS shell execution primitive — any SQL client with superuser access can run arbitrary shell commands on the host.
+
+    After provisioning and running migrations for the first time, revoke all privileges the app does not need:
+
+    ```bash
+    docker exec app-clicknback-db-1 psql -U user -d db \
+      -c "ALTER USER \"user\" NOSUPERUSER NOCREATEROLE NOCREATEDB NOREPLICATION NOBYPASSRLS;"
+    ```
+
+    **Verify:**
+
+    ```bash
+    docker exec app-clicknback-db-1 psql -U user -d db \
+      -c "SELECT rolname, rolsuper FROM pg_roles WHERE rolname='user';"
+    # Must show: user | f
+    ```
+
+    Also verify that `COPY TO PROGRAM` is now blocked:
+
+    ```bash
+    docker exec app-clicknback-db-1 psql -U user -d db \
+      -c "COPY (SELECT 'test') TO PROGRAM 'echo pwned';"
+    # Must return: ERROR: must be superuser or have privileges of pg_execute_server_program...
+    ```
+
+    **Note on alembic migrations:** Alembic requires `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`, and `CREATE INDEX` on the objects it manages. All of these work without `SUPERUSER` as long as the user owns the objects (which it does, since it created them). The `NOSUPERUSER` change does not break migrations.
+
+    **Timing:** this step must be performed after the very first `docker compose up` (which runs `alembic upgrade head`). If you revoke before first boot, the migrate container may fail if any migration uses a superuser-only operation. For all subsequent deploys, migrations run as a non-superuser and this is fine.
+
+---
+
 ## Verification
 
 - Locally: `make up` → DB healthy → migrations complete → app healthy → `curl localhost:${APP_PORT}/health/ready` returns `{"status":"ready"}`.
-- Locally: `make coverage` → `coverage.xml` generated → emoji grade printed → exits non-zero below 70%.
+- Locally: `make coverage` → `coverage.xml` generated → emoji grade printed → exits non-zero below 85%.
 - Locally: `make security` → Bandit scans `app/` → exits non-zero on any medium/high severity finding.
 - Locally: `pre-commit run --all-files` → all hooks pass on the entire codebase.
-- CI on a PR: `lint` → `test` → `coverage` (gate at 70%) → `security` (Bandit, blocks on findings).
+- CI on a PR: `lint` → `test` → `coverage` (gate at 85%) → `security` (Bandit, blocks on findings).
 - CD on merge to main: image built and pushed to ghcr.io with `sha-` and `latest` tags → VPS pulls → `--remove-orphans` cleans stale containers → `/health/ready` polling confirms readiness.
 - Production: `https://clicknback.com/health/ready` returns HTTP 200 over HTTPS.
+- Production hardening: `ss -tlnp | grep 5432` returns nothing; `docker compose ps` shows `clicknback-db` PORTS as `5432/tcp` (no host binding); `docker compose ps` shows `clicknback-app` PORTS as `127.0.0.1:<APP_PORT>->8000/tcp`; `ufw status` shows only 22, 80, 443 as ALLOW IN.
 
 ---
 
@@ -837,7 +972,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 - Image registry: `ghcr.io` — free, requires a `GHCR_PAT` secret (`write:packages` PAT) because `workflow_run` triggers do not carry `write:packages` permission via `GITHUB_TOKEN`; images are private by default.
 - Security scanning: Bandit over SonarCloud — no external service, no tokens, runs identically locally and in CI; sufficient for Python security hotspot detection at this scale.
 - Pre-commit hooks: enforces the same lint, format, and security gates locally that CI enforces remotely — closes the feedback loop without waiting for a pipeline run.
-- Coverage threshold: 70% hard gate in CI, 80% aspirational goal documented in deployment plan.
+- Coverage threshold: 85% hard gate in CI, 95% aspirational goal documented in deployment plan.
 - Secrets: static `.env` on VPS, never written by CI — clean separation of deployment and operational concerns.
 - No re-seeding on deploy: seeds are dev/demo only (`make db-reset`); automated re-seeding in CD would destroy production data.
 - API versioning: `/api/v1/` prefix applied now — zero cost to add, high cost to add after a public API exists.
