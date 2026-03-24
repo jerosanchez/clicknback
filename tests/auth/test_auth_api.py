@@ -1,5 +1,5 @@
-from typing import Any, Generator
-from unittest.mock import Mock, create_autospec
+from typing import Any, AsyncGenerator, Generator
+from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 from fastapi import status
@@ -9,7 +9,7 @@ from app.auth.composition import get_auth_service
 from app.auth.exceptions import PasswordVerificationException, UserNotFoundException
 from app.auth.models import Token
 from app.auth.services import AuthService
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.codes import ErrorCode
 from app.main import app
 
@@ -19,12 +19,13 @@ def auth_service_mock() -> Mock:
     return create_autospec(AuthService)
 
 
+async def _mock_get_async_db() -> AsyncGenerator[AsyncMock, Any]:
+    yield AsyncMock()
+
+
 @pytest.fixture
 def client(auth_service_mock: Mock) -> Generator[TestClient, None, None]:
-    def mock_get_db() -> Generator[Mock, None, None]:
-        yield Mock()
-
-    app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_auth_service] = lambda: auth_service_mock
 
     test_client = TestClient(app)

@@ -1,6 +1,6 @@
 from typing import Any, Callable
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.clients import UsersClientABC
 from app.auth.exceptions import PasswordVerificationException, UserNotFoundException
@@ -21,11 +21,11 @@ class AuthService:
         self.token_provider = token_provider
         self.verify_password = verify_password
 
-    def login(self, login_data: dict[str, Any], db: Session) -> Token:
+    async def login(self, login_data: dict[str, Any], db: AsyncSession) -> Token:
         email: str = login_data["email"]
         password: str = login_data["password"]
 
-        user = self.users_client.get_user_by_email(db, email)
+        user = await self.users_client.get_user_by_email(db, email)
 
         if not user:
             logger.debug(
