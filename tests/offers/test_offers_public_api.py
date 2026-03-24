@@ -1,5 +1,5 @@
-from typing import Any, Callable, Generator
-from unittest.mock import Mock, create_autospec
+from typing import Any, AsyncGenerator, Callable, Generator
+from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 from fastapi import status
@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.auth.exceptions import InvalidTokenException
 from app.core.config import settings
 from app.core.current_user import get_current_user
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.codes import ErrorCode
 from app.main import app
 from app.offers.composition import get_offer_service
@@ -27,12 +27,13 @@ def offer_service_mock() -> Mock:
     return create_autospec(OfferService)
 
 
+async def _mock_get_async_db() -> AsyncGenerator[AsyncMock, Any]:
+    yield AsyncMock()
+
+
 @pytest.fixture
 def user_client(offer_service_mock: Mock) -> Generator[TestClient, None, None]:
-    def mock_get_db() -> Generator[Mock, None, None]:
-        yield Mock()
-
-    app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_offer_service] = lambda: offer_service_mock
     app.dependency_overrides[get_current_user] = lambda: Mock(role=UserRoleEnum.user)
 
@@ -43,10 +44,7 @@ def user_client(offer_service_mock: Mock) -> Generator[TestClient, None, None]:
 
 @pytest.fixture
 def admin_client(offer_service_mock: Mock) -> Generator[TestClient, None, None]:
-    def mock_get_db() -> Generator[Mock, None, None]:
-        yield Mock()
-
-    app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_offer_service] = lambda: offer_service_mock
     app.dependency_overrides[get_current_user] = lambda: Mock(role=UserRoleEnum.admin)
 
@@ -59,13 +57,10 @@ def admin_client(offer_service_mock: Mock) -> Generator[TestClient, None, None]:
 def unauthenticated_client(
     offer_service_mock: Mock,
 ) -> Generator[TestClient, None, None]:
-    def mock_get_db() -> Generator[Mock, None, None]:
-        yield Mock()
-
     def raise_invalid_token() -> None:
         raise InvalidTokenException()
 
-    app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_offer_service] = lambda: offer_service_mock
     app.dependency_overrides[get_current_user] = raise_invalid_token
 

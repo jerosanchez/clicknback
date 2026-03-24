@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import date
 
-from sqlalchemy.orm import Query, Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.offers.models import Offer
 
@@ -22,21 +23,23 @@ _MerchantName = str
 
 class OfferRepositoryABC(ABC):
     @abstractmethod
-    def add_offer(self, db: Session, offer: Offer) -> Offer:
+    async def add_offer(self, db: AsyncSession, offer: Offer) -> Offer:
         pass
 
     @abstractmethod
-    def get_offer_by_id(self, db: Session, offer_id: str) -> Offer | None:
+    async def get_offer_by_id(self, db: AsyncSession, offer_id: str) -> Offer | None:
         pass
 
     @abstractmethod
-    def has_active_offer_for_merchant(self, db: Session, merchant_id: str) -> bool:
+    async def has_active_offer_for_merchant(
+        self, db: AsyncSession, merchant_id: str
+    ) -> bool:
         pass
 
     @abstractmethod
-    def list_offers(
+    async def list_offers(
         self,
-        db: Session,
+        db: AsyncSession,
         page: int,
         page_size: int,
         active: bool | None = None,
@@ -47,9 +50,9 @@ class OfferRepositoryABC(ABC):
         pass
 
     @abstractmethod
-    def list_active_offers(
+    async def list_active_offers(
         self,
-        db: Session,
+        db: AsyncSession,
         page: int,
         page_size: int,
         today: date,
@@ -57,37 +60,43 @@ class OfferRepositoryABC(ABC):
         pass
 
     @abstractmethod
-    def get_offer_with_merchant_name(
-        self, db: Session, offer_id: str
+    async def get_offer_with_merchant_name(
+        self, db: AsyncSession, offer_id: str
     ) -> tuple[Offer, str, bool] | None:
         pass
 
     @abstractmethod
-    def update_offer_status(self, db: Session, offer: Offer, active: bool) -> Offer:
+    async def update_offer_status(
+        self, db: AsyncSession, offer: Offer, active: bool
+    ) -> Offer:
         pass
 
 
 class OfferRepository(OfferRepositoryABC):
-    def add_offer(self, db: Session, offer: Offer) -> Offer:
+    async def add_offer(self, db: AsyncSession, offer: Offer) -> Offer:
         db.add(offer)
-        db.commit()
-        db.refresh(offer)
+        await db.flush()
+        await db.refresh(offer)
         return offer
 
-    def get_offer_by_id(self, db: Session, offer_id: str) -> Offer | None:
-        return db.query(Offer).filter(Offer.id == offer_id).first()
+    async def get_offer_by_id(self, db: AsyncSession, offer_id: str) -> Offer | None:
+        result = await db.execute(select(Offer).where(Offer.id == offer_id))
+        return result.scalar_one_or_none()
 
-    def has_active_offer_for_merchant(self, db: Session, merchant_id: str) -> bool:
-        return (
-            db.query(Offer)
-            .filter(Offer.merchant_id == merchant_id, Offer.active.is_(True))
-            .first()
-            is not None
+    async def has_active_offer_for_merchant(
+        self, db: AsyncSession, merchant_id: str
+    ) -> bool:
+        stmt = (
+            select(Offer.id)
+            .where(Offer.merchant_id == merchant_id, Offer.active.is_(True))
+            .limit(1)
         )
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none() is not None
 
-    def list_offers(
+    async def list_offers(
         self,
-        db: Session,
+        db: AsyncSession,
         page: int,
         page_size: int,
         active: bool | None = None,
@@ -95,27 +104,31 @@ class OfferRepository(OfferRepositoryABC):
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> tuple[list[Offer], int]:
-        query: Query[Offer] = db.query(Offer)
+        stmt = select(Offer)
         if active is not None:
-            query = query.filter(Offer.active == active)
+            stmt = stmt.where(Offer.active == active)
         if merchant_id is not None:
-            query = query.filter(Offer.merchant_id == merchant_id)
+            stmt = stmt.where(Offer.merchant_id == merchant_id)
 
         # Overlap condition: offer validity window intersects [date_from, date_to]
         # Technically, to apply an overlap date range strategy is business logic and
         # should be in the service layer, but for simplicity we put it here (for now)
         if date_from is not None:
-            query = query.filter(Offer.end_date >= date_from)
+            stmt = stmt.where(Offer.end_date >= date_from)
         if date_to is not None:
-            query = query.filter(Offer.start_date <= date_to)
+            stmt = stmt.where(Offer.start_date <= date_to)
 
-        total = query.count()
-        items = query.offset((page - 1) * page_size).limit(page_size).all()
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await db.execute(count_stmt)).scalar_one()
+
+        items_stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+        result = await db.execute(items_stmt)
+        items = list(result.scalars().all())
         return items, total
 
-    def list_active_offers(
+    async def list_active_offers(
         self,
-        db: Session,
+        db: AsyncSession,
         page: int,
         page_size: int,
         today: date,
@@ -126,22 +139,35 @@ class OfferRepository(OfferRepositoryABC):
 
         # IMPORTANT: See note on coupling and circular import issues at the top of the file.
 
-        query = (
-            db.query(Offer, Merchant.name)
+        base_stmt = (
+            select(Offer, Merchant.name)
             .join(Merchant, Offer.merchant_id == Merchant.id)
-            .filter(
+            .where(
                 Offer.active.is_(True),
                 Merchant.active.is_(True),
                 Offer.start_date <= today,
                 Offer.end_date >= today,
             )
         )
-        total = query.count()
-        rows = query.offset((page - 1) * page_size).limit(page_size).all()
-        return [(offer, name) for offer, name in rows], total
+        count_stmt = select(func.count()).select_from(
+            select(Offer.id)
+            .join(Merchant, Offer.merchant_id == Merchant.id)
+            .where(
+                Offer.active.is_(True),
+                Merchant.active.is_(True),
+                Offer.start_date <= today,
+                Offer.end_date >= today,
+            )
+            .subquery()
+        )
+        total = (await db.execute(count_stmt)).scalar_one()
+        rows = (
+            await db.execute(base_stmt.offset((page - 1) * page_size).limit(page_size))
+        ).all()
+        return [(row[0], row[1]) for row in rows], total
 
-    def get_offer_with_merchant_name(
-        self, db: Session, offer_id: str
+    async def get_offer_with_merchant_name(
+        self, db: AsyncSession, offer_id: str
     ) -> tuple[Offer, str, bool] | None:
         from app.merchants.models import (
             Merchant,  # local import to avoid potential circular deps
@@ -149,19 +175,21 @@ class OfferRepository(OfferRepositoryABC):
 
         # IMPORTANT: See note on coupling and circular import issues at the top of the file.
 
-        row = (
-            db.query(Offer, Merchant.name, Merchant.active)
+        stmt = (
+            select(Offer, Merchant.name, Merchant.active)
             .join(Merchant, Offer.merchant_id == Merchant.id)
-            .filter(Offer.id == offer_id)
-            .first()
+            .where(Offer.id == offer_id)
         )
+        row = (await db.execute(stmt)).first()
         if row is None:
             return None
         offer, merchant_name, merchant_active = row
         return offer, merchant_name, merchant_active
 
-    def update_offer_status(self, db: Session, offer: Offer, active: bool) -> Offer:
+    async def update_offer_status(
+        self, db: AsyncSession, offer: Offer, active: bool
+    ) -> Offer:
         offer.active = active
-        db.commit()
-        db.refresh(offer)
+        await db.flush()
+        await db.refresh(offer)
         return offer

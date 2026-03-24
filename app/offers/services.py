@@ -2,9 +2,10 @@ from datetime import date
 from typing import Any, Callable
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
+from app.core.unit_of_work import UnitOfWorkABC
 from app.merchants.exceptions import MerchantNotFoundException
 from app.merchants.repository import MerchantRepositoryABC
 from app.offers.exceptions import OfferNotFoundException
@@ -36,7 +37,7 @@ class OfferService:
         self.offer_repository = offer_repository
         self.merchant_repository = merchant_repository
 
-    def create_offer(self, data: dict[str, Any], db: Session) -> Offer:
+    async def create_offer(self, data: dict[str, Any], uow: UnitOfWorkABC) -> Offer:
         # Fail fast: validate offer configuration before any DB look-up.
         self.enforce_cashback_value_validity(
             data["cashback_type"], data["cashback_value"]
@@ -46,7 +47,9 @@ class OfferService:
 
         # Validate merchant exists.
         merchant_id = str(data["merchant_id"])
-        merchant = self.merchant_repository.get_merchant_by_id(db, merchant_id)
+        merchant = await self.merchant_repository.get_merchant_by_id(
+            uow.session, merchant_id
+        )
         if merchant is None:
             logger.debug(
                 "Offer creation failed: merchant not found.",
@@ -58,14 +61,15 @@ class OfferService:
         self.enforce_merchant_is_active(merchant_id, merchant.active)
 
         # Enforce one-active-offer-per-merchant invariant.
-        has_active = self.offer_repository.has_active_offer_for_merchant(
-            db, merchant_id
+        has_active = await self.offer_repository.has_active_offer_for_merchant(
+            uow.session, merchant_id
         )
         self.enforce_no_active_offer_exists(merchant_id, has_active)
 
         new_offer = self._map_to_domain_offer(data)
 
-        offer = self.offer_repository.add_offer(db, new_offer)
+        offer = await self.offer_repository.add_offer(uow.session, new_offer)
+        await uow.commit()
         logger.info(
             "Offer created successfully.",
             extra={"offer_id": offer.id, "merchant_id": offer.merchant_id},
@@ -89,7 +93,7 @@ class OfferService:
             monthly_cap_per_user=data["monthly_cap"],
         )
 
-    def list_offers(
+    async def list_offers(
         self,
         page: int,
         page_size: int,
@@ -97,9 +101,9 @@ class OfferService:
         merchant_id: UUID | None,
         date_from: date | None,
         date_to: date | None,
-        db: Session,
+        db: AsyncSession,
     ) -> tuple[list[Offer], int]:
-        return self.offer_repository.list_offers(
+        return await self.offer_repository.list_offers(
             db,
             page,
             page_size,
@@ -109,22 +113,24 @@ class OfferService:
             date_to=date_to,
         )
 
-    def list_active_offers(
+    async def list_active_offers(
         self,
         page: int,
         page_size: int,
         today: date,
-        db: Session,
+        db: AsyncSession,
     ) -> tuple[list[tuple[Offer, str]], int]:
-        return self.offer_repository.list_active_offers(db, page, page_size, today)
+        return await self.offer_repository.list_active_offers(
+            db, page, page_size, today
+        )
 
-    def get_offer_details(
+    async def get_offer_details(
         self,
         offer_id: str,
         is_admin: bool,
-        db: Session,
+        db: AsyncSession,
     ) -> tuple[Offer, str]:
-        result = self.offer_repository.get_offer_with_merchant_name(db, offer_id)
+        result = await self.offer_repository.get_offer_with_merchant_name(db, offer_id)
         if result is None:
             logger.debug(
                 "Offer details not found.",
@@ -139,8 +145,10 @@ class OfferService:
         )
         return offer, merchant_name
 
-    def set_offer_status(self, offer_id: str, active: bool, db: Session) -> Offer:
-        offer = self.offer_repository.get_offer_by_id(db, offer_id)
+    async def set_offer_status(
+        self, offer_id: str, active: bool, uow: UnitOfWorkABC
+    ) -> Offer:
+        offer = await self.offer_repository.get_offer_by_id(uow.session, offer_id)
         if offer is None:
             logger.debug(
                 "Offer not found for status update.",
@@ -148,7 +156,10 @@ class OfferService:
             )
             raise OfferNotFoundException(offer_id)
 
-        updated = self.offer_repository.update_offer_status(db, offer, active)
+        updated = await self.offer_repository.update_offer_status(
+            uow.session, offer, active
+        )
+        await uow.commit()
         logger.info(
             "Offer status updated.",
             extra={"offer_id": offer_id, "active": active},
