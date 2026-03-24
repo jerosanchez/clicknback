@@ -85,18 +85,17 @@ Always follow this order with blank lines between groups:
 
 ```python
 # 1. stdlib
-from typing import Any, Callable, Generator
-from unittest.mock import Mock, create_autospec
+from typing import Any, AsyncGenerator, Callable, Generator
+from unittest.mock import AsyncMock, Mock, create_autospec
 
 # 2. third-party
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 # 3. local — core / infrastructure first, then the module under test
 from app.core.current_user import get_current_admin_user
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.codes import ErrorCode
 from app.main import app
 from app.users.composition import get_user_service
@@ -271,10 +270,10 @@ async def test_create_entity_commits_uow_on_success(service, repository, ...) ->
 ```python
 @pytest.fixture
 def client(service_mock: Mock) -> Generator[TestClient, None, None]:
-    def mock_get_db() -> Generator[Mock, None, None]:
-        yield Mock()
+    async def mock_get_async_db() -> AsyncGenerator[AsyncMock, None]:
+        yield AsyncMock()
 
-    app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[get_async_db] = mock_get_async_db
     app.dependency_overrides[get_the_service] = lambda: service_mock
 
     test_client = TestClient(app)

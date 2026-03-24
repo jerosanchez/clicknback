@@ -96,9 +96,9 @@ def create_merchant(
 
 ## Decision
 
-Adopt **Option 3** now, with **Option 2 as the target end state**.
+**Option 2** (full async) has been fully adopted. All application modules now use the async database stack.
 
-Introduce a second, async database engine in `app/core/database.py`:
+A second, async database engine was introduced in `app/core/database.py`:
 
 ```python
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -122,7 +122,7 @@ async def get_async_db():
 
 The `asyncpg` driver replaces `psycopg2` for all new modules. It is a pure-Python async driver for PostgreSQL with no C extension dependency and native support for SQLAlchemy's `AsyncSession`.
 
-**All new modules must use the async stack.** Repositories accept `AsyncSession`, service methods are `async def`, and route handlers use `async def` with `Depends(get_async_db)`:
+**All modules use the async stack.** Repositories accept `AsyncSession`, service methods are `async def`, and route handlers use `async def` with `Depends(get_async_db)`:
 
 ```python
 # repositories.py
@@ -155,8 +155,6 @@ async def ingest_purchase(
     ...
 ```
 
-Existing modules (`users`, `merchants`, `offers`, `auth`) continue using the synchronous `Session` and `get_db()` dependency. They are migrated to the async path as a separate, incremental effort.
-
 Alembic migrations remain synchronous — they use `psycopg2` and `engine_from_config`, which does not require asyncpg. No changes to `alembic/env.py` are needed.
 
 Tests for async modules use `pytest-asyncio` with `@pytest.mark.asyncio` and `AsyncMock` or `create_autospec` on async repository methods.
@@ -165,10 +163,9 @@ Tests for async modules use `pytest-asyncio` with `@pytest.mark.asyncio` and `As
 
 - ✅ The financial core (purchases, cashback, wallets, payouts) is non-blocking end-to-end — no event-loop starvation under concurrent ingestion.
 - ✅ `expire_on_commit=False` ensures ORM objects remain accessible after `commit()` without triggering implicit lazy loads — removing a common source of `MissingGreenlet` errors in async contexts.
-- ✅ The dual-path is fully reversible: existing modules still work unchanged.
-- ✅ Clear migration path: convert one module at a time, with full test coverage as the safety net.
+- ✅ The entire codebase is non-blocking end-to-end — event-loop starvation is eliminated across all modules.
 - ✅ `asyncpg` is a mature, widely-used async PostgreSQL driver; no stability risk.
-- ⚠️ Two database dependency factories (`get_db` and `get_async_db`) coexist until migration is complete. Contributors must use the correct one for their module — this is enforced by code review and documented in the feature guide.
+- ✅ `get_db` (synchronous) is now reserved exclusively for Alembic migrations in `alembic/env.py`; all application code uses `get_async_db`.
 - ⚠️ `asyncpg` does not support `psycopg2`-style `NOTIFY/LISTEN` patterns; this is not a concern for ClickNBack's current feature set.
 - ⚠️ SQLAlchemy's `select()` API replaces the legacy `session.query()` style in async modules — contributors unfamiliar with SQLAlchemy 2.0 Core-style queries will need to learn the new pattern.
 

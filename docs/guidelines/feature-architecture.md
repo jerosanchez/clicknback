@@ -48,7 +48,7 @@ Encapsulates all database queries. Only this layer knows SQL or SQLAlchemy inter
 - **Interface segregation:** The abstract class defines the contract; concrete implementations satisfy it. This enables unit tests to mock repositories without touching the DB.
 - **No business logic:** Repositories query, insert, update, and delete — nothing more. Validation and decision-making belong in `policies.py` and `services.py`.
 - **No commits:** Repositories flush SQL to the session (`await db.flush()`) but **never** call `db.commit()`. Committing is a transaction-boundary concern that belongs to the Unit of Work (see `core/unit_of_work.py` and [ADR-021](../design/adr/021-unit-of-work-pattern.md)).
-- **Async by default:** New modules use `AsyncSession` and `async def` methods (see [ADR-010](../design/adr/010-async-database-layer.md)).
+- **Async by default:** All modules use `AsyncSession` and `async def` methods (see [ADR-010](../design/adr/010-async-database-layer.md)).
 
 #### `policies.py` – Business Rule Enforcement
 
