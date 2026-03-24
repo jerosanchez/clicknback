@@ -1,9 +1,8 @@
 from datetime import date
 from typing import Any, Callable
-from unittest.mock import Mock, create_autospec
+from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
-from sqlalchemy.orm import Session
 
 from app.merchants.exceptions import MerchantNotFoundException
 from app.merchants.models import Merchant
@@ -107,12 +106,22 @@ def _make_offer_create(**overrides: Any) -> dict[str, Any]:
     return defaults
 
 
+def _make_uow() -> Mock:
+    """Create a fresh mock UnitOfWork for write service tests."""
+    uow = Mock()
+    uow.session = AsyncMock()
+    uow.commit = AsyncMock()
+    uow.rollback = AsyncMock()
+    return uow
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # OfferService.create_offer
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def test_create_offer_returns_offer_on_success(
+@pytest.mark.asyncio
+async def test_create_offer_returns_offer_on_success(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     merchant_repository_mock: Mock,
@@ -120,7 +129,7 @@ def test_create_offer_returns_offer_on_success(
     merchant_factory: Callable[..., Merchant],
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     data = _make_offer_create()
     merchant = merchant_factory(active=True)
     expected_offer = offer_factory()
@@ -129,18 +138,20 @@ def test_create_offer_returns_offer_on_success(
     offer_repository_mock.add_offer.return_value = expected_offer
 
     # Act
-    result = offer_service.create_offer(data, db)
+    result = await offer_service.create_offer(data, uow)
 
     # Assert
     assert result == expected_offer
+    uow.commit.assert_called_once()
 
 
-def test_create_offer_enforces_cashback_value_validity_policy(
+@pytest.mark.asyncio
+async def test_create_offer_enforces_cashback_value_validity_policy(
     offer_service: OfferService,
     enforce_cashback_value_validity_mock: Mock,
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     data = _make_offer_create()
     enforce_cashback_value_validity_mock.side_effect = InvalidCashbackValueException(
         "percent", 150.0, "Must be between 0 and 20."
@@ -148,15 +159,18 @@ def test_create_offer_enforces_cashback_value_validity_policy(
 
     # Act & Assert
     with pytest.raises(InvalidCashbackValueException):
-        offer_service.create_offer(data, db)
+        await offer_service.create_offer(data, uow)
+
+    uow.commit.assert_not_called()
 
 
-def test_create_offer_enforces_date_range_validity_policy(
+@pytest.mark.asyncio
+async def test_create_offer_enforces_date_range_validity_policy(
     offer_service: OfferService,
     enforce_date_range_validity_mock: Mock,
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     data = _make_offer_create()
     enforce_date_range_validity_mock.side_effect = InvalidDateRangeException(
         date(2026, 12, 31), date(2026, 1, 1)
@@ -164,45 +178,54 @@ def test_create_offer_enforces_date_range_validity_policy(
 
     # Act & Assert
     with pytest.raises(InvalidDateRangeException):
-        offer_service.create_offer(data, db)
+        await offer_service.create_offer(data, uow)
+
+    uow.commit.assert_not_called()
 
 
-def test_create_offer_enforces_monthly_cap_validity_policy(
+@pytest.mark.asyncio
+async def test_create_offer_enforces_monthly_cap_validity_policy(
     offer_service: OfferService,
     enforce_monthly_cap_validity_mock: Mock,
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     data = _make_offer_create()
     enforce_monthly_cap_validity_mock.side_effect = InvalidMonthlyCapException(0.0)
 
     # Act & Assert
     with pytest.raises(InvalidMonthlyCapException):
-        offer_service.create_offer(data, db)
+        await offer_service.create_offer(data, uow)
+
+    uow.commit.assert_not_called()
 
 
-def test_create_offer_raises_on_merchant_not_found(
+@pytest.mark.asyncio
+async def test_create_offer_raises_on_merchant_not_found(
     offer_service: OfferService,
     merchant_repository_mock: Mock,
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     data = _make_offer_create()
     merchant_repository_mock.get_merchant_by_id.return_value = None
 
     # Act & Assert
     with pytest.raises(MerchantNotFoundException):
-        offer_service.create_offer(data, db)
+        await offer_service.create_offer(data, uow)
+
+    uow.commit.assert_not_called()
 
 
-def test_create_offer_enforces_merchant_is_active_policy(
+@pytest.mark.asyncio
+async def test_create_offer_enforces_merchant_is_active_policy(
     offer_service: OfferService,
     merchant_repository_mock: Mock,
     enforce_merchant_is_active_mock: Mock,
     merchant_factory: Callable[..., Merchant],
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     data = _make_offer_create()
     inactive_merchant = merchant_factory(active=False)
     merchant_repository_mock.get_merchant_by_id.return_value = inactive_merchant
@@ -212,10 +235,13 @@ def test_create_offer_enforces_merchant_is_active_policy(
 
     # Act & Assert
     with pytest.raises(MerchantNotActiveException):
-        offer_service.create_offer(data, db)
+        await offer_service.create_offer(data, uow)
+
+    uow.commit.assert_not_called()
 
 
-def test_create_offer_enforces_no_active_offer_exists_policy(
+@pytest.mark.asyncio
+async def test_create_offer_enforces_no_active_offer_exists_policy(
     offer_service: OfferService,
     merchant_repository_mock: Mock,
     offer_repository_mock: Mock,
@@ -223,7 +249,7 @@ def test_create_offer_enforces_no_active_offer_exists_policy(
     merchant_factory: Callable[..., Merchant],
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     data = _make_offer_create()
     active_merchant = merchant_factory(active=True)
     merchant_repository_mock.get_merchant_by_id.return_value = active_merchant
@@ -234,10 +260,13 @@ def test_create_offer_enforces_no_active_offer_exists_policy(
 
     # Act & Assert
     with pytest.raises(ActiveOfferAlreadyExistsException):
-        offer_service.create_offer(data, db)
+        await offer_service.create_offer(data, uow)
+
+    uow.commit.assert_not_called()
 
 
-def test_create_offer_maps_percent_type_correctly(
+@pytest.mark.asyncio
+async def test_create_offer_maps_percent_type_correctly(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     merchant_repository_mock: Mock,
@@ -247,7 +276,7 @@ def test_create_offer_maps_percent_type_correctly(
     """Verify that a percent offer maps cashback_value → percentage and
     sets fixed_amount to None on the persisted Offer."""
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     percent_value = 15.0
     data = _make_offer_create(
         cashback_type=CashbackTypeEnum.percent, cashback_value=percent_value
@@ -257,14 +286,15 @@ def test_create_offer_maps_percent_type_correctly(
     offer_repository_mock.add_offer.side_effect = lambda _db, o: o  # type: ignore
 
     # Act
-    result = offer_service.create_offer(data, db)
+    result = await offer_service.create_offer(data, uow)
 
     # Assert
     assert result.percentage == percent_value
     assert result.fixed_amount is None
 
 
-def test_create_offer_maps_fixed_type_correctly(
+@pytest.mark.asyncio
+async def test_create_offer_maps_fixed_type_correctly(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     merchant_repository_mock: Mock,
@@ -273,7 +303,7 @@ def test_create_offer_maps_fixed_type_correctly(
     """Verify that a fixed offer maps cashback_value → fixed_amount and
     sets percentage to 0 on the persisted Offer."""
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     fixed_value = 5.0
     data = _make_offer_create(
         cashback_type=CashbackTypeEnum.fixed, cashback_value=fixed_value
@@ -283,7 +313,7 @@ def test_create_offer_maps_fixed_type_correctly(
     offer_repository_mock.add_offer.side_effect = lambda _db, o: o  # type: ignore
 
     # Act
-    result = offer_service.create_offer(data, db)
+    result = await offer_service.create_offer(data, uow)
 
     # Assert
     assert result.fixed_amount == fixed_value
@@ -304,7 +334,8 @@ def test_create_offer_maps_fixed_type_correctly(
         (2, 2, False),  # inactive filter applied
     ],
 )
-def test_list_offers_returns_repository_result_on_call(
+@pytest.mark.asyncio
+async def test_list_offers_returns_repository_result_on_call(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     offer_factory: Callable[..., Offer],
@@ -313,7 +344,7 @@ def test_list_offers_returns_repository_result_on_call(
     active_filter: bool | None,
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    db = AsyncMock()
     offers = [
         offer_factory(id=f"f0e1d2c3-b4a5-4678-{i:04d}-3456789abcde")
         for i in range(num_items)
@@ -321,7 +352,7 @@ def test_list_offers_returns_repository_result_on_call(
     offer_repository_mock.list_offers.return_value = (offers, expected_total)
 
     # Act
-    items, total = offer_service.list_offers(
+    items, total = await offer_service.list_offers(
         page=1,
         page_size=20,
         active=active_filter,
@@ -356,40 +387,44 @@ def test_list_offers_returns_repository_result_on_call(
     [True, False],
     ids=["activate", "deactivate"],
 )
-def test_set_offer_status_returns_updated_offer(
+@pytest.mark.asyncio
+async def test_set_offer_status_returns_updated_offer(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     offer_factory: Callable[..., Offer],
     target_active: bool,
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     existing = offer_factory(active=not target_active)
     updated = offer_factory(active=target_active)
     offer_repository_mock.get_offer_by_id.return_value = existing
     offer_repository_mock.update_offer_status.return_value = updated
 
     # Act
-    result = offer_service.set_offer_status(existing.id, target_active, db)
+    result = await offer_service.set_offer_status(existing.id, target_active, uow)
 
     # Assert
     assert result == updated
+    uow.commit.assert_called_once()
 
 
-def test_set_offer_status_raises_on_offer_not_found(
+@pytest.mark.asyncio
+async def test_set_offer_status_raises_on_offer_not_found(
     offer_service: OfferService,
     offer_repository_mock: Mock,
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    uow = _make_uow()
     missing_offer_id = "00000000-0000-0000-0000-000000000000"
     offer_repository_mock.get_offer_by_id.return_value = None
 
     # Act & Assert
     with pytest.raises(OfferNotFoundException) as exc_info:
-        offer_service.set_offer_status(missing_offer_id, True, db)
+        await offer_service.set_offer_status(missing_offer_id, True, uow)
 
     assert exc_info.value.offer_id == missing_offer_id
+    uow.commit.assert_not_called()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -397,13 +432,14 @@ def test_set_offer_status_raises_on_offer_not_found(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def test_get_offer_details_returns_offer_and_merchant_name_on_success(
+@pytest.mark.asyncio
+async def test_get_offer_details_returns_offer_and_merchant_name_on_success(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     offer_factory: Callable[..., Offer],
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    db = AsyncMock()
     offer = offer_factory(active=True)
     merchant_name = "Shoply"
     merchant_active = True
@@ -414,7 +450,7 @@ def test_get_offer_details_returns_offer_and_merchant_name_on_success(
     )
 
     # Act
-    result_offer, result_merchant_name = offer_service.get_offer_details(
+    result_offer, result_merchant_name = await offer_service.get_offer_details(
         offer.id, is_admin=False, db=db
     )
 
@@ -423,30 +459,32 @@ def test_get_offer_details_returns_offer_and_merchant_name_on_success(
     assert result_merchant_name == merchant_name
 
 
-def test_get_offer_details_raises_on_offer_not_found(
+@pytest.mark.asyncio
+async def test_get_offer_details_raises_on_offer_not_found(
     offer_service: OfferService,
     offer_repository_mock: Mock,
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    db = AsyncMock()
     missing_offer_id = "00000000-0000-0000-0000-000000000000"
     offer_repository_mock.get_offer_with_merchant_name.return_value = None
 
     # Act & Assert
     with pytest.raises(OfferNotFoundException) as exc_info:
-        offer_service.get_offer_details(missing_offer_id, is_admin=False, db=db)
+        await offer_service.get_offer_details(missing_offer_id, is_admin=False, db=db)
 
     assert exc_info.value.offer_id == missing_offer_id
 
 
-def test_get_offer_details_enforces_offer_visibility_policy(
+@pytest.mark.asyncio
+async def test_get_offer_details_enforces_offer_visibility_policy(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     enforce_offer_visibility_mock: Mock,
     offer_factory: Callable[..., Offer],
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    db = AsyncMock()
     inactive_offer = offer_factory(active=False)
     offer_repository_mock.get_offer_with_merchant_name.return_value = (
         inactive_offer,
@@ -459,17 +497,18 @@ def test_get_offer_details_enforces_offer_visibility_policy(
 
     # Act & Assert
     with pytest.raises(InactiveOfferException):
-        offer_service.get_offer_details(inactive_offer.id, is_admin=False, db=db)
+        await offer_service.get_offer_details(inactive_offer.id, is_admin=False, db=db)
 
 
-def test_get_offer_details_enforces_offer_merchant_visibility_policy(
+@pytest.mark.asyncio
+async def test_get_offer_details_enforces_offer_merchant_visibility_policy(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     enforce_offer_merchant_visibility_mock: Mock,
     offer_factory: Callable[..., Offer],
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    db = AsyncMock()
     offer = offer_factory(active=True)
     inactive_merchant_name = "LuxWatches"
     inactive_merchant_active = False
@@ -484,10 +523,11 @@ def test_get_offer_details_enforces_offer_merchant_visibility_policy(
 
     # Act & Assert
     with pytest.raises(InactiveMerchantForOfferException):
-        offer_service.get_offer_details(offer.id, is_admin=False, db=db)
+        await offer_service.get_offer_details(offer.id, is_admin=False, db=db)
 
 
-def test_get_offer_details_admin_calls_policies_with_is_admin_true(
+@pytest.mark.asyncio
+async def test_get_offer_details_admin_calls_policies_with_is_admin_true(
     offer_service: OfferService,
     offer_repository_mock: Mock,
     enforce_offer_visibility_mock: Mock,
@@ -495,7 +535,7 @@ def test_get_offer_details_admin_calls_policies_with_is_admin_true(
     offer_factory: Callable[..., Offer],
 ) -> None:
     # Arrange
-    db = Mock(spec=Session)
+    db = AsyncMock()
     inactive_offer = offer_factory(active=False)
     inactive_merchant_active = False
     offer_repository_mock.get_offer_with_merchant_name.return_value = (
@@ -506,7 +546,7 @@ def test_get_offer_details_admin_calls_policies_with_is_admin_true(
     # Policies do NOT raise (mock default) — admin bypass is implemented inside policies
 
     # Act
-    result_offer, result_merchant_name = offer_service.get_offer_details(
+    result_offer, result_merchant_name = await offer_service.get_offer_details(
         inactive_offer.id, is_admin=True, db=db
     )
 

@@ -2,11 +2,11 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.current_user import get_current_user
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.builders import (
     forbidden_error,
     internal_server_error,
@@ -41,7 +41,7 @@ router = APIRouter(prefix="/offers", tags=["offers"])
         " Filters: offer active, merchant active, and today within [start_date, end_date]."
     ),
 )
-def list_active_offers(
+async def list_active_offers(
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
     page_size: int = Query(
         default=settings.default_page_size,
@@ -50,11 +50,11 @@ def list_active_offers(
         description=f"Number of results per page (max {settings.max_page_size}).",
     ),
     offer_service: OfferService = Depends(get_offer_service),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _current_user: User = Depends(get_current_user),
 ) -> PaginatedActiveOffersOut:
     try:
-        items, total = offer_service.list_active_offers(
+        items, total = await offer_service.list_active_offers(
             page,
             page_size,
             date.today(),
@@ -105,15 +105,17 @@ def _map_to_active_offer_out(offer: Offer, merchant_name: str) -> ActiveOfferOut
         " Admin users can also view inactive offers."
     ),
 )
-def get_offer_details(
+async def get_offer_details(
     offer_id: str,
     offer_service: OfferService = Depends(get_offer_service),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ) -> OfferDetailsOut:
     is_admin = current_user.role == UserRoleEnum.admin
     try:
-        offer, merchant_name = offer_service.get_offer_details(offer_id, is_admin, db)
+        offer, merchant_name = await offer_service.get_offer_details(
+            offer_id, is_admin, db
+        )
 
     except OfferNotFoundException as exc:
         raise not_found_error(

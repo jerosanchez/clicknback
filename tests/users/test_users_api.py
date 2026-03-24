@@ -1,11 +1,11 @@
-from typing import Any, Callable, Generator
-from unittest.mock import Mock, create_autospec
+from typing import Any, AsyncGenerator, Callable, Generator
+from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.codes import ErrorCode as CoreErrorCode
 from app.main import app
 from app.users.api import get_user_service
@@ -23,12 +23,13 @@ def user_service_mock() -> Mock:
     return create_autospec(UserService)
 
 
+async def _mock_get_async_db() -> AsyncGenerator[AsyncMock, Any]:
+    yield AsyncMock()
+
+
 @pytest.fixture
 def client(user_service_mock: Mock) -> Generator[TestClient, None, None]:
-    def mock_get_db() -> Generator[Mock, None, None]:
-        yield Mock()
-
-    app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_user_service] = lambda: user_service_mock
 
     test_client = TestClient(app)

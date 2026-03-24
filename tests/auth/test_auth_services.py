@@ -1,8 +1,7 @@
 from typing import Any, Callable
-from unittest.mock import Mock, create_autospec
+from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
-from sqlalchemy.orm import Session
 
 from app.auth.clients import UsersClientABC
 from app.auth.exceptions import PasswordVerificationException, UserNotFoundException
@@ -12,8 +11,8 @@ from app.auth.token_provider import OAuth2TokenProviderABC
 
 
 @pytest.fixture
-def db() -> Mock:
-    return Mock(spec=Session)
+def db() -> AsyncMock:
+    return AsyncMock()
 
 
 @pytest.fixture
@@ -53,9 +52,10 @@ def _login_input_data() -> dict[str, Any]:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def test_login_returns_token_on_success(
+@pytest.mark.asyncio
+async def test_login_returns_token_on_success(
     auth_service: AuthService,
-    db: Mock,
+    db: AsyncMock,
     users_client: Mock,
     token_provider: Mock,
     verify_password: Mock,
@@ -67,7 +67,7 @@ def test_login_returns_token_on_success(
     token_provider.create_access_token.return_value = "access_token"
 
     # Act
-    token = auth_service.login(_login_input_data(), db)
+    token = await auth_service.login(_login_input_data(), db)
 
     # Assert
     assert isinstance(token, Token)
@@ -75,9 +75,10 @@ def test_login_returns_token_on_success(
     assert token.token_type == "bearer"
 
 
-def test_login_raises_on_user_not_found(
+@pytest.mark.asyncio
+async def test_login_raises_on_user_not_found(
     auth_service: AuthService,
-    db: Mock,
+    db: AsyncMock,
     users_client: Mock,
 ) -> None:
     # Arrange
@@ -85,12 +86,13 @@ def test_login_raises_on_user_not_found(
 
     # Act & Assert
     with pytest.raises(UserNotFoundException):
-        auth_service.login(_login_input_data(), db)
+        await auth_service.login(_login_input_data(), db)
 
 
-def test_login_raises_on_invalid_password(
+@pytest.mark.asyncio
+async def test_login_raises_on_invalid_password(
     auth_service: AuthService,
-    db: Mock,
+    db: AsyncMock,
     users_client: Mock,
     verify_password: Mock,
     user_factory: Callable[..., Any],
@@ -101,4 +103,4 @@ def test_login_raises_on_invalid_password(
 
     # Act & Assert
     with pytest.raises(PasswordVerificationException):
-        auth_service.login(_login_input_data(), db)
+        await auth_service.login(_login_input_data(), db)

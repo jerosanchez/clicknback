@@ -2,11 +2,11 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.current_user import get_current_admin_user
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.builders import (
     business_rule_violation_error,
     internal_server_error,
@@ -16,6 +16,7 @@ from app.core.errors.builders import (
 )
 from app.core.errors.codes import ErrorCode
 from app.core.logging import logging
+from app.core.unit_of_work import SQLAlchemyUnitOfWork, UnitOfWorkABC
 from app.merchants.exceptions import MerchantNotFoundException
 from app.offers.composition import get_offer_service
 from app.offers.errors import ErrorCode as OfferErrorCode
@@ -42,19 +43,23 @@ from app.users.models import User
 router = APIRouter(prefix="/offers", tags=["offers"])
 
 
+def get_unit_of_work(db: AsyncSession = Depends(get_async_db)) -> UnitOfWorkABC:
+    return SQLAlchemyUnitOfWork(db)
+
+
 @router.post(
     "/",
     status_code=status.HTTP_201_CREATED,
     description="Create a new offer for a merchant.",
 )
-def create_offer(
+async def create_offer(
     create_data: OfferCreate,
     offer_service: OfferService = Depends(get_offer_service),
-    db: Session = Depends(get_db),
+    uow: UnitOfWorkABC = Depends(get_unit_of_work),
     _current_user: User = Depends(get_current_admin_user),
 ) -> OfferOut:
     try:
-        new_offer = offer_service.create_offer(create_data.model_dump(), db)
+        new_offer = await offer_service.create_offer(create_data.model_dump(), uow)
 
     except InvalidCashbackValueException as exc:
         logging.debug(
@@ -171,7 +176,7 @@ _VALID_OFFER_STATUS_VALUES = {"active", "inactive"}
         " merchant, or validity date range."
     ),
 )
-def list_offers(
+async def list_offers(
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
     page_size: int = Query(
         default=settings.default_page_size,
@@ -197,13 +202,13 @@ def list_offers(
         description="Return offers whose validity window starts on or before this date (YYYY-MM-DD).",
     ),
     offer_service: OfferService = Depends(get_offer_service),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _current_user: User = Depends(get_current_admin_user),
 ) -> PaginatedOffersOut:
     _validate_offer_query_params(status_filter, date_from, date_to)
 
     try:
-        items, total = offer_service.list_offers(
+        items, total = await offer_service.list_offers(
             page,
             page_size,
             _map_to_active(status_filter),
@@ -269,16 +274,16 @@ def _map_to_active(status_filter: str | None) -> bool | None:
     status_code=status.HTTP_200_OK,
     description="Activate or deactivate an offer.",
 )
-def set_offer_status(
+async def set_offer_status(
     offer_id: str,
     update_data: OfferStatusUpdate,
     offer_service: OfferService = Depends(get_offer_service),
-    db: Session = Depends(get_db),
+    uow: UnitOfWorkABC = Depends(get_unit_of_work),
     _current_user: User = Depends(get_current_admin_user),
 ) -> OfferStatusOut:
     active = update_data.status == "active"
     try:
-        updated = offer_service.set_offer_status(offer_id, active, db)
+        updated = await offer_service.set_offer_status(offer_id, active, uow)
 
     except OfferNotFoundException as exc:
         raise not_found_error(

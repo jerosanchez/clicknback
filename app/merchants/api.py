@@ -1,11 +1,11 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.current_user import get_current_admin_user
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.builders import (
     business_rule_violation_error,
     internal_server_error,
@@ -13,6 +13,7 @@ from app.core.errors.builders import (
 )
 from app.core.errors.codes import ErrorCode
 from app.core.logging import logging
+from app.core.unit_of_work import SQLAlchemyUnitOfWork, UnitOfWorkABC
 from app.merchants.composition import get_merchant_service
 from app.merchants.exceptions import (
     CashbackPercentageNotValidException,
@@ -31,19 +32,25 @@ from app.users.models import User
 router = APIRouter(prefix="/merchants", tags=["merchants"])
 
 
+def get_unit_of_work(db: AsyncSession = Depends(get_async_db)) -> UnitOfWorkABC:
+    return SQLAlchemyUnitOfWork(db)
+
+
 @router.post(
     "/",
     status_code=status.HTTP_201_CREATED,
     description="Create a new merchant with a default cashback percentage.",
 )
-def create_merchant(
+async def create_merchant(
     create_data: MerchantCreate,
     merchant_service: MerchantService = Depends(get_merchant_service),
-    db: Session = Depends(get_db),
+    uow: UnitOfWorkABC = Depends(get_unit_of_work),
     _current_user: User = Depends(get_current_admin_user),
 ) -> MerchantOut:
     try:
-        new_merchant = merchant_service.create_merchant(create_data.model_dump(), db)
+        new_merchant = await merchant_service.create_merchant(
+            create_data.model_dump(), uow
+        )
 
     except CashbackPercentageNotValidException as exc:
         logging.debug(
@@ -74,7 +81,7 @@ def create_merchant(
     status_code=status.HTTP_200_OK,
     description="List merchants with pagination and optional active status filtering.",
 )
-def list_merchants(
+async def list_merchants(
     page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
     page_size: int = Query(
         default=settings.default_page_size,
@@ -84,11 +91,13 @@ def list_merchants(
     ),
     active: bool | None = Query(default=None, description="Filter by active status."),
     merchant_service: MerchantService = Depends(get_merchant_service),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     _current_user: User = Depends(get_current_admin_user),
 ) -> PaginatedMerchantsOut:
     try:
-        items, total = merchant_service.list_merchants(page, page_size, active, db)
+        items, total = await merchant_service.list_merchants(
+            page, page_size, active, db
+        )
 
     except Exception as e:
         logging.error(
@@ -110,16 +119,16 @@ def list_merchants(
     status_code=status.HTTP_200_OK,
     description="Activate or deactivate a merchant.",
 )
-def set_merchant_status(
+async def set_merchant_status(
     merchant_id: str,
     update_data: MerchantStatusUpdate,
     merchant_service: MerchantService = Depends(get_merchant_service),
-    db: Session = Depends(get_db),
+    uow: UnitOfWorkABC = Depends(get_unit_of_work),
     _current_user: User = Depends(get_current_admin_user),
 ) -> MerchantStatusOut:
     active = update_data.status == "active"
     try:
-        updated = merchant_service.set_merchant_status(merchant_id, active, db)
+        updated = await merchant_service.set_merchant_status(merchant_id, active, uow)
 
     except MerchantNotFoundException as exc:
         raise not_found_error(

@@ -1,5 +1,5 @@
-from typing import Any, Callable, Generator
-from unittest.mock import Mock, create_autospec
+from typing import Any, AsyncGenerator, Callable, Generator
+from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 from fastapi import status
@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.current_user import get_current_admin_user
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.builders import forbidden_error
 from app.core.errors.codes import ErrorCode
 from app.main import app
@@ -32,12 +32,13 @@ def offer_service_mock() -> Mock:
     return create_autospec(OfferService)
 
 
+async def _mock_get_async_db() -> AsyncGenerator[AsyncMock, Any]:
+    yield AsyncMock()
+
+
 @pytest.fixture
 def client(offer_service_mock: Mock) -> Generator[TestClient, None, None]:
-    def mock_get_db() -> Generator[Mock, None, None]:
-        yield Mock()
-
-    app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_offer_service] = lambda: offer_service_mock
     app.dependency_overrides[get_current_admin_user] = lambda: Mock()
 
@@ -50,13 +51,10 @@ def client(offer_service_mock: Mock) -> Generator[TestClient, None, None]:
 def non_admin_client(
     offer_service_mock: Mock,
 ) -> Generator[TestClient, None, None]:
-    def mock_get_db() -> Generator[Mock, None, None]:
-        yield Mock()
-
     def raise_forbidden() -> None:
         raise forbidden_error("Admin access required.", {})
 
-    app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_offer_service] = lambda: offer_service_mock
     app.dependency_overrides[get_current_admin_user] = raise_forbidden
 

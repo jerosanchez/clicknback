@@ -1,9 +1,9 @@
-# merchants service stub
 from typing import Any, Callable
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
+from app.core.unit_of_work import UnitOfWorkABC
 from app.merchants.exceptions import (
     MerchantNameAlreadyExistsException,
     MerchantNotFoundException,
@@ -21,14 +21,16 @@ class MerchantService:
         self.enforce_cashback_percentage_validity = enforce_cashback_percentage_validity
         self.merchant_repository = merchant_repository
 
-    def create_merchant(self, merchant_data: dict[str, Any], db: Session) -> Merchant:
+    async def create_merchant(
+        self, merchant_data: dict[str, Any], uow: UnitOfWorkABC
+    ) -> Merchant:
         default_cashback_percentage = merchant_data["default_cashback_percentage"]
         name = merchant_data["name"]
         active = merchant_data["active"]
 
         self.enforce_cashback_percentage_validity(default_cashback_percentage)
 
-        self._enforce_merchant_name_uniqueness(name, db)
+        await self._enforce_merchant_name_uniqueness(name, uow.session)
 
         new_merchant = Merchant(
             name=name,
@@ -36,21 +38,27 @@ class MerchantService:
             active=active,
         )
 
-        return self.merchant_repository.add_merchant(db, new_merchant)
+        result = await self.merchant_repository.add_merchant(uow.session, new_merchant)
+        await uow.commit()
+        return result
 
-    def list_merchants(
+    async def list_merchants(
         self,
         page: int,
         page_size: int,
         active: bool | None,
-        db: Session,
+        db: AsyncSession,
     ) -> tuple[list[Merchant], int]:
-        return self.merchant_repository.list_merchants(db, page, page_size, active)
+        return await self.merchant_repository.list_merchants(
+            db, page, page_size, active
+        )
 
-    def set_merchant_status(
-        self, merchant_id: str, active: bool, db: Session
+    async def set_merchant_status(
+        self, merchant_id: str, active: bool, uow: UnitOfWorkABC
     ) -> Merchant:
-        merchant = self.merchant_repository.get_merchant_by_id(db, merchant_id)
+        merchant = await self.merchant_repository.get_merchant_by_id(
+            uow.session, merchant_id
+        )
         if merchant is None:
             logger.debug(
                 "Merchant not found for status update.",
@@ -58,16 +66,20 @@ class MerchantService:
             )
             raise MerchantNotFoundException(merchant_id)
 
-        updated = self.merchant_repository.update_merchant_status(db, merchant, active)
+        updated = await self.merchant_repository.update_merchant_status(
+            uow.session, merchant, active
+        )
+        await uow.commit()
         logger.info(
             "Merchant status updated.",
             extra={"merchant_id": merchant_id, "active": active},
         )
-
         return updated
 
-    def _enforce_merchant_name_uniqueness(self, name: str, db: Session) -> None:
-        if self.merchant_repository.get_merchant_by_name(db, name):
+    async def _enforce_merchant_name_uniqueness(
+        self, name: str, db: AsyncSession
+    ) -> None:
+        if await self.merchant_repository.get_merchant_by_name(db, name):
             logger.info(
                 "Attempt to create a merchant with an existing name.",
                 extra={"merchant_name": name},

@@ -1,27 +1,32 @@
 from abc import ABC, abstractmethod
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.merchants.models import Merchant
 
 
 class MerchantRepositoryABC(ABC):
     @abstractmethod
-    def get_merchant_by_name(self, db: Session, name: str) -> Merchant | None:
+    async def get_merchant_by_name(
+        self, db: AsyncSession, name: str
+    ) -> Merchant | None:
         pass
 
     @abstractmethod
-    def get_merchant_by_id(self, db: Session, merchant_id: str) -> Merchant | None:
+    async def get_merchant_by_id(
+        self, db: AsyncSession, merchant_id: str
+    ) -> Merchant | None:
         pass
 
     @abstractmethod
-    def add_merchant(self, db: Session, merchant: Merchant) -> Merchant:
+    async def add_merchant(self, db: AsyncSession, merchant: Merchant) -> Merchant:
         pass
 
     @abstractmethod
-    def list_merchants(
+    async def list_merchants(
         self,
-        db: Session,
+        db: AsyncSession,
         page: int,
         page_size: int,
         active: bool | None = None,
@@ -29,43 +34,54 @@ class MerchantRepositoryABC(ABC):
         pass
 
     @abstractmethod
-    def update_merchant_status(
-        self, db: Session, merchant: Merchant, active: bool
+    async def update_merchant_status(
+        self, db: AsyncSession, merchant: Merchant, active: bool
     ) -> Merchant:
         pass
 
 
 class MerchantRepository(MerchantRepositoryABC):
-    def get_merchant_by_name(self, db: Session, name: str) -> Merchant | None:
-        return db.query(Merchant).filter(Merchant.name == name).first()
+    async def get_merchant_by_name(
+        self, db: AsyncSession, name: str
+    ) -> Merchant | None:
+        result = await db.execute(select(Merchant).where(Merchant.name == name))
+        return result.scalar_one_or_none()
 
-    def get_merchant_by_id(self, db: Session, merchant_id: str) -> Merchant | None:
-        return db.query(Merchant).filter(Merchant.id == merchant_id).first()
+    async def get_merchant_by_id(
+        self, db: AsyncSession, merchant_id: str
+    ) -> Merchant | None:
+        result = await db.execute(select(Merchant).where(Merchant.id == merchant_id))
+        return result.scalar_one_or_none()
 
-    def add_merchant(self, db: Session, merchant: Merchant) -> Merchant:
+    async def add_merchant(self, db: AsyncSession, merchant: Merchant) -> Merchant:
         db.add(merchant)
-        db.commit()
-        db.refresh(merchant)
+        await db.flush()
+        await db.refresh(merchant)
         return merchant
 
-    def list_merchants(
+    async def list_merchants(
         self,
-        db: Session,
+        db: AsyncSession,
         page: int,
         page_size: int,
         active: bool | None = None,
     ) -> tuple[list[Merchant], int]:
-        query = db.query(Merchant)
+        stmt = select(Merchant)
         if active is not None:
-            query = query.filter(Merchant.active == active)
-        total = query.count()
-        items = query.offset((page - 1) * page_size).limit(page_size).all()
+            stmt = stmt.where(Merchant.active == active)
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await db.execute(count_stmt)).scalar_one()
+
+        items_stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+        result = await db.execute(items_stmt)
+        items = list(result.scalars().all())
         return items, total
 
-    def update_merchant_status(
-        self, db: Session, merchant: Merchant, active: bool
+    async def update_merchant_status(
+        self, db: AsyncSession, merchant: Merchant, active: bool
     ) -> Merchant:
         merchant.active = active
-        db.commit()
-        db.refresh(merchant)
+        await db.flush()
+        await db.refresh(merchant)
         return merchant

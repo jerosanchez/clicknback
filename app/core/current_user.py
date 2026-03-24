@@ -1,10 +1,10 @@
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.exceptions import InvalidTokenException
 from app.auth.token_provider import JwtOAuth2TokenProvider, OAuth2TokenProviderABC
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.logging import logger
 from app.users.composition import get_user_repository
 from app.users.models import User, UserRoleEnum
@@ -17,16 +17,16 @@ def get_token_provider() -> OAuth2TokenProviderABC:
     return JwtOAuth2TokenProvider()
 
 
-def get_current_user(
+async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     token_provider: OAuth2TokenProviderABC = Depends(get_token_provider),
     user_repository: UserRepositoryABC = Depends(get_user_repository),
 ) -> User:
     logger.debug("Verifying access token.", extra={"token": token})
     payload = token_provider.verify_access_token(token)
 
-    user = user_repository.get_user_by_id(db, payload.user_id or "")
+    user = await user_repository.get_user_by_id(db, payload.user_id or "")
 
     # Very unlikely to happen, but if the user was deleted after the token was issued,
     # we should reject the token

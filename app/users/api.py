@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.errors.builders import (
     business_rule_violation_error,
     internal_server_error,
     validation_error,
 )
 from app.core.logging import logging
+from app.core.unit_of_work import SQLAlchemyUnitOfWork, UnitOfWorkABC
 from app.users.composition import get_user_service
 from app.users.errors import ErrorCode
 from app.users.exceptions import (
@@ -20,6 +21,10 @@ from app.users.services import UserService
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+def get_unit_of_work(db: AsyncSession = Depends(get_async_db)) -> UnitOfWorkABC:
+    return SQLAlchemyUnitOfWork(db)
+
+
 @router.post(
     "/",
     response_model=UserOut,
@@ -29,10 +34,10 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def create_user(
     create_data: UserCreate,
     user_service: UserService = Depends(get_user_service),
-    db: Session = Depends(get_db),
+    uow: UnitOfWorkABC = Depends(get_unit_of_work),
 ) -> UserOut:
     try:
-        new_user = user_service.create_user(create_data.model_dump(), db)
+        new_user = await user_service.create_user(create_data.model_dump(), uow)
     except EmailAlreadyRegisteredException as exc:
         raise business_rule_violation_error(
             ErrorCode.EMAIL_ALREADY_REGISTERED,
