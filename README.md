@@ -11,23 +11,13 @@
 
 <!-- markdownlint-enable MD041 -->
 
-**A production-grade cashback platform backend.** Live at [clicknback.com](https://clicknback.com/docs) — no setup required.
+**A production-grade cashback platform backend.**
 
-This is a reference implementation, not a startup — there are no paying customers, and no shortcuts taken because of it. It was built exactly the way it would need to be built for a real company: financial precision, idempotency guarantees, row-level locking, documented tradeoffs, and a CI/CD pipeline enforcing quality on every commit. Zero external pressure. Zero compromises.
+Live at [clicknback.com](https://clicknback.com/docs) — no setup required.
 
-Built during a deliberate sabbatical by a software engineer who previously shipped to millions of users — 6+ years as a mobile engineer and 1+ year as a backend engineer, both at scale-up startups. Every architectural decision is documented, justified, and open for technical review.
+This is a reference implementation — there are no paying customers, and no shortcuts taken because of it. It was built exactly the way it would need to be built for a real company: financial precision, idempotency guarantees, row-level locking, documented tradeoffs, and a CI/CD pipeline enforcing quality on every commit. Zero compromises.
 
----
-
-## The Story
-
-ClickNBack did not emerge from a tutorial. It was built during a deliberate sabbatical — the chance to take the time to build something properly, with the right constraints, and document every decision along the way. The full journey is on the blog:
-
-- **Why the sabbatical**: [A Sabbatical With Intent](https://jerosanchez.com/posts/20251203-a-sabbatical-with-intent/) — context, intent, and what "building with intent" looks like in practice
-- **Why this domain**: [The Pivot: Why I Dropped a Marketplace for a Cashback System](https://jerosanchez.com/posts/20260321-the-pivot-why-i-dropped-a-marketplace/) — why financial systems were the right backdrop, not a tutorial topic
-- **The technical tour**: [Before You Ask: What You'll Find If You Read ClickNBack](https://jerosanchez.com/posts/20260323-before-you-ask/) — guided walkthrough of the ADRs, the architecture, the tests, and the honest tradeoffs
-
-_If you are a recruiter or hiring manager evaluating this project, the technical tour post is the most efficient starting point._
+Built by a software engineer who previously shipped to millions of users — as a mobile and a backend engineer, at scale-up startups. Every architectural decision is documented, justified, and open for technical review.
 
 ---
 
@@ -37,35 +27,33 @@ ClickNBack models how a real cashback application works: users earn rewards on p
 
 A complete [glossary](/docs/specs/domain-glossary.md) and [product spec documents](/docs/specs/) are available to better understand the business domain.
 
-The system is continuously deployed to a real VPS with a full CI/CD pipeline — lint, tests (85% coverage hard gate), and security scanning run on every commit. See [Try the Live API](#try-the-live-api) to interact with it directly.
+The system is continuously deployed to a VPS with a full CI/CD pipeline — lint, tests (85% coverage hard gate), and security scanning run on every commit. See [Try the Live API](#try-the-live-api) section to interact with it directly.
 
 Product specs are still evolving (see the [feature roadmap](#feature-roadmap) to see an up-to-date feature status).
 
 ---
 
-## What This Project Showcases
+## Technical and Domain Features
 
-Three design decisions worth examining closely:
+ClickNBack demonstrates a wide range of technical and domain features designed for real-world financial systems:
 
-- **Financial correctness** — `Decimal` everywhere (never `float`), `SELECT FOR UPDATE` row-level locking on wallet mutations, and idempotency by `external_id`. Money bugs are unrecoverable.
-- **[Async purchase confirmation](docs/design/adr/013-async-purchase-confirmation.md)** — purchases are ingested immediately; a background job simulates bank reconciliation before cashback is allocated. Both confirmed and rejected flows are fully handled.
-- **[Background job architecture](docs/design/adr/016-background-job-architecture-pattern.md)** — Fan-Out Dispatcher + Per-Item Runner: each task owns its own DB session, retry lifecycle, and in-flight lock. Fully tested in isolation without spawning real asyncio tasks.
+- **Layered, modular architecture** with strict separation between HTTP, business logic, and data access. Each domain (users, merchants, offers, purchases, wallets) is a self-contained module, making the codebase easy to navigate and ready for future extraction to services ([ADR-001](docs/design/adr/001-adopt-modular-monolith-approach.md)).
+- **Financial correctness and precision**: all monetary values use `Decimal` (never `float`), and wallet updates use row-level locking to prevent race conditions. Idempotency is enforced on purchases by external ID, ensuring no double-crediting.
+- **Asynchronous, event-driven workflows**: purchase confirmation is handled by a background job that simulates bank reconciliation, decoupled from the ingestion flow ([ADR-013](docs/design/adr/013-async-purchase-confirmation.md)).
+- **Reliable background jobs**: jobs follow a Fan-Out Dispatcher + Per-Item Runner pattern, with independent retry lifecycles and in-flight locking ([ADR-016](docs/design/adr/016-background-job-architecture-pattern.md)).
+- **Persistent audit trail**: every critical operation (purchase confirmation, cashback crediting, withdrawal, admin actions) is recorded in an append-only audit log ([ADR-015](docs/design/adr/015-persistent-audit-trail.md)).
+- **Consistent, secure authentication**: JWT-based stateless authentication supports web, mobile, and third-party integrations ([ADR-008](docs/design/adr/008-jwt-stateless-authentication.md)).
+- **Feature flag system**: features can be enabled/disabled at runtime, globally or per-merchant/user ([ADR-018](docs/design/adr/018-feature-flag-system.md)).
+- **Test discipline**: a layered testing strategy with unit, integration, and E2E tests; full coverage reporting; and strict Arrange-Act-Assert structure ([ADR-007](docs/design/adr/007-layered-testing-strategy.md)).
+- **Developer experience**: containerized PostgreSQL for all environments ([ADR-005](docs/design/adr/005-use-containerized-postgresql.md)), native Python logging ([ADR-009](docs/design/adr/009-native-logging-over-fastapi.md)), and a CI/CD pipeline enforcing lint, test, coverage, and security gates.
+- **API design**: clear, industry-standard endpoints (e.g., `/users/me` for self-resources ([ADR-020](docs/design/adr/020-use-users-me-prefix-for-self-resource-endpoints.md))), batch loading to avoid N+1 queries ([ADR-019](docs/design/adr/019-batch-loading-strategy.md)), and consistent error handling with normalized JSON responses.
+- **Business rule isolation**: policies are pure functions, enforced at the service layer, making business logic easy to test and evolve.
+- **Internal message broker and scheduler**: async pub/sub and periodic jobs are handled in-process for simplicity and testability ([ADR-014](docs/design/adr/014-in-process-broker-and-scheduler.md)).
+- **Domain-driven constraints**: EUR-only currency policy ([ADR-011](docs/design/adr/011-eur-only-currency-policy.md)), self-ingestion policy for purchases ([ADR-012](docs/design/adr/012-self-ingestion-policy.md)), and storing limited-value fields as strings for flexibility ([ADR-006](docs/design/adr/006-store-limited-value-fields-as-string.md)).
+- **Atomic multi-repository operations**: the Unit of Work pattern ensures atomicity and testability when coordinating changes across modules ([ADR-021](docs/design/adr/021-unit-of-work-pattern.md)).
+- **Collaborator verification in tests**: service tests verify correct delegation to dependencies ([ADR-022](docs/design/adr/022-collaborator-integration-verification-in-unit-tests.md)).
 
-The full engineering surface this project demonstrates:
-
-- **Layered architecture** — strict separation between HTTP routing, business logic, and data access, with each layer only knowing about the layer directly below it
-- **Dependency injection** — services receive all dependencies (repositories, policy callables, token providers) via constructors; FastAPI `Depends()` handles wiring at the boundary
-- **Repository pattern** — data access sits behind abstract interfaces, enabling full unit testing without touching the database
-- **Business rule isolation** — policies are pure functions that raise domain exceptions; services orchestrate them; the API layer translates to HTTP
-- **Consistent error handling** — a layered pipeline from domain exception → `HTTPException` → normalized JSON response `{ "error": { "code", "message", "details" } }`
-- **Financial precision** — `Decimal` for all monetary values; row-level locking (`SELECT FOR UPDATE`) for wallet updates
-- **Idempotency** — purchases keyed by external ID to prevent double-crediting
-- **Internal message broker** — a simple in-memory pub/sub component enables decoupled communication between background jobs, domain services, and future modules (e.g., notifications)
-- **Persistent audit trail** — every critical operation (purchase confirmation, cashback crediting, withdrawal, admin actions) writes an append-only row to `audit_logs`, providing durable, queryable traceability independent of log rotation
-- **Background job architecture** — background jobs follow a deliberate _Fan-Out Dispatcher + Per-Item Runner_ pattern: a lightweight dispatcher spawns one independent `asyncio.Task` per pending item on each scheduler tick; each task owns its own retry lifecycle and DB session; an abstracted in-flight tracker prevents duplicate processing; and a swappable Strategy interface decouples the external-system integration from all orchestration logic. The design is fully documented in [ADR-016](docs/design/adr/016-background-job-architecture-pattern.md)
-- **Test discipline** — unit tests (mocked dependencies via `create_autospec`), API-level tests (HTTP via `TestClient` + `dependency_overrides`), and integration tests; full coverage reporting; background job components tested in isolation without spawning real asyncio tasks
-- **Modular monolith** — module boundaries are explicit and ready for extraction into separate services if the system grows
-- **Feature flag system** — a DB-backed flag module (`app/feature_flags/`) allows capabilities to be enabled or disabled at runtime without redeployment; flags are scoped globally or per-merchant/user, enabling targeted demo workflows, safe incident response, and progressive delivery strategies (canary rollouts, A/B tests); resolution is fail-open
+Other highlights include dependency injection via FastAPI, repository pattern for data access, and a focus on extensibility and maintainability throughout the codebase. Not every feature is tied to a specific ADR, but all are designed for correctness, clarity, and real-world readiness.
 
 ---
 
@@ -156,18 +144,19 @@ the full cashback lifecycle from login to wallet balance in under five minutes.
 
 Twenty-three architectural decisions (and counting) are documented as ADRs under [`docs/design/adr/`](docs/design/adr/). Each record captures the context, the options considered, and the reasoning behind the decision — including what was explicitly rejected and why. This is the paper trail of how a production-grade backend is designed, not just built.
 
-Topics covered include:
-
-- [Technology stack selection](docs/design/adr/000-technology-stack-selection.md) — why FastAPI, SQLAlchemy, and PostgreSQL
-- [Modular monolith approach](docs/design/adr/001-adopt-modular-monolith-approach.md) — explicit module boundaries designed for future extraction
-- [API module as composition root](docs/design/adr/003-api-module-as-composition-root.md) — where and how dependencies are wired
-- [JWT stateless authentication](docs/design/adr/008-jwt-stateless-authentication.md) — token strategy and tradeoffs
-- [Layered testing strategy](docs/design/adr/007-layered-testing-strategy.md) — unit, API-level, and integration test boundaries
-- [Async purchase confirmation](docs/design/adr/013-async-purchase-confirmation.md) — event-driven, background-verified confirmation and decoupled cashback allocation
-- [Persistent audit trail](docs/design/adr/015-persistent-audit-trail.md) — durable, queryable record of every critical operation for traceability and compliance
-- [Background job architecture pattern](docs/design/adr/016-background-job-architecture-pattern.md) — Fan-Out Dispatcher + Per-Item Runner: how complex async background jobs decompose into independently testable, strategy-driven components with isolated retry lifecycles
-
 The full index is at [`docs/design/adr-index.md`](docs/design/adr-index.md).
+
+---
+
+## The Story
+
+ClickNBack did not emerge from a tutorial. It was built during a deliberate sabbatical — the chance to take the time to build something properly, with the right constraints, and document every decision along the way. The full journey is on the blog:
+
+- **Why the sabbatical**: [A Sabbatical With Intent](https://jerosanchez.com/posts/20251203-a-sabbatical-with-intent/) — context, intent, and what "building with intent" looks like in practice
+- **Why this domain**: [The Pivot: Why I Dropped a Marketplace for a Cashback System](https://jerosanchez.com/posts/20260321-the-pivot-why-i-dropped-a-marketplace/) — why financial systems were the right backdrop, not a tutorial topic
+- **The technical tour**: [Before You Ask: What You'll Find If You Read ClickNBack](https://jerosanchez.com/posts/20260323-before-you-ask/) — guided walkthrough of the ADRs, the architecture, the tests, and the honest tradeoffs
+
+_If you are a recruiter or hiring manager evaluating this project, the technical tour post is the most efficient starting point._
 
 ---
 
