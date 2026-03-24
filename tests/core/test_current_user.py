@@ -1,8 +1,7 @@
 from typing import Callable
-from unittest.mock import Mock, create_autospec
+from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
-from sqlalchemy.orm import Session
 
 from app.auth.exceptions import InvalidTokenException
 from app.auth.models import TokenPayload
@@ -13,8 +12,8 @@ from app.users.repositories import UserRepositoryABC
 
 
 @pytest.fixture
-def db() -> Mock:
-    return Mock(spec=Session)
+def db() -> AsyncMock:
+    return AsyncMock()
 
 
 @pytest.fixture
@@ -36,8 +35,9 @@ def build_token_payload(user_role: UserRoleEnum = UserRoleEnum.user) -> TokenPay
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def test_get_current_user_returns_user_on_valid_token(
-    db: Mock,
+@pytest.mark.asyncio
+async def test_get_current_user_returns_user_on_valid_token(
+    db: AsyncMock,
     token_provider: Mock,
     user_repository: Mock,
     user_factory: Callable[..., User],
@@ -48,7 +48,7 @@ def test_get_current_user_returns_user_on_valid_token(
     user_repository.get_user_by_id.return_value = user
 
     # Act
-    result = get_current_user(
+    result = await get_current_user(
         token="token",
         db=db,
         token_provider=token_provider,
@@ -59,8 +59,9 @@ def test_get_current_user_returns_user_on_valid_token(
     assert result == user
 
 
-def test_get_current_user_raises_on_user_not_found(
-    db: Mock,
+@pytest.mark.asyncio
+async def test_get_current_user_raises_on_user_not_found(
+    db: AsyncMock,
     token_provider: Mock,
     user_repository: Mock,
 ) -> None:
@@ -70,7 +71,7 @@ def test_get_current_user_raises_on_user_not_found(
 
     # Act & Assert
     with pytest.raises(InvalidTokenException):
-        get_current_user(
+        await get_current_user(
             token="token",
             db=db,
             token_provider=token_provider,
@@ -78,8 +79,9 @@ def test_get_current_user_raises_on_user_not_found(
         )
 
 
-def test_get_current_user_raises_on_inactive_user(
-    db: Mock,
+@pytest.mark.asyncio
+async def test_get_current_user_raises_on_inactive_user(
+    db: AsyncMock,
     token_provider: Mock,
     user_repository: Mock,
     user_factory: Callable[..., User],
@@ -93,7 +95,7 @@ def test_get_current_user_raises_on_inactive_user(
 
     # Act & Assert
     with pytest.raises(InvalidTokenException):
-        get_current_user(
+        await get_current_user(
             token="token",
             db=db,
             token_provider=token_provider,
