@@ -7,8 +7,32 @@ on:
     branches: [main]
 
 jobs:
-  build-push:
+  test-e2e:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install dependencies (make install)
+        run: make install
+      - name: Start E2E stack
+        run: make e2e-stack-up
+      - name: Run E2E tests
+        run: |
+          source .venv/bin/activate
+          E2E_APP_PORT=8002 python -m pytest tests/e2e/ -v
+      - name: Tear down E2E stack
+        if: always()
+        run: make e2e-stack-down
+
+  build-push:
+    needs: test-e2e
     runs-on: ubuntu-latest
     permissions:
       contents: read
