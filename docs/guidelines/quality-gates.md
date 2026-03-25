@@ -45,17 +45,21 @@ Runs three checkers in order:
 
 ### `make test`
 
-Runs the full pytest suite with line-level coverage:
+Runs the **unit test** suite with line-level coverage:
 
 ```bash
-python -m pytest tests/ --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
+python -m pytest tests/unit/ --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
 ```
 
-All tests must pass. Three reports are generated:
+All unit tests must pass. Three reports are generated:
 
 - `htmlcov/` — human-readable HTML for browser inspection
 - `coverage.xml` — machine-readable XML consumed by CI coverage gate
 - Terminal output — visible inline during the run
+
+Integration and E2E tests are not part of this gate. Run them with
+`make test-integration` (requires `TEST_DATABASE_URL`) and `make test-e2e`
+(requires Docker Compose) respectively.
 
 ### `make coverage`
 

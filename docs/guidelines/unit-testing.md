@@ -1,6 +1,8 @@
 # Testing Guidelines for AI Agents
 
-Self-contained reference for writing tests in ClickNBack. When asked to write a new test suite, follow every rule here and mirror the structure of the examples below exactly.
+Self-contained reference for writing **all** tests in ClickNBack — unit, integration, and end-to-end. When asked to write a new test suite, follow every rule here and mirror the structure of the examples below exactly.
+
+All three test layers share the same quality standards (AAA structure, naming conventions, type hints). Layer-specific rules are in §5–§14 (unit), §15 (integration), and §16 (E2E).
 
 ---
 
@@ -26,10 +28,14 @@ Self-contained reference for writing tests in ClickNBack. When asked to write a 
 
 ### Quality Standards
 
-- **AAA pattern** with explicit `# Arrange`, `# Act`, `# Assert` comments (or `# Act & Assert` when using `pytest.raises`).
+These standards apply to **every test at every layer** (unit, integration, E2E):
+
+- **AAA pattern** with explicit `# Arrange`, `# Act`, `# Assert` comments in
+every test function. Use `# Act & Assert` only when using `pytest.raises`. Never replace AAA comments with ad-hoc prose comments describing what a block does — keep the section headers as `# Arrange`, `# Act`, `# Assert` exactly and use inline prose comments only for non-obvious logic inside a section.
 - Tests are **fully independent** — no shared mutable state between tests.
 - Unit tests run in **< 100 ms**.
-- **Descriptive names:** `test_{sut}_{result}_on_{condition}` — e.g., `test_create_user_raises_on_email_already_registered`, `test_create_user_returns_201_on_success`, `test_list_merchants_returns_403_on_non_admin`. The `_on_` connector is mandatory and reads as a natural sentence: "*create_user* **raises** *on* email already registered".
+- **Descriptive names:** `test_{sut}_{result}_on_{condition}` — e.g.,
+`test_create_user_raises_on_email_already_registered`, `test_create_user_returns_201_on_success`, `test_list_merchants_returns_403_on_non_admin`. The `_on_` connector is mandatory and reads as a natural sentence: "*create_user* **raises** *on* email already registered".
 - **No magic values:** extract literals into named variables — e.g., `out_of_range_percentage = 150.0`, not a bare `150.0`.
 - **Don't over-specify test data:** When a value passes through a mock without being inspected, use the factory defaults. Only set a specific value when *that value is under test*.
 - **Full type hints everywhere** (fixtures, helpers, test functions). Exception: `Mock()` assignments are inferred correctly and don't need annotation.
@@ -39,40 +45,10 @@ Self-contained reference for writing tests in ClickNBack. When asked to write a 
 ## 2. File Structure and Naming
 
 ```text
-tests/
-    conftest.py                         # shared fixtures only
-    auth/
-        test_auth_api.py
-        test_auth_services.py
-        test_token_providers.py
-    core/
-        audit/
-            test_audit_enums.py         # mirrors app/core/audit/enums.py
-            test_audit_services.py      # mirrors app/core/audit/services.py + composition.py
-        test_current_user.py
-        errors/
-            test_builders.py
-    merchants/
-        test_merchants_api.py
-        test_merchants_policies.py
-        test_merchants_services.py
-    offers/
-        test_offers_admin_api.py        # mirrors app/offers/api/admin.py
-        test_offers_public_api.py       # mirrors app/offers/api/public.py
-        test_offers_policies.py
-        test_offers_services.py
-    purchases/
-        test_purchases_api.py
-        test_purchases_policies.py
-        test_purchases_schemas.py
-        test_purchases_services.py
-    users/
-        test_users_api.py
-        test_users_policies.py
-        test_users_services.py
+tests/ unit/ conftest.py                         # shared fixtures only auth/ test_auth_api.py test_auth_services.py test_token_providers.py core/ audit/ test_audit_enums.py         # mirrors app/core/audit/enums.py test_audit_services.py      # mirrors app/core/audit/services.py + composition.py test_current_user.py errors/ test_builders.py merchants/ test_merchants_api.py test_merchants_policies.py test_merchants_services.py offers/ test_offers_admin_api.py        # mirrors app/offers/api/admin.py test_offers_public_api.py       # mirrors app/offers/api/public.py test_offers_policies.py test_offers_services.py purchases/ test_purchases_api.py test_purchases_policies.py test_purchases_schemas.py test_purchases_services.py users/ test_users_api.py test_users_policies.py test_users_services.py integration/ conftest.py                         # DB engine, session, http_client fixtures auth/ test_auth_login_integration.py merchants/ test_merchants_create_integration.py test_merchants_list_integration.py test_merchants_set_status_integration.py offers/ test_offers_create_integration.py test_offers_list_admin_integration.py test_offers_set_status_integration.py test_offers_list_active_integration.py test_offers_get_details_integration.py purchases/ test_purchases_ingest_integration.py test_purchases_list_user_integration.py test_purchases_get_details_integration.py test_purchases_list_admin_integration.py users/ test_users_create_integration.py wallets/ test_wallets_summary_integration.py test_wallets_transactions_integration.py e2e/ (planned — see §16)
 ```
 
-**Rule:** `tests/{module}/test_{module_name}_{layer}.py`
+**Rule:** `tests/unit/{module}/test_{module_name}_{layer}.py`
 Maps exactly to the source file it exercises: `app/{module}/{layer}.py` → `test_{module}_{layer}.py`. When `{layer}` is itself a package (e.g., `api/admin.py`), the test file name encodes the sub-module: `test_{module}_{sub_module}_{layer}.py` — e.g., `test_offers_admin_api.py` mirrors `app/offers/api/admin.py`.
 
 See `docs/guidelines/code-organization.md` §6 for the full naming table.
@@ -85,30 +61,20 @@ Always follow this order with blank lines between groups:
 
 ```python
 # 1. stdlib
-from typing import Any, AsyncGenerator, Callable, Generator
-from unittest.mock import AsyncMock, Mock, create_autospec
+from typing import Any, AsyncGenerator, Callable, Generator from unittest.mock import AsyncMock, Mock, create_autospec
 
 # 2. third-party
-import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
+import pytest from fastapi import status from fastapi.testclient import TestClient
 
 # 3. local — core / infrastructure first, then the module under test
-from app.core.current_user import get_current_admin_user
-from app.core.database import get_async_db
-from app.core.errors.codes import ErrorCode
-from app.main import app
-from app.users.composition import get_user_service
-from app.users.exceptions import EmailAlreadyRegisteredException
-from app.users.models import User
-from app.users.services import UserService
+from app.core.current_user import get_current_admin_user from app.core.database import get_async_db from app.core.errors.codes import ErrorCode from app.main import app from app.users.composition import get_user_service from app.users.exceptions import EmailAlreadyRegisteredException from app.users.models import User from app.users.services import UserService
 ```
 
 ---
 
 ## 4. conftest.py — Shared Fixtures
 
-`tests/conftest.py` contains **only** fixtures that are reused by more than one test module. **Before** defining any fixture locally, read `conftest.py` first — if a factory or input-data builder for the model you need already exists there, reuse it rather than defining a local one.
+`tests/unit/conftest.py` contains **only** fixtures that are reused by more than one test module. **Before** defining any fixture locally, read `conftest.py` first — if a factory or input-data builder for the model you need already exists there, reuse it rather than defining a local one.
 
 Expect to find two types of shared fixtures per domain model:
 
@@ -120,33 +86,19 @@ Expect to find two types of shared fixtures per domain model:
 ### Factory Pattern
 
 ```python
-# tests/conftest.py
-from typing import Any, Callable
-import pytest
-from app.users.models import User
+# tests/unit/conftest.py
+from typing import Any, Callable import pytest from app.users.models import User
 
 @pytest.fixture
 def user_factory() -> Callable[..., User]:
     def _make_user(**kwargs: Any) -> User:
-        defaults: dict[str, Any] = {
-            "id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
-            "email": "alice@example.com",
-            "hashed_password": "hashed_pw",
-            "role": "admin",
-            "active": True,
-            "created_at": "2026-02-15T18:42:18.340977",
-        }
-        defaults.update(kwargs)
-        return User(**defaults)
-    return _make_user
+defaults: dict[str, Any] = { "id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d", "email": "alice@example.com", "hashed_password": "hashed_pw", "role": "admin", "active": True, "created_at": "2026-02-15T18:42:18.340977", } defaults.update(kwargs) return User(**defaults) return _make_user
 ```
 
 Usage — pass only the fields that matter for the test:
 
 ```python
-user = user_factory()                        # all defaults
-user = user_factory(active=False)            # override one field
-user = user_factory(role=UserRoleEnum.user)  # override another
+user = user_factory()                        # all defaults user = user_factory(active=False)            # override one field user = user_factory(role=UserRoleEnum.user)  # override another
 ```
 
 ### Input Data Fixture Pattern
@@ -155,26 +107,21 @@ user = user_factory(role=UserRoleEnum.user)  # override another
 @pytest.fixture
 def user_input_data() -> Callable[[User], dict[str, Any]]:
     def _build(user: User) -> dict[str, Any]:
-        return {
-            "email": user.email,
-            "password": "PlaceholderPass1!",   # placeholder — not under test
-        }
-    return _build
+return { "email": user.email, "password": "PlaceholderPass1!",   # placeholder — not under test } return _build
 ```
 
 ---
 
 ## 5. Unit Testing Services
 
-**References:** `tests/users/test_users_services.py`, `tests/auth/test_auth_services.py`, `tests/merchants/test_merchants_services.py`
+**References:** `tests/unit/users/test_users_services.py`, `tests/unit/auth/test_auth_services.py`, `tests/unit/merchants/test_merchants_services.py`
 
 ### Structure
 
 1. Fixtures (in this order):
-   - One fixture per **dependency** (callable dependencies use `Mock()`, ABCs use `create_autospec`)
-   - One fixture that **assembles** the service, injecting the dependency fixtures
-2. Module-level helper functions (if any)
-3. Test functions
+
+- One fixture per **dependency** (callable dependencies use `Mock()`, ABCs use `create_autospec`)
+- One fixture that **assembles** the service, injecting the dependency fixtures 2. Module-level helper functions (if any) 3. Test functions
 
 ### Mocking Rules
 
@@ -193,15 +140,10 @@ def user_input_data() -> Callable[[User], dict[str, Any]]:
 Service methods that commit use `UnitOfWorkABC` instead of a raw `AsyncSession`. Create a module-level `_make_uow()` helper (not a fixture — it must be called fresh inside each test) that returns a plain `Mock` with async attributes:
 
 ```python
-from unittest.mock import AsyncMock, Mock
-from app.core.unit_of_work import UnitOfWorkABC
+from unittest.mock import AsyncMock, Mock from app.core.unit_of_work import UnitOfWorkABC
 
 def _make_uow() -> Mock:
-    uow = Mock()           # plain Mock, not create_autospec — session is a property
-    uow.session = AsyncMock()
-    uow.commit = AsyncMock()
-    uow.rollback = AsyncMock()
-    return uow
+uow = Mock()           # plain Mock, not create_autospec — session is a property uow.session = AsyncMock() uow.commit = AsyncMock() uow.rollback = AsyncMock() return uow
 ```
 
 Usage inside a test:
@@ -209,20 +151,19 @@ Usage inside a test:
 ```python
 async def test_create_entity_commits_uow_on_success(service, repository, ...) -> None:
     # Arrange
-    uow = _make_uow()
-    repository.add.return_value = entity_factory()
+uow = _make_uow() repository.add.return_value = entity_factory()
 
     # Act
-    await service.create_entity(data, uow)
+await service.create_entity(data, uow)
 
     # Assert
-    uow.commit.assert_called_once()
+uow.commit.assert_called_once()
 ```
 
 > **Why `Mock()` rather than `create_autospec(UnitOfWorkABC)`?**
 > `session` is an abstract property; `create_autospec` makes it a descriptor that cannot be freely assigned. A plain `Mock()` avoids this while still being spec-ed by the type hints in the service.
 
-**Canonical example:** `tests/users/test_users_services.py` — read this file before writing a new service test. `tests/merchants/test_merchants_services.py` and `tests/auth/test_auth_services.py` follow the exact same structure.
+**Canonical example:** `tests/unit/users/test_users_services.py` — read this file before writing a new service test. `tests/unit/merchants/test_merchants_services.py` and `tests/unit/auth/test_auth_services.py` follow the exact same structure.
 
 ### Service Test Checklist
 
@@ -240,7 +181,7 @@ async def test_create_entity_commits_uow_on_success(service, repository, ...) ->
 
 ## 6. Unit Testing API Endpoints
 
-**References:** `tests/users/test_users_api.py`, `tests/auth/test_auth_api.py`, `tests/merchants/test_merchants_api.py`
+**References:** `tests/unit/users/test_users_api.py`, `tests/unit/auth/test_auth_api.py`, `tests/unit/merchants/test_merchants_api.py`
 
 ### Testing Scope
 
@@ -250,20 +191,14 @@ async def test_create_entity_commits_uow_on_success(service, repository, ...) ->
 - Always test that unhandled exceptions produce a 500 response.
 - Always test the non-admin (403) case — verifies the endpoint calls the correct admin-guarded dependency.
 - Always test query/path parameter constraint validation for endpoints with `ge`/`le` constraints, covering both valid and invalid boundary values.
-- Never test unauthenticated (401) per endpoint — the 401 is raised inside the auth helper (`get_current_user`), which is already tested in `tests/core/test_current_user.py`; repeating it on every endpoint is redundant.
+- Never test unauthenticated (401) per endpoint — the 401 is raised inside the auth helper (`get_current_user`), which is already tested in `tests/unit/core/test_current_user.py`; repeating it on every endpoint is redundant.
 - Never test business logic in API tests (belongs in service tests).
 - Never re-verify service argument forwarding at the API level — parameter-to-service delegation is verified in service-layer collaborator tests and tested implicitly through the API success test.
 
 ### API Test Structure
 
 1. `{service}_mock` fixture — `create_autospec(TheService)`, return type `Mock`
-2. `client` fixture — overrides all FastAPI dependencies, yields `TestClient`, clears overrides
-3. Module-level `_input_data()` function — returns a plain `dict` (not a fixture, no `@pytest.fixture`)
-4. Module-level assertion helpers — `_assert_*_response`, `_assert_error_payload`
-5. Success test — asserts **every** field in the response schema through a `_assert_*_response` helper; stub the service to return a factory-built model instance and verify the full field mapping (id, all value fields, all derived/computed fields such as `status`)
-6. Parametrized exceptions test — one entry per exception the endpoint can raise, including the generic unhandled `Exception` → 500 case; **every** exception listed in the api module must appear; checks status code + error code only
-7. Individual detail tests for each domain exception (full error body)
-8. Boundary value tests for any endpoint with constrained query/path params (two parametrized tests — valid and invalid)
+2. `client` fixture — overrides all FastAPI dependencies, yields `TestClient`, clears overrides 3. Module-level `_input_data()` function — returns a plain `dict` (not a fixture, no `@pytest.fixture`) 4. Module-level assertion helpers — `_assert_*_response`, `_assert_error_payload` 5. Success test — asserts **every** field in the response schema through a `_assert_*_response` helper; stub the service to return a factory-built model instance and verify the full field mapping (id, all value fields, all derived/computed fields such as `status`) 6. Parametrized exceptions test — one entry per exception the endpoint can raise, including the generic unhandled `Exception` → 500 case; **every** exception listed in the api module must appear; checks status code + error code only 7. Individual detail tests for each domain exception (full error body) 8. Boundary value tests for any endpoint with constrained query/path params (two parametrized tests — valid and invalid)
 
 ### `client` Fixture Pattern
 
@@ -271,37 +206,29 @@ async def test_create_entity_commits_uow_on_success(service, repository, ...) ->
 @pytest.fixture
 def client(service_mock: Mock) -> Generator[TestClient, None, None]:
     async def mock_get_async_db() -> AsyncGenerator[AsyncMock, None]:
-        yield AsyncMock()
+yield AsyncMock()
 
-    app.dependency_overrides[get_async_db] = mock_get_async_db
-    app.dependency_overrides[get_the_service] = lambda: service_mock
+app.dependency_overrides[get_async_db] = mock_get_async_db app.dependency_overrides[get_the_service] = lambda: service_mock
 
-    test_client = TestClient(app)
-    yield test_client
+test_client = TestClient(app) yield test_client
 
-    app.dependency_overrides.clear()   # always clean up
+app.dependency_overrides.clear()   # always clean up
 ```
 
 **For endpoints that use `get_unit_of_work`** (write endpoints), override it with a plain `Mock()` that has async attributes — the service is already mocked so the UoW is never actually called, but FastAPI still needs to resolve the dependency:
 
 ```python
-from unittest.mock import AsyncMock, Mock
-from app.purchases.composition import get_unit_of_work
+from unittest.mock import AsyncMock, Mock from app.purchases.composition import get_unit_of_work
 
 @pytest.fixture
 def client(service_mock: Mock) -> Generator[TestClient, None, None]:
-    uow_mock = Mock()
-    uow_mock.session = AsyncMock()
-    uow_mock.commit = AsyncMock()
-    uow_mock.rollback = AsyncMock()
+uow_mock = Mock() uow_mock.session = AsyncMock() uow_mock.commit = AsyncMock() uow_mock.rollback = AsyncMock()
 
-    app.dependency_overrides[get_unit_of_work] = lambda: uow_mock
-    app.dependency_overrides[get_the_service] = lambda: service_mock
+app.dependency_overrides[get_unit_of_work] = lambda: uow_mock app.dependency_overrides[get_the_service] = lambda: service_mock
 
-    test_client = TestClient(app)
-    yield test_client
+test_client = TestClient(app) yield test_client
 
-    app.dependency_overrides.clear()
+app.dependency_overrides.clear()
 ```
 
 **For endpoints that require authentication**, also override the auth dependency in `client`:
@@ -310,30 +237,27 @@ def client(service_mock: Mock) -> Generator[TestClient, None, None]:
 app.dependency_overrides[get_current_admin_user] = lambda: Mock()
 ```
 
-**For testing the non-admin (403) scenario**, use a dedicated `non_admin_client` fixture that overrides the auth dependency to raise a forbidden error. Do **not** add an `unauthenticated_client` fixture or a `test_*_returns_401_on_unauthenticated` test — 401 behaviour lives inside the auth helper and is already covered in `tests/core/test_current_user.py`.
+**For testing the non-admin (403) scenario**, use a dedicated `non_admin_client` fixture that overrides the auth dependency to raise a forbidden error. Do **not** add an `unauthenticated_client` fixture or a `test_*_returns_401_on_unauthenticated` test — 401 behaviour lives inside the auth helper and is already covered in `tests/unit/core/test_current_user.py`.
 
 ```python
 @pytest.fixture
 def non_admin_client(
-    service_mock: Mock,
-) -> Generator[TestClient, None, None]:
+service_mock: Mock, ) -> Generator[TestClient, None, None]:
     def raise_forbidden() -> None:
-        raise forbidden_error("Admin access required.", {})
+raise forbidden_error("Admin access required.", {})
 
-    app.dependency_overrides[get_current_admin_user] = raise_forbidden
+app.dependency_overrides[get_current_admin_user] = raise_forbidden
     # ... remaining overrides ...
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+yield TestClient(app) app.dependency_overrides.clear()
 
 
 def test_endpoint_enforces_admin_user(
-    non_admin_client: TestClient,
-) -> None:
+non_admin_client: TestClient, ) -> None:
     # Act
-    response = non_admin_client.get("/api/v1/resource")
+response = non_admin_client.get("/api/v1/resource")
 
     # Assert
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+assert response.status_code == status.HTTP_403_FORBIDDEN
 ```
 
 > **When to use `@pytest.mark.parametrize` vs individual tests:** use parametrize when you are sweeping over a set of equivalent values (boundary numbers, status codes for different exceptions). Use individual named tests when each scenario has a distinct semantic identity — like distinct authorisation roles.
@@ -342,46 +266,28 @@ def test_endpoint_enforces_admin_user(
 
 ```python
 @pytest.mark.parametrize(
-    "query_string",
-    [
-        "page=0",                                         # below minimum page
-        "page_size=0",                                    # below minimum page_size
-        f"page_size={settings.max_page_size + 1}",        # above maximum page_size
-    ],
-)
+"query_string", [ "page=0",                                         # below minimum page "page_size=0",                                    # below minimum page_size f"page_size={settings.max_page_size + 1}",        # above maximum page_size ], )
 def test_list_resource_returns_422_on_invalid_pagination_params(
-    client: TestClient,
-    query_string: str,
-) -> None:
+client: TestClient, query_string: str, ) -> None:
     # Act
-    response = client.get(f"/api/v1/resource?{query_string}")
+response = client.get(f"/api/v1/resource?{query_string}")
 
     # Assert
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @pytest.mark.parametrize(
-    "query_string",
-    [
-        "page=1",                                          # minimum page
-        "page_size=1",                                     # minimum page_size
-        f"page_size={settings.default_page_size}",         # default page_size
-        f"page_size={settings.max_page_size}",             # maximum page_size
-    ],
-)
+"query_string", [ "page=1",                                          # minimum page "page_size=1",                                     # minimum page_size f"page_size={settings.default_page_size}",         # default page_size f"page_size={settings.max_page_size}",             # maximum page_size ], )
 def test_list_resource_returns_200_on_valid_pagination_params(
-    client: TestClient,
-    service_mock: Mock,
-    query_string: str,
-) -> None:
+client: TestClient, service_mock: Mock, query_string: str, ) -> None:
     # Arrange
-    service_mock.list_resource.return_value = ([], 0)
+service_mock.list_resource.return_value = ([], 0)
 
     # Act
-    response = client.get(f"/api/v1/resource?{query_string}")
+response = client.get(f"/api/v1/resource?{query_string}")
 
     # Assert
-    assert response.status_code == status.HTTP_200_OK
+assert response.status_code == status.HTTP_200_OK
 ```
 
 ### Input Data: Module Function vs Fixture
@@ -390,12 +296,12 @@ Use a **module-level function** (no `@pytest.fixture`) when input data is self-c
 
 ```python
 def _login_input_data() -> dict[str, Any]:
-    return {"email": "alice@example.com", "password": "ValidPass1!"}
+return {"email": "alice@example.com", "password": "ValidPass1!"}
 ```
 
 Use a **fixture** (from `conftest.py`) when the input data must be derived from a model object created by a factory — e.g., `user_input_data(user)`. Check `conftest.py` first; if a `{model}_input_data` fixture for the model you need already exists, inject and use it directly.
 
-**Canonical example:** `tests/users/test_users_api.py` — read this file before writing a new API test. `tests/merchants/test_merchants_api.py` and `tests/auth/test_auth_api.py` follow the exact same structure. When the module uses a split `api/` package (e.g., `offers`), the canonical examples are `tests/offers/test_offers_admin_api.py` and `tests/offers/test_offers_public_api.py`.
+**Canonical example:** `tests/unit/users/test_users_api.py` — read this file before writing a new API test. `tests/unit/merchants/test_merchants_api.py` and `tests/unit/auth/test_auth_api.py` follow the exact same structure. When the module uses a split `api/` package (e.g., `offers`), the canonical examples are `tests/unit/offers/test_offers_admin_api.py` and `tests/unit/offers/test_offers_public_api.py`.
 
 ### API Test Checklist
 
@@ -415,7 +321,7 @@ Use a **fixture** (from `conftest.py`) when the input data must be derived from 
 
 ## 7. Testing Policies and Pure Functions
 
-**References:** `tests/users/test_users_policies.py`, `tests/merchants/test_merchants_policies.py`
+**References:** `tests/unit/users/test_users_policies.py`, `tests/unit/merchants/test_merchants_policies.py`
 
 Policies are pure functions; no mocking is needed. Use `@pytest.mark.parametrize` to cover the full input space concisely.
 
@@ -425,42 +331,23 @@ Policies are pure functions; no mocking is needed. Use `@pytest.mark.parametrize
 # tests/merchants/test_merchants_policies.py
 import pytest
 
-from app.core.config import settings
-from app.merchants.exceptions import CashbackPercentageNotValidException
-from app.merchants.policies import enforce_cashback_percentage_validity
+from app.core.config import settings from app.merchants.exceptions import CashbackPercentageNotValidException from app.merchants.policies import enforce_cashback_percentage_validity
 
 
 @pytest.mark.parametrize(
-    "percentage",
-    [
-        0.0,                                   # lower boundary
-        settings.max_cashback_percentage / 2,  # midpoint
-        settings.max_cashback_percentage,      # upper boundary
-    ],
-)
+"percentage", [ 0.0,                                   # lower boundary settings.max_cashback_percentage / 2,  # midpoint settings.max_cashback_percentage,      # upper boundary ], )
 def test_enforce_cashback_percentage_validity_accepts_valid(
-    percentage: float,
-) -> None:
+percentage: float, ) -> None:
     # Should not raise
-    enforce_cashback_percentage_validity(percentage)
+enforce_cashback_percentage_validity(percentage)
 
 
 @pytest.mark.parametrize(
-    "percentage,expected_message",
-    [
-        (-0.1,                                   "between 0 and"),
-        (-10.0,                                  "between 0 and"),
-        (settings.max_cashback_percentage + 0.1, "between 0 and"),
-        (150.0,                                  "between 0 and"),
-    ],
-)
+"percentage,expected_message", [ (-0.1,                                   "between 0 and"), (-10.0,                                  "between 0 and"), (settings.max_cashback_percentage + 0.1, "between 0 and"), (150.0,                                  "between 0 and"), ], )
 def test_enforce_cashback_percentage_validity_rejects_invalid(
-    percentage: float, expected_message: str
-) -> None:
+percentage: float, expected_message: str ) -> None:
     # Act & Assert
-    with pytest.raises(CashbackPercentageNotValidException) as exc:
-        enforce_cashback_percentage_validity(percentage)
-    assert expected_message in str(exc.value)
+with pytest.raises(CashbackPercentageNotValidException) as exc: enforce_cashback_percentage_validity(percentage) assert expected_message in str(exc.value)
 ```
 
 ### Policy Test Checklist
@@ -474,13 +361,12 @@ def test_enforce_cashback_percentage_validity_rejects_invalid(
 
 ## 8. Testing Utilities and Builders
 
-**Reference:** `tests/core/errors/test_builders.py`
+**Reference:** `tests/unit/core/errors/test_builders.py`
 
 Utility functions are pure; test each public function with:
 
 1. Representative valid inputs → assert return type and field values
-2. Edge cases or optional arguments → assert default behaviour
-3. Invalid inputs → assert exceptions where applicable
+2. Edge cases or optional arguments → assert default behaviour 3. Invalid inputs → assert exceptions where applicable
 
 ### Utility Test Pattern
 
@@ -488,47 +374,35 @@ Utility functions are pure; test each public function with:
 # tests/core/errors/test_builders.py
 from fastapi import HTTPException, status
 
-from app.core.errors.builders import internal_server_error, validation_error
-from app.core.errors.codes import ErrorCode
+from app.core.errors.builders import internal_server_error, validation_error from app.core.errors.codes import ErrorCode
 
 
 def test_validation_error() -> None:
     # Arrange
-    error_code = "VALIDATION_FAILED"
-    message = "Invalid input"
-    details = [{"field": "email", "error": "required"}]
+error_code = "VALIDATION_FAILED" message = "Invalid input" details = [{"field": "email", "error": "required"}]
 
     # Act
-    exc = validation_error(error_code, message, details)
+exc = validation_error(error_code, message, details)
 
     # Assert
-    assert exc.status_code == status.HTTP_400_BAD_REQUEST
-    detail = exc.detail  # type: ignore[attr-defined]
-    assert detail["error"]["code"] == error_code        # type: ignore[index]
-    assert detail["error"]["message"] == message        # type: ignore[index]
-    assert detail["error"]["details"]["violations"] == details  # type: ignore[index]
+assert exc.status_code == status.HTTP_400_BAD_REQUEST detail = exc.detail  # type: ignore[attr-defined] assert detail["error"]["code"] == error_code        # type: ignore[index] assert detail["error"]["message"] == message        # type: ignore[index] assert detail["error"]["details"]["violations"] == details  # type: ignore[index]
 
 
 def test_internal_server_error_default_details() -> None:
     # Arrange (nothing)
 
     # Act
-    exc = internal_server_error()
+exc = internal_server_error()
 
     # Assert
-    assert isinstance(exc, HTTPException)
-    assert exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    detail = exc.detail  # type: ignore[attr-defined]
-    assert detail["error"]["code"] == ErrorCode.INTERNAL_SERVER_ERROR  # type: ignore[index]
-    assert "request_id" in detail["error"]["details"]  # type: ignore[index]
-    assert "timestamp" in detail["error"]["details"]   # type: ignore[index]
+assert isinstance(exc, HTTPException) assert exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR detail = exc.detail  # type: ignore[attr-defined] assert detail["error"]["code"] == ErrorCode.INTERNAL_SERVER_ERROR  # type: ignore[index] assert "request_id" in detail["error"]["details"]  # type: ignore[index] assert "timestamp" in detail["error"]["details"]   # type: ignore[index]
 ```
 
 ---
 
 ## 8a. Testing Schema Validators
 
-**Reference:** `tests/purchases/test_purchases_schemas.py`
+**Reference:** `tests/unit/purchases/test_purchases_schemas.py`
 
 Pydantic `@field_validator` methods are pure functions. Test them by constructing the schema class directly — no mocking required. Treat them exactly like policy functions.
 
@@ -545,61 +419,33 @@ Pydantic `@field_validator` methods are pure functions. Test them by constructin
 
 ```python
 # tests/purchases/test_purchases_schemas.py
-from decimal import Decimal
-from typing import Any
+from decimal import Decimal from typing import Any
 
-import pytest
-from pydantic import ValidationError
+import pytest from pydantic import ValidationError
 
 from app.purchases.schemas import PurchaseCreate
 
 
 def _valid_payload(**overrides: Any) -> dict[str, Any]:
-    """Returns a complete, valid input dict. Override only the field under test."""
-    base: dict[str, Any] = {
-        "external_id": "txn-001",
-        "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d",
-        "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-        "amount": "100.00",
-        "currency": "EUR",
-    }
-    base.update(overrides)
-    return base
+"""Returns a complete, valid input dict. Override only the field under test.""" base: dict[str, Any] = { "external_id": "txn-001", "user_id": "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d", "merchant_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "amount": "100.00", "currency": "EUR", } base.update(overrides) return base
 
 
 @pytest.mark.parametrize(
-    "amount",
-    [
-        "1",              # integer — 0 decimal places
-        "10.5",           # 1 decimal place
-        "100.00",         # 2 decimal places — upper scale boundary
-        "0.01",           # minimum positive with 2 decimal places
-        "9999999999.99",  # maximum representable value at precision=12, scale=2
-    ],
-)
+"amount", [ "1",              # integer — 0 decimal places "10.5",           # 1 decimal place "100.00",         # 2 decimal places — upper scale boundary "0.01",           # minimum positive with 2 decimal places "9999999999.99",  # maximum representable value at precision=12, scale=2 ], )
 def test_purchase_create_accepts_valid_amount_scale(amount: str) -> None:
     # Act — should not raise
-    schema = PurchaseCreate(**_valid_payload(amount=amount))
+schema = PurchaseCreate(**_valid_payload(amount=amount))
 
     # Assert
-    assert schema.amount == Decimal(amount)
+assert schema.amount == Decimal(amount)
 
 
 @pytest.mark.parametrize(
-    "amount,expected_message",
-    [
-        ("100.001", "at most 2 decimal places"),  # 3 decimal places
-        ("0.001",   "at most 2 decimal places"),  # 3 decimal places — near zero
-        ("1.1234",  "at most 2 decimal places"),  # 4 decimal places
-    ],
-)
+"amount,expected_message", [ ("100.001", "at most 2 decimal places"),  # 3 decimal places ("0.001",   "at most 2 decimal places"),  # 3 decimal places — near zero ("1.1234",  "at most 2 decimal places"),  # 4 decimal places ], )
 def test_purchase_create_rejects_amount_with_excess_scale(
-    amount: str, expected_message: str
-) -> None:
+amount: str, expected_message: str ) -> None:
     # Act & Assert
-    with pytest.raises(ValidationError) as exc_info:
-        PurchaseCreate(**_valid_payload(amount=amount))
-    assert expected_message in str(exc_info.value)
+with pytest.raises(ValidationError) as exc_info: PurchaseCreate(**_valid_payload(amount=amount)) assert expected_message in str(exc_info.value)
 ```
 
 ### When to add schema validators
@@ -626,7 +472,7 @@ Built-in Pydantic guards (`gt`, `ge`, `lt`, `le`, `min_length`, `max_length`, `p
 
 ## 9. Testing Concrete Providers (Light Integration)
 
-**Reference:** `tests/auth/test_token_providers.py`
+**Reference:** `tests/unit/auth/test_token_providers.py`
 
 Some infrastructure classes (e.g., `JwtOAuth2TokenProvider`) are tested directly without mocking — they exercise real encoding/decoding logic. These are still fast unit tests; they just use real objects instead of mocks.
 
@@ -636,19 +482,19 @@ Key patterns:
 - A data fixture (e.g. `token_payload`) holds the input; the test just calls create then verify.
 - Expired / invalid token scenarios manipulate the provider's state or pass a bad string in Arrange.
 
-**Canonical example:** `tests/auth/test_token_providers.py`
+**Canonical example:** `tests/unit/auth/test_token_providers.py`
 
 ---
 
 ## 10. Testing Functions with Multiple Dependencies (Non-Service)
 
-**Reference:** `tests/core/test_current_user.py`
+**Reference:** `tests/unit/core/test_current_user.py`
 
 Some core logic (e.g., `get_current_user`) is a standalone function rather than a class method. Test it exactly like a service: mock each dependency, call the function directly.
 
 **Key difference from service tests:** when input construction needs to vary across tests (e.g. different roles), use a plain module-level `build_*` function — no `@pytest.fixture`, no `_` prefix — called directly in Arrange rather than injected by pytest.
 
-**Canonical example:** `tests/core/test_current_user.py`
+**Canonical example:** `tests/unit/core/test_current_user.py`
 
 ---
 
@@ -665,26 +511,17 @@ Build the `dict` that gets passed to a service or API call.
 ```python
 # module-level function — only used in this file
 def _merchant_input_data(merchant: Merchant) -> dict[str, Any]:
-    return {
-        "name": merchant.name,
-        "default_cashback_percentage": merchant.default_cashback_percentage,
-        "active": merchant.active,
-    }
+return { "name": merchant.name, "default_cashback_percentage": merchant.default_cashback_percentage, "active": merchant.active, }
 ```
 
 If the same builder is needed in **more than one test module**, promote it to a fixture in `conftest.py`:
 
 ```python
-# tests/conftest.py
+# tests/unit/conftest.py
 @pytest.fixture
 def merchant_input_data() -> Callable[[Merchant], dict[str, Any]]:
     def _build(merchant: Merchant) -> dict[str, Any]:
-        return {
-            "name": merchant.name,
-            "default_cashback_percentage": merchant.default_cashback_percentage,
-            "active": merchant.active,
-        }
-    return _build
+return { "name": merchant.name, "default_cashback_percentage": merchant.default_cashback_percentage, "active": merchant.active, } return _build
 ```
 
 **Before writing any input data builder, check `conftest.py` first.**
@@ -695,23 +532,15 @@ Extract any assertion block that spans more than one field, or accesses nested s
 
 ```python
 def _assert_merchant_out_response(data: dict[str, Any], merchant: Merchant) -> None:
-    assert data["id"] == str(merchant.id)
-    assert data["name"] == merchant.name
-    assert data["default_cashback_percentage"] == merchant.default_cashback_percentage
-    assert data["active"] == merchant.active
+assert data["id"] == str(merchant.id) assert data["name"] == merchant.name assert data["default_cashback_percentage"] == merchant.default_cashback_percentage assert data["active"] == merchant.active
 
 
 def _assert_error_payload(data: dict[str, Any], expected_code: str) -> None:
-    assert "error" in data
-    assert data["error"]["code"] == expected_code
+assert "error" in data assert data["error"]["code"] == expected_code
 
 
 def _assert_cashback_percentage_error_response(
-    data: dict[str, Any], exc: CashbackPercentageNotValidException
-) -> None:
-    assert data["error"]["code"] == ErrorCode.VALIDATION_ERROR
-    assert data["error"]["details"]["field"] == "default_cashback_percentage"
-    assert data["error"]["details"]["reason"] == str(exc)
+data: dict[str, Any], exc: CashbackPercentageNotValidException ) -> None: assert data["error"]["code"] == ErrorCode.VALIDATION_ERROR assert data["error"]["details"]["field"] == "default_cashback_percentage" assert data["error"]["details"]["reason"] == str(exc)
 ```
 
 **Trigger rule:** if the Assert block needs an intermediate variable (e.g. `error = response.json()["error"]`) or has more than two `assert` statements, extract it.
@@ -720,7 +549,7 @@ def _assert_cashback_percentage_error_response(
 
 ```python
 def _mock_authenticated_user(service_mock: Mock, user: User) -> None:
-    service_mock.get_current_user.return_value = user
+service_mock.get_current_user.return_value = user
 ```
 
 ### Placement and Naming
@@ -766,13 +595,13 @@ Use a short, descriptive label:
 
 
 def test_create_user_success(...) -> None:
-    ...
+...
 ```
 
 When switching to a new test group within the same file:
 
 ```python
-    ...  # last test of previous group
+...  # last test of previous group
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -781,7 +610,7 @@ When switching to a new test group within the same file:
 
 
 def test_list_merchants_success(...) -> None:
-    ...
+...
 ```
 
 ---
@@ -794,35 +623,26 @@ Every function in a test file requires complete type annotations.
 # ✅ Mock fixture — return type MUST be Mock, not the ABC
 @pytest.fixture
 def user_repository() -> Mock:
-    return create_autospec(UserRepositoryABC)
+return create_autospec(UserRepositoryABC)
 
 # ✅ Callable mock fixture — use the actual callable signature
 @pytest.fixture
 def enforce_password_complexity() -> Callable[[str], None]:
-    return Mock()
+return Mock()
 
 # ✅ Service fixture — return the service type
 @pytest.fixture
 def user_service(
-    enforce_password_complexity: Callable[[str], None],
-    user_repository: Mock,
-) -> UserService:
-    return UserService(...)
+enforce_password_complexity: Callable[[str], None], user_repository: Mock, ) -> UserService: return UserService(...)
 
 # ✅ Factory fixture (from conftest)
 @pytest.fixture
 def user_factory() -> Callable[..., User]:
-    ...
+...
 
 # ✅ Test function — always returns None
 def test_something(
-    user_service: UserService,
-    user_repository: Mock,
-    user_factory: Callable[..., User],
-) -> None:
-    db = Mock(spec=Session)             # inferred — no annotation needed
-    data = user_input_data(new_user)    # inferred from helper — no annotation needed
-    data: dict[str, Any] = {"key": x}  # dict literal — annotate explicitly
+user_service: UserService, user_repository: Mock, user_factory: Callable[..., User], ) -> None: db = Mock(spec=Session)             # inferred — no annotation needed data = user_input_data(new_user)    # inferred from helper — no annotation needed data: dict[str, Any] = {"key": x}  # dict literal — annotate explicitly
 ```
 
 ### Why `Mock` instead of the ABC type
@@ -831,12 +651,12 @@ def test_something(
 # ❌ Wrong — type checker won't find .return_value
 @pytest.fixture
 def user_repository() -> UserRepositoryABC:
-    return create_autospec(UserRepositoryABC)
+return create_autospec(UserRepositoryABC)
 
 # ✅ Correct
 @pytest.fixture
 def user_repository() -> Mock:
-    return create_autospec(UserRepositoryABC)
+return create_autospec(UserRepositoryABC)
 ```
 
 ---
@@ -850,8 +670,7 @@ All new modules use the async database stack (see ADR 010). Tests for these modu
 The project runs `pytest-asyncio` in **strict mode** (configured in `pyproject.toml`):
 
 ```toml
-[tool.pytest.ini_options]
-asyncio_mode = "strict"
+[tool.pytest.ini_options] asyncio_mode = "strict"
 ```
 
 Mark every async test function and every async fixture with `@pytest.mark.asyncio`:
@@ -861,7 +680,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_ingest_purchase_returns_purchase_on_success(...) -> None:
-    ...
+...
 ```
 
 ### Mocking async repositories
@@ -876,21 +695,17 @@ from app.purchases.repositories import PurchaseRepositoryABC
 
 @pytest.fixture
 def purchase_repository() -> Mock:
-    return create_autospec(PurchaseRepositoryABC)
+return create_autospec(PurchaseRepositoryABC)
 
 
 @pytest.mark.asyncio
 async def test_ingest_purchase_raises_on_duplicate_external_id(
-    purchase_service: PurchaseService,
-    purchase_repository: Mock,
-) -> None:
+purchase_service: PurchaseService, purchase_repository: Mock, ) -> None:
     # Arrange
-    duplicate_id = "ext-123"
-    purchase_repository.get_by_external_id.return_value = Purchase(...)
+duplicate_id = "ext-123" purchase_repository.get_by_external_id.return_value = Purchase(...)
 
     # Act & Assert
-    with pytest.raises(PurchaseDuplicateException):
-        await purchase_service.ingest_purchase({"external_id": duplicate_id}, db=AsyncMock())
+with pytest.raises(PurchaseDuplicateException): await purchase_service.ingest_purchase({"external_id": duplicate_id}, db=AsyncMock())
 ```
 
 ### Mocking `AsyncSession` in tests
@@ -898,15 +713,13 @@ async def test_ingest_purchase_raises_on_duplicate_external_id(
 Create a local `AsyncMock(spec=AsyncSession)` inside each test (not a shared fixture):
 
 ```python
-from sqlalchemy.ext.asyncio import AsyncSession
-from unittest.mock import AsyncMock
+from sqlalchemy.ext.asyncio import AsyncSession from unittest.mock import AsyncMock
 
 async def test_example(purchase_service: PurchaseService, ...) -> None:
     # Arrange
-    db = AsyncMock(spec=AsyncSession)
-    ...
+db = AsyncMock(spec=AsyncSession) ...
     # Act
-    result = await purchase_service.some_method(data, db)
+result = await purchase_service.some_method(data, db)
 ```
 
 ### HTTP API tests for async handlers
@@ -919,14 +732,11 @@ from app.core.database import get_async_db
 @pytest.fixture
 def client(service_mock: Mock) -> Generator[TestClient, None, None]:
     async def mock_get_async_db():
-        yield AsyncMock(spec=AsyncSession)
+yield AsyncMock(spec=AsyncSession)
 
-    app.dependency_overrides[get_async_db] = mock_get_async_db
-    app.dependency_overrides[get_purchase_service] = lambda: service_mock
+app.dependency_overrides[get_async_db] = mock_get_async_db app.dependency_overrides[get_purchase_service] = lambda: service_mock
 
-    test_client = TestClient(app)
-    yield test_client
-    app.dependency_overrides.clear()
+test_client = TestClient(app) yield test_client app.dependency_overrides.clear()
 ```
 
 ### Type hints for async tests
@@ -935,11 +745,7 @@ def client(service_mock: Mock) -> Generator[TestClient, None, None]:
 # ✅ Async test function — returns None
 @pytest.mark.asyncio
 async def test_ingest_purchase_success(
-    purchase_service: PurchaseService,
-    purchase_repository: Mock,
-) -> None:
-    db = AsyncMock(spec=AsyncSession)
-    ...
+purchase_service: PurchaseService, purchase_repository: Mock, ) -> None: db = AsyncMock(spec=AsyncSession) ...
 ```
 
 ### Quick reference — additions to checklist for async modules
@@ -957,29 +763,196 @@ API tests:
 
 ---
 
-## 15. Integration Tests (Not Yet Implemented)
+## 15. Integration Tests
 
-When implemented, integration tests will use `testcontainers` with a real PostgreSQL container and `sqlalchemy` sessions that roll back after each test.
+Integration tests exercise the full stack — FastAPI routing, service layer, repository layer, and a real PostgreSQL database — with **no mocked dependencies**.
 
-**Planned structure:**
+### Setup
 
-- Module-scoped container spinup
-- Session-scoped engine
-- Function-scoped database session with rollback on teardown
-- No mocking of the repository layer; real SQL queries run against the container
+Set `TEST_DATABASE_URL` to point to a dedicated PostgreSQL test database:
+
+```text
+TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/clicknback_test
+```
+
+Run integration tests with:
+
+```bash
+make test-integration
+```
+
+### File layout
+
+One file per endpoint; placed under `tests/integration/{module}/`:
+
+```text
+tests/integration/
+    conftest.py          # engine, session (with rollback), http_client fixtures
+    {module}/
+        __init__.py
+        test_{module}_{feature}_integration.py
+```
+
+Naming convention: `test_{module}_{verb}_{resource}_integration.py` — e.g., `test_merchants_create_integration.py`, `test_purchases_list_admin_integration.py`.
+
+### Isolation strategy
+
+Each test runs inside an outer connection-level transaction that is rolled back on teardown. `UnitOfWork.commit()` inside services creates and releases a savepoint via `join_transaction_mode="create_savepoint"` rather than committing the outer transaction, so all writes are visible within the test but nothing persists after the test ends. No manual cleanup is needed.
+
+### Fixtures (in `tests/integration/conftest.py`)
+
+| Fixture | Scope | Purpose |
+| --- | --- | --- |
+| `create_tables` | session | Creates all tables once; drops them after the session |
+| `db` | function | Yields a rolled-back `AsyncSession` |
+| `http_client` | function | Unauthenticated `httpx.AsyncClient` wired to the app |
+| `user_http_client` | function | Authenticated client with a regular-user token |
+| `admin_http_client` | function | Authenticated client with an admin token |
+| `user_http_client_with_user` | function | Like `user_http_client` but yields `(client, user)` tuple — use when the request body needs the user's own ID |
+
+Two helper functions are also exported from `conftest.py`:
+
+| Helper | Signature | Purpose |
+| --- | --- | --- |
+| `create_user` | `async (db, *, role, email, password) → (User, str)` | Insert a user directly into the test session; returns `(user, plain_password)` |
+| `make_token` | `(user) → str` | Generate a real JWT for a given `User` instance |
+
+### AAA structure
+
+Integration tests **must** follow the same AAA structure as unit tests. Every test function must contain `# Arrange`, `# Act`, and `# Assert` comments (or `# Act & Assert` for `pytest.raises` blocks). This rule applies regardless of how simple the test is — even a two-line test still needs the two comments.
+
+The only exception is when there is genuinely no arrangement needed (e.g., a read endpoint with a brand-new user and no seeded data). In that case, omit `# Arrange` but always include `# Act` and `# Assert`.
+
+```python
+# ✅ Simple test — no Arrange needed, but Act + Assert are mandatory
+async def test_get_wallet_returns_200_for_new_user(
+user_http_client: AsyncClient, ) -> None:
+    # Act
+response = await user_http_client.get("/api/v1/users/me/wallet")
+
+    # Assert
+assert response.status_code == status.HTTP_200_OK
+
+
+# ✅ Test with seeding — full AAA
+async def test_list_purchases_returns_seeded_purchase(
+user_http_client_with_user: tuple[AsyncClient, User], db: AsyncSession, ) -> None:
+    # Arrange
+client, user = user_http_client_with_user merchant = await _seed_merchant_with_offer(db) await client.post( "/api/v1/purchases/", json={"external_id": f"ext-{uuid.uuid4()}", "user_id": str(user.id), "merchant_id": merchant.id, "amount": "50.00", "currency": "EUR"}, )
+
+    # Act
+response = await client.get("/api/v1/users/me/purchases")
+
+    # Assert
+assert response.status_code == status.HTTP_200_OK assert response.json()["total"] >= 1
+```
+
+### Seeding helpers
+
+Extract repeated DB setup into module-level `async def _seed_*(db)` helpers. They must be `async` (since they call `await db.flush()`) and should return the primary entity needed by the test.
+
+```python
+async def _seed_merchant_with_offer(db: AsyncSession) -> Merchant:
+merchant = Merchant( name=f"Test Merchant {uuid.uuid4().hex[:6]}", default_cashback_percentage=5.0, active=True, ) db.add(merchant) await db.flush() offer = Offer( merchant_id=merchant.id, percentage=5.0, fixed_amount=None, start_date=date.today(), end_date=date.today() + timedelta(days=30), monthly_cap_per_user=100.0, active=True, ) db.add(offer) await db.flush() return merchant
+```
+
+### Request payload helpers
+
+Extract repeated request payloads into module-level `_payload()` functions:
+
+```python
+def _payload(user_id: str, merchant_id: str, external_id: str) -> dict[str, Any]:
+return { "external_id": external_id, "user_id": user_id, "merchant_id": merchant_id, "amount": "50.00", "currency": "EUR", }
+```
+
+### asyncio configuration
+
+Every integration test file must declare:
+
+```python
+import pytest
+
+pytestmark = pytest.mark.asyncio
+```
+
+This marks all test functions in the file as async without requiring `@pytest.mark.asyncio` on each function individually.
+
+### Coverage
+
+Integration tests run separately from unit tests and do not contribute to the `make coverage` gate. The 85% hard gate applies to unit tests only.
+
+### What to cover
+
+- Happy path for each endpoint: verify status code and the key response fields
+- Key failure modes: 401/403/404/409/422 responses with correct error codes
+- Do **not** repeat every edge case — those belong in unit tests
+
+### Canonical examples
+
+`tests/integration/purchases/test_purchases_ingest_integration.py` — seeding, `_payload()` helper, duplicate-detection, auth checks.
+
+`tests/integration/purchases/test_purchases_get_details_integration.py` — creating a second user via `create_user()` and `make_token()` to test ownership enforcement.
+
+`tests/integration/merchants/test_merchants_create_integration.py` — admin endpoint with no seeding (read canonical for the simplest possible structure).
+
+### Integration test checklist
+
+- [ ] `pytestmark = pytest.mark.asyncio` declared at module level
+- [ ] `# Arrange`, `# Act`, `# Assert` (or `# Act & Assert`) present in every
+test function; `# Arrange` may be omitted only when nothing needs seeding
+- [ ] Seeding uses `async def _seed_*(db: AsyncSession)` helpers; helpers call `await db.flush()`, never `await db.commit()`
+- [ ] No mocked dependencies — all collaborators are real
+- [ ] Tests cover: happy path, key failure modes (auth, validation, conflict)
+- [ ] Edge cases are left to unit tests
+- [ ] `db` fixture injected only when the test seeds data; omit it otherwise
+- [ ] Status codes use `fastapi.status` constants, never raw integers
+- [ ] File placed under `tests/integration/{module}/`; named
+`test_{module}_{endpoint}_integration.py`
 
 ---
 
-## 16. End-to-End Tests (Not Yet Implemented)
+## 16. End-to-End Tests
 
-When implemented, E2E tests will spin up the full stack via Docker Compose and issue real HTTP requests.
+E2E tests spin up the full stack via Docker Compose and issue real HTTP requests against the running service. They are slow and few — reserve them for critical user-facing flows that span multiple domain operations.
 
-**Planned structure:**
+Run E2E tests with:
 
-- Docker Compose environment started once per test session
-- Standard HTTP client (e.g. `httpx`) against `http://localhost:{port}`
-- Unique test data generated with `uuid4()` to avoid collisions
-- Cleanup via API calls or database truncation
+```bash
+make test-e2e
+```
+
+### When to write an E2E test
+
+Write an E2E test when a feature involves a multi-step flow that cross-cuts multiple domain modules and would be impractical to wire together in an integration test (e.g., a full cashback lifecycle: register → purchase → cashback confirmation → wallet withdrawal).
+
+### E2E test structure
+
+- Docker Compose environment started once per test session (session-scoped
+fixture).
+- `httpx.AsyncClient` targeting `http://localhost:{port}`; the port is read from env / settings.
+- Unique test data generated with `uuid4()` so parallel runs do not collide.
+- Tests do **not** rely on pre-seeded DB state — each test creates its own
+data through the API.
+- Cleanup: each test creates its own data; the suite truncates or re-applies seeds after the session.
+
+### Quality standards
+
+E2E tests follow the **same** AAA structure, naming convention, and type-hint rules as unit and integration tests. There are no exceptions.
+
+### E2E file layout
+
+```text
+tests/e2e/ conftest.py          # Docker Compose lifecycle, base_url, session client test_{flow}.py       # one file per user-facing flow
+```
+
+### E2E test checklist
+
+- [ ] `pytestmark = pytest.mark.asyncio` declared at module level
+- [ ] `# Arrange`, `# Act`, `# Assert` in every test function
+- [ ] All test data created through the HTTP API (not direct DB inserts)
+- [ ] Test data uses `uuid4()` to ensure uniqueness
+- [ ] No dependency on pre-existing database state
+- [ ] Status codes use `fastapi.status` constants
 
 ---
 
@@ -998,7 +971,7 @@ When implemented, E2E tests will spin up the full stack via Docker Compose and i
 ### Fixture not injected / `fixture 'x' not found`
 
 **Cause:** Fixture defined in the wrong file.
-**Fix:** If used by more than one test module, move it to `tests/conftest.py`. Pytest auto-discovers `conftest.py` fixtures in all parent directories.
+**Fix:** If used by more than one test module, move it to `tests/unit/conftest.py`. Pytest auto-discovers `conftest.py` fixtures in all parent directories.
 
 ### `app.dependency_overrides` leaks between tests
 
@@ -1028,16 +1001,18 @@ app.dependency_overrides[get_current_admin_user] = lambda: Mock()
 
 Use this before submitting any new test file.
 
-### All test files
+### All test files (unit, integration, E2E)
 
 - [ ] Imports follow stdlib → third-party → local order
 - [ ] All fixtures and test functions have full type hints and `-> None` return
-- [ ] `# Arrange / # Act / # Assert` (or `# Act & Assert`) comments present in every test
+- [ ] `# Arrange`, `# Act`, `# Assert` (or `# Act & Assert`) present in every
+test function — these are section headers, not prose; never replace them with ad-hoc comments
 - [ ] No magic literals — use named variables or `settings.*`
-- [ ] Section separators present: one before the first test (when fixtures exist), one before each additional test group
+- [ ] Section separators present in unit test files: one before the first test
+(when fixtures exist), one before each additional test group
 - [ ] Each separator pair carries a short descriptive label line between the two rule lines
 
-### Service test files
+### Unit — service test files
 
 - [ ] One `create_autospec` fixture per ABC dependency
 - [ ] One `Mock()` fixture per callable dependency
@@ -1045,7 +1020,7 @@ Use this before submitting any new test file.
 - [ ] `db = Mock(spec=Session)` created locally in each test
 - [ ] All branches (happy path, each exception) covered
 
-### API test files
+### Unit — API test files
 
 - [ ] `client` fixture is a generator, clears overrides after yield
 - [ ] Authenticated endpoints: `get_current_admin_user` overridden
@@ -1054,16 +1029,38 @@ Use this before submitting any new test file.
 - [ ] Input data function is a plain function (not fixture) when self-contained
 - [ ] All assertions for multi-field responses extracted into `_assert_*` helpers
 
-### Policy test files
+### Unit — policy test files
 
 - [ ] `@pytest.mark.parametrize` used for valid and invalid inputs
 - [ ] Boundary values commented (lower boundary, upper boundary, midpoint)
 - [ ] Valid inputs: verify no exception raised
 - [ ] Invalid inputs: verify exception type and message substring
 
-### Schema validator test files
+### Unit — schema validator test files
 
 - [ ] Module-level `_valid_payload(**overrides)` helper present
 - [ ] One parametrized test for valid inputs — asserts parsed field value
-- [ ] One parametrized test for invalid inputs — asserts `ValidationError` and message substring
+- [ ] One parametrized test for invalid inputs — asserts `ValidationError` and
+message substring
 - [ ] Each parametrize entry is commented with its role
+
+### Integration test files
+
+- [ ] `pytestmark = pytest.mark.asyncio` declared at module level
+- [ ] `# Arrange`, `# Act`, `# Assert` in every test; `# Arrange` only omitted
+when the test has zero setup (pure read on a fresh empty state)
+- [ ] DB seeding uses `async def _seed_*(db: AsyncSession)` helpers
+- [ ] Helpers call `await db.flush()`, never `await db.commit()`
+- [ ] No mocked dependencies
+- [ ] Covers: happy path, auth/403, key conflict/404/422 cases
+- [ ] Does **not** repeat edge cases already covered by unit tests
+- [ ] File placed under `tests/integration/{module}/`, named
+`test_{module}_{endpoint}_integration.py`
+
+### E2E test files
+
+- [ ] `pytestmark = pytest.mark.asyncio` declared at module level
+- [ ] `# Arrange`, `# Act`, `# Assert` in every test
+- [ ] All test data created through the public API (no direct DB inserts)
+- [ ] `uuid4()` used for uniqueness; no reliance on pre-existing DB state
+- [ ] Status codes use `fastapi.status` constants
