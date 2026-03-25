@@ -4,7 +4,7 @@
 # Managed exclusively by `make test-e2e` (and sub-targets e2e-stack-up /
 # e2e-stack-down). Never start this file manually for day-to-day dev work.
 #
-# Key differences from docker-compose.yml:
+# Key differences from docker-compose.dev.yml:
 #   - Uses tmpfs for ephemeral DB storage (no persistent volume).
 #   - Seeds E2E admin account via seeds/e2e.sql after Alembic migrations.
 #   - Self-contained bridge network (no external network dependency for CI).

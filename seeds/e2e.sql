@@ -10,7 +10,7 @@
 
 -- Admin user
 -- Password corresponds to the literal string "Str0ng!Pass"
--- (same hash as used in seeds/all.sql).
+-- (same hash as used in seeds/dev.sql).
 INSERT INTO users (id, email, hashed_password, role, active, created_at) VALUES
     (
         'd9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a',

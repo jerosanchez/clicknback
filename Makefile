@@ -69,17 +69,17 @@ up: ## Start development environment
 	@if ! docker network ls --format '{{.Name}}' | grep -wq clicknback-nw; then \
 		docker network create clicknback-nw; \
 	fi
-	docker compose up -d --build
+	docker compose -f docker-compose.dev.yml up -d --build
 
 down: ## Stop development environment
-	docker compose down
+	docker compose -f docker-compose.dev.yml down
 	docker network rm clicknback-nw
 
 db-reset: ## Reset the database
 	alembic downgrade base
 	alembic upgrade head
 	docker exec -i clicknback-clicknback-db-1 \
-		psql -U user -d db < seeds/all.sql
+		psql -U user -d db < seeds/dev.sql
 
 dev: ## Run the application locally with hot-reload (no Docker)
 	@bash -c "$(VENV_ACTIVATE) uvicorn app.main:app --reload"
