@@ -1,0 +1,16 @@
+services:
+  clicknback-test-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: clicknback_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d clicknback_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

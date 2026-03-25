@@ -102,3 +102,35 @@ jobs:
         run: make install
       - name: Run Bandit security scan
         run: make security
+
+  test-integration:
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: clicknback_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d clicknback_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: "postgresql+asyncpg://user:password@localhost:5432/clicknback_test"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install dependencies (make install)
+        run: make install
+      - name: Run integration tests
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/integration/ -v
