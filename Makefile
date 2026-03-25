@@ -30,8 +30,16 @@ test-db-up: ## Start the integration-test PostgreSQL container
 test-db-down: ## Stop and remove the integration-test PostgreSQL container
 	docker compose -f docker-compose.test.yml down -v
 
-test-e2e: ## Run end-to-end tests (requires full Docker Compose stack)
-	@bash -c "$(VENV_ACTIVATE) python -m pytest tests/e2e/ -v"
+test-e2e: ## Run end-to-end tests (manages full E2E Docker Compose stack lifecycle)
+	@$(MAKE) --no-print-directory e2e-stack-up
+	@bash -c "$(VENV_ACTIVATE) E2E_APP_PORT=8002 python -m pytest tests/e2e/ -v"; \
+	EXIT=$$?; $(MAKE) --no-print-directory e2e-stack-down || true; exit $$EXIT
+
+e2e-stack-up: ## Start the E2E Docker Compose stack (DB + migrate + seed + app)
+	docker compose -f docker-compose.e2e.yml up --build -d --wait
+
+e2e-stack-down: ## Stop and remove the E2E Docker Compose stack
+	docker compose -f docker-compose.e2e.yml down -v --remove-orphans
 
 coverage: ## Run tests & generate coverage reports (exits non-zero below 85%)
 	@$(MAKE) --no-print-directory test > coverage.txt 2>&1; bash scripts/coverage-grade.sh
@@ -61,17 +69,17 @@ up: ## Start development environment
 	@if ! docker network ls --format '{{.Name}}' | grep -wq clicknback-nw; then \
 		docker network create clicknback-nw; \
 	fi
-	docker compose up -d --build
+	docker compose -f docker-compose.dev.yml up -d --build
 
 down: ## Stop development environment
-	docker compose down
+	docker compose -f docker-compose.dev.yml down
 	docker network rm clicknback-nw
 
 db-reset: ## Reset the database
 	alembic downgrade base
 	alembic upgrade head
 	docker exec -i clicknback-clicknback-db-1 \
-		psql -U user -d db < seeds/all.sql
+		psql -U user -d db < seeds/dev.sql
 
 dev: ## Run the application locally with hot-reload (no Docker)
 	@bash -c "$(VENV_ACTIVATE) uvicorn app.main:app --reload"
@@ -79,4 +87,4 @@ dev: ## Run the application locally with hot-reload (no Docker)
 logs: ## Tail container logs for clicknback-app
 	docker compose logs -f clicknback-app
 
-.PHONY: install lint test test-integration test-db-up test-db-down test-e2e coverage security migrate clean up down db-reset dev logs
+.PHONY: install lint test test-integration test-db-up test-db-down test-e2e e2e-stack-up e2e-stack-down coverage security migrate clean up down db-reset dev logs

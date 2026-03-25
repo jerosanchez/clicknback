@@ -68,6 +68,23 @@ A user records their own purchase. A background job automatically confirms it (o
 
 ---
 
+## Workflow 5 — Admin Purchase Confirmation (Manual Approval) ⚪
+
+An admin manually reviews and confirms or rejects a purchase, as opposed to automatic background verification. Used for dispute resolution, reversals, or merchant partnerships requiring manual oversight.
+
+**Workflow:**
+
+1. User records a purchase (status: `pending`).
+2. Admin views pending purchases and selects one to review.
+3. Admin either **confirms** the purchase (status: `confirmed`, cashback calculated and credited) or **reverses** it (status: `reversed`, any credited cashback is debited from the wallet).
+4. User checks their wallet to see the result.
+
+This workflow is complementary to Workflow 3 — both can coexist. An admin may reverse an auto-confirmed purchase, or manually confirm a `pending` purchase before the background job runs.
+
+→ **[Full details and sequence diagram](05-purchase-confirmation.md)** · HTTP file: [`http/05-purchase-confirmation.http`](http/05-purchase-confirmation.http)
+
+---
+
 ## Workflow 4 — Wallet and Payout ⚪
 
 A user checks their wallet balances, requests a withdrawal, and an admin approves or rejects it. On approval the funds move to the `paid` bucket; on rejection they return to `available`.

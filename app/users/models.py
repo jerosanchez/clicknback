@@ -23,7 +23,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(unique=True)
     hashed_password: Mapped[str] = mapped_column()
     role: Mapped[UserRoleEnum] = mapped_column(
-        Enum(UserRoleEnum), default=UserRoleEnum.user
+        Enum(UserRoleEnum, native_enum=False), default=UserRoleEnum.user
     )
     active: Mapped[bool] = mapped_column(server_default=text("true"))
     created_at: Mapped[datetime | None] = mapped_column(

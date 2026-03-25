@@ -1,0 +1,122 @@
+# docker-compose.e2e.yml
+#
+# End-to-end test stack — ephemeral, self-contained; NOT for development.
+# Managed exclusively by `make test-e2e` (and sub-targets e2e-stack-up /
+# e2e-stack-down). Never start this file manually for day-to-day dev work.
+#
+# Key differences from docker-compose.dev.yml:
+#   - Uses tmpfs for ephemeral DB storage (no persistent volume).
+#   - Seeds E2E admin account via seeds/e2e.sql after Alembic migrations.
+#   - Self-contained bridge network (no external network dependency for CI).
+#   - Exposes the app on port 8002 to avoid collision with the dev server.
+#   - All secrets are hardcoded test values (no .env file dependency).
+
+services:
+
+  # ── Database ──────────────────────────────────────────────────────────────
+
+  clicknback-e2e-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - clicknback-e2e-nw
+
+  # ── Migrations ────────────────────────────────────────────────────────────
+
+  migrate:
+    build:
+      context: .
+    command: [ "alembic", "upgrade", "head" ]
+    environment:
+      DATABASE_URL: "postgresql://user:password@clicknback-e2e-db:5432/db"
+      OAUTH_HASH_KEY: "7bdb4bcf0b01f00ca206693965b29145611d9419563630525dc848024c38fc08"
+      OAUTH_ALGORITHM: "HS256"
+      OAUTH_TOKEN_TTL: "720"
+      MAX_CASHBACK_PERCENTAGE: "20"
+      DEFAULT_PAGE_SIZE: "20"
+      MAX_PAGE_SIZE: "100"
+      PURCHASE_CONFIRMATION_INTERVAL_SECONDS: "60"
+      PURCHASE_MAX_VERIFICATION_ATTEMPTS: "3"
+    depends_on:
+      clicknback-e2e-db:
+        condition: service_healthy
+    networks:
+      - clicknback-e2e-nw
+    restart: "no"
+
+  # ── Seed ──────────────────────────────────────────────────────────────────
+  # Loads seeds/e2e.sql (minimal test data) after migrations complete.
+  # Uses the postgres image for its bundled psql client; no extra build needed.
+
+  seed:
+    image: postgres:17
+    volumes:
+      - ./seeds/e2e.sql:/seeds/e2e.sql:ro
+    environment:
+      PGPASSWORD: password
+    command:
+      - psql
+      - -h
+      - clicknback-e2e-db
+      - -U
+      - user
+      - -d
+      - db
+      - -f
+      - /seeds/e2e.sql
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - clicknback-e2e-nw
+    restart: "no"
+
+  # ── Application ───────────────────────────────────────────────────────────
+
+  clicknback-e2e-app:
+    build:
+      context: .
+    environment:
+      DATABASE_URL: "postgresql://user:password@clicknback-e2e-db:5432/db"
+      OAUTH_HASH_KEY: "7bdb4bcf0b01f00ca206693965b29145611d9419563630525dc848024c38fc08"
+      OAUTH_ALGORITHM: "HS256"
+      OAUTH_TOKEN_TTL: "720"
+      MAX_CASHBACK_PERCENTAGE: "20"
+      DEFAULT_PAGE_SIZE: "20"
+      MAX_PAGE_SIZE: "100"
+      PURCHASE_CONFIRMATION_INTERVAL_SECONDS: "60"
+      PURCHASE_MAX_VERIFICATION_ATTEMPTS: "3"
+    ports:
+      - "8002:8000"
+    depends_on:
+      clicknback-e2e-db:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - >-
+          python -c "import urllib.request;
+          urllib.request.urlopen('http://localhost:8000/health/ready')"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    networks:
+      - clicknback-e2e-nw
+    restart: unless-stopped
+
+networks:
+  clicknback-e2e-nw:
+    driver: bridge

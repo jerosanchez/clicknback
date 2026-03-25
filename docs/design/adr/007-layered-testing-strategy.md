@@ -123,7 +123,7 @@ def test_create_user_returns_422_on_weak_password(user_service_mock):
 - Create all test data through the HTTP API (not direct DB inserts)
 - Verify response formats and status codes match contracts
 
-**Status:** Coming soon.
+**Status:** Implemented. Existing E2E tests in `tests/e2e/` cover critical user flows such as admin setup, user registration, and login. See `docs/guidelines/unit-testing.md` §16 for full guidelines.
 
 ### What NOT to Unit Test
 
@@ -173,9 +173,10 @@ def find_eligible_cashback_users(self, db, min_transactions, min_amount):
 - ✅ Reduced maintenance burden on thin repository code
 - ✅ Layered confidence across all three test types
 - ✅ Real-world interactions validated without full Docker Compose overhead
+- ✅ E2E tests verify complete multi-domain user flows through the full stack
 - ⚠️ Unit tests require discipline not to over-test simple forwarding or happy-path flows
 - ⚠️ Integration tests are slower and require `TEST_DATABASE_URL` to be set
-- ⚠️ E2E tests (full Docker Compose stack) still coming soon
+- ⚠️ E2E tests are slow (require Docker Compose) and reserved for critical user journeys
 
 ## Alternatives Considered
 
@@ -206,6 +207,6 @@ The layered testing strategy maps each test type to a clear responsibility:
 - **Service unit tests** verify that business logic branches, validation rules, and exception-raising behaviour work correctly in isolation. Repositories are replaced by `create_autospec()` mocks, so tests run in milliseconds with no database.
 - **API unit tests** verify that the HTTP contract is correct: a `EmailAlreadyRegisteredException` maps to a `409`, a `PasswordNotComplexEnoughException` maps to a `422`, and response fields serialise correctly. Services are replaced by mocks — the test focuses on routing and error-mapping code only.
 - **Integration tests** verify that endpoints work correctly end-to-end with a real PostgreSQL instance. With no mocked dependencies, these tests exercise the full stack from HTTP request through to database write/read and back. They are slower but provide confidence that services and repositories integrate correctly. Edge cases and business logic details remain in unit tests; integration tests cover happy paths and key error scenarios.
-- **E2E tests** (coming soon) verify complete user workflows through the full Docker Compose stack. They are the fewest in number and the slowest to run; they act as a final sanity check, not a debugging tool.
+- **E2E tests** verify complete user workflows spanning multiple domains through the full Docker Compose stack. They are the fewest in number and the slowest to run; they act as a final sanity check for critical user journeys, not a primary debugging tool. Examples: admin setup → user registration → login flow, or register → make purchase → confirm purchase → view wallet.
 
 This partitioning gives the fastest possible feedback on the most common class of bug (business logic errors in services) while integration tests validate real-world interactions and E2E tests confirm multi-step user journeys. Together, they provide comprehensive coverage without duplicating effort or maintaining unnecessary tests of implementation details.

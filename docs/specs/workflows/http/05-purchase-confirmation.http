@@ -1,0 +1,158 @@
+### ClickNBack — Workflow 5: Admin Purchase Confirmation (Manual Approval)
+###
+### Goal: Review pending purchases and either confirm or reverse them.
+### Role: Admin
+###
+### Prerequisites:
+###   - At least one user with a pending purchase (Workflow 3).
+###   - Admin credentials (e.g., carol@clicknback.com / Str0ng!Pass).
+###
+### How to run:
+###   1. Open this file in VS Code with the REST Client extension installed.
+###   2. Run Step 1 to log in as admin.
+###   3. Run Step 2 to list pending purchases.
+###   4. Copy a purchase ID and run Step 3 (confirm) or Step 4 (reverse).
+###
+### NOTE: These endpoints are in backlog and not yet implemented.
+###       The requests below document the intended API contract.
+###
+### Live API: https://clicknback.com
+### Docs:     https://clicknback.com/docs
+
+@baseUrl = https://clicknback.com
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — Login as admin
+#
+# Expected: 200 OK with an access_token.
+# Copy the access_token value and set @adminToken below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# @name adminLogin
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+
+###
+
+@adminToken = PASTE_ACCESS_TOKEN_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2 — List all pending purchases
+#
+# Filters purchases by status="pending" to show those awaiting admin review.
+# Expected: 200 OK with a paginated list of pending purchases.
+# Copy a purchase `id` value and set @purchaseId below.
+#
+# Business rules:
+#   - Only pending purchases appear. Confirmed/reversed purchases are filtered out.
+#   - List is paginated; adjust page and page_size as needed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/purchases?status=pending&page=1&page_size=10
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+@purchaseId = PASTE_PURCHASE_ID_HERE
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 3 — View a single purchase (optional details check)
+#
+# Expected: 200 OK with full purchase details including amount, merchant, date,
+#           user, and current status.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/purchases/{{purchaseId}}
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 4 — Confirm a purchase
+#
+# Manually confirms a pending purchase. On success:
+#   - Purchase status changes to "confirmed"
+#   - PurchaseConfirmed event is published
+#   - Cashback is calculated and credited to the user's wallet (pending balance)
+#
+# Expected: 200 OK with the updated purchase including status: "confirmed"
+#           and the calculated cashback_amount.
+#
+# Business rules:
+#   - Can only confirm if status is "pending". Attempting to confirm an already-confirmed
+#     or reversed purchase returns 409 Conflict.
+#   - Cashback is calculated based on the active offer for the merchant on the
+#     purchase date, subject to the user's monthly cap.
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/api/v1/purchases/{{purchaseId}}/confirm
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 5 — Reverse a purchase (alternative to confirm)
+#
+# Manually reverses a purchase, e.g., due to dispute, user request, or fraud.
+# On success:
+#   - Purchase status changes to "reversed"
+#   - PurchaseReversed event is published
+#   - If the purchase was previously confirmed (and cashback was credited),
+#     the cashback is debited from the user's wallet.
+#   - If the purchase was still pending (no cashback credited yet), no wallet impact.
+#
+# Expected: 200 OK with the updated purchase including status: "reversed"
+#           and cashback_amount reset to 0.
+#
+# Business rules:
+#   - Can reverse a pending or confirmed purchase.
+#   - Cannot reverse an already-reversed purchase (returns 409 Conflict).
+#   - Wallet impact: if previously confirmed, cashback is debited.
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/api/v1/purchases/{{purchaseId}}/reverse
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 6 — Check the updated purchase (verify confirmation/reversal)
+#
+# After confirming or reversing, fetch the purchase again to verify the
+# status change and any cashback amount.
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/api/v1/purchases/{{purchaseId}}
+Authorization: Bearer {{adminToken}}
+
+
+###
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 7 — Check the user's wallet (optional, to see impact)
+#
+# After confirming, the user's wallet will show pending cashback.
+# After reversing, pending cashback decreases.
+#
+# You'll need the user_id from the purchase (see Step 3).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# GET {{baseUrl}}/api/v1/users/USER_ID_HERE/wallet
+# Authorization: Bearer {{adminToken}}
