@@ -141,7 +141,7 @@ ClickNBack follows a **three-layer testing pyramid**:
 | --- | --- | --- | --- |
 | **Unit Tests** | Business logic, services, APIs — all dependencies mocked | `make test` | Fast feedback; one test per behavior; ~6,000+ tests total |
 | **Integration Tests** | HTTP endpoints exercised against real PostgreSQL; no mocks | `make test-integration` | Verify each feature/endpoint works end-to-end with the database |
-| **E2E Tests** | Full system flows via Docker Compose | `make test-e2e` | Multi-step user journeys (coming soon) |
+| **E2E Tests** | Full system flows via Docker Compose | `make test-e2e` | Multi-step user journeys spanning multiple domains |
 
 **Coverage gate:** `make coverage` enforces an **85% hard gate** on unit tests. This gate runs the unit test suite and verifies coverage meets the threshold before allowing commits in CI. Integration and E2E tests do not count toward the coverage gate — they complement unit tests by verifying real-world interactions.
 
@@ -149,7 +149,7 @@ ClickNBack follows a **three-layer testing pyramid**:
 
 - **Unit test:** Whenever you write a service method, API endpoint, policy, or utility function. Mock all external dependencies (DB, other services, policies). Test both success and failure paths.
 - **Integration test:** One per endpoint. Exercise the HTTP route through to the database with real objects. Verify status codes, response fields, and key error scenarios. Edge cases belong in unit tests.
-- **E2E test:** Reserved for multi-step user flows that span multiple domains (e.g., register → make purchase → withdraw payout). Coming soon.
+- **E2E test:** Reserved for multi-step user flows that span multiple domains (e.g., register → make purchase → confirm purchase → view wallet). Start a full stack via Docker Compose and exercise critical business flows end-to-end. See `tests/e2e/` and `docs/guidelines/unit-testing.md` §16 for examples and guidelines.
 
 See [docs/guidelines/unit-testing.md](docs/guidelines/unit-testing.md) for the full testing guidelines, canonical examples, and checklist for every test layer.
 
