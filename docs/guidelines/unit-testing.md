@@ -47,64 +47,64 @@ every test function. Use `# Act & Assert` only when using `pytest.raises`. Never
 ```text
 tests/
 unit/
-	conftest.py                         # shared fixtures only
-	auth/
-	test_auth_api.py
-	test_auth_services.py
-	test_token_providers.py
-	core/
-	audit/
-	test_audit_enums.py         # mirrors app/core/audit/enums.py
-	test_audit_services.py      # mirrors app/core/audit/services.py + composition.py
-	test_current_user.py
-	errors/
-	test_builders.py
-	merchants/
-	test_merchants_api.py
-	test_merchants_policies.py
-	test_merchants_services.py
-	offers/
-	test_offers_admin_api.py        # mirrors app/offers/api/admin.py
-	test_offers_public_api.py       # mirrors app/offers/api/public.py
-	test_offers_policies.py
-	test_offers_services.py
-	purchases/
-	test_purchases_api.py
-	test_purchases_policies.py
-	test_purchases_schemas.py
-	test_purchases_services.py
-	users/
-	test_users_api.py
-	test_users_policies.py
-	test_users_services.py
+    conftest.py                         # shared fixtures only
+    auth/
+    test_auth_api.py
+    test_auth_services.py
+    test_token_providers.py
+    core/
+    audit/
+    test_audit_enums.py         # mirrors app/core/audit/enums.py
+    test_audit_services.py      # mirrors app/core/audit/services.py + composition.py
+    test_current_user.py
+    errors/
+    test_builders.py
+    merchants/
+    test_merchants_api.py
+    test_merchants_policies.py
+    test_merchants_services.py
+    offers/
+    test_offers_admin_api.py        # mirrors app/offers/api/admin.py
+    test_offers_public_api.py       # mirrors app/offers/api/public.py
+    test_offers_policies.py
+    test_offers_services.py
+    purchases/
+    test_purchases_api.py
+    test_purchases_policies.py
+    test_purchases_schemas.py
+    test_purchases_services.py
+    users/
+    test_users_api.py
+    test_users_policies.py
+    test_users_services.py
 integration/
-	conftest.py                         # DB engine, session, http_client fixtures
-	auth/
-	test_auth_login_integration.py
-	merchants/
-	test_merchants_create_integration.py
-	test_merchants_list_integration.py
-	test_merchants_set_status_integration.py
-	offers/
-	test_offers_create_integration.py
-	test_offers_list_admin_integration.py
-	test_offers_set_status_integration.py
-	test_offers_list_active_integration.py
-	test_offers_get_details_integration.py
-	purchases/
-	test_purchases_ingest_integration.py
-	test_purchases_list_user_integration.py
-	test_purchases_get_details_integration.py
-	test_purchases_list_admin_integration.py
-	users/
-	test_users_create_integration.py
-	wallets/
-	test_wallets_summary_integration.py
-	test_wallets_transactions_integration.py
-e2e/
-	conftest.py                         # Docker Compose lifecycle, base_url, session client
-	test_admin_setup_and_user_discovery.py
-	test_user_registration_and_login.py
+    conftest.py                         # DB engine, session, http_client fixtures
+    auth/
+    test_auth_login_integration.py
+    merchants/
+    test_merchants_create_integration.py
+    test_merchants_list_integration.py
+    test_merchants_set_status_integration.py
+    offers/
+    test_offers_create_integration.py
+    test_offers_list_admin_integration.py
+    test_offers_set_status_integration.py
+    test_offers_list_active_integration.py
+    test_offers_get_details_integration.py
+    purchases/
+    test_purchases_ingest_integration.py
+    test_purchases_list_user_integration.py
+    test_purchases_get_details_integration.py
+    test_purchases_list_admin_integration.py
+    users/
+    test_users_create_integration.py
+    wallets/
+    test_wallets_summary_integration.py
+    test_wallets_transactions_integration.py
+e2e
+    conftest.py                         # Docker Compose lifecycle, base_url, session client
+    test_admin_setup_and_user_discovery.py
+    `test_user_registration_and_login.py
 ```
 
 **Rule:** `tests/unit/{module}/test_{module_name}_{layer}.py`
