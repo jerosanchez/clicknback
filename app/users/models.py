@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Enum, Index, text
+from sqlalchemy import Enum, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 
@@ -29,5 +29,3 @@ class User(Base):
     created_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("now()")
     )
-
-    __table_args__ = (Index("users_email_key", "email", unique=True),)

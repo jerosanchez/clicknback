@@ -113,6 +113,9 @@ Use this prompt to implement a single feature (one endpoint) inside an existing 
 ### Step 11 — Tests
 
 - Follow `write-tests.prompt.md` to write the full test suite for this feature.
+- This includes both unit tests (Steps 1–5 of `write-tests.prompt.md`) **and** integration
+  tests (Step 6) — both are required for every new endpoint.
+- Place unit tests under `tests/unit/<module>/` and integration tests under `tests/integration/<module>/`.
 - When testing schedulers or brokers, observe only public-contract behavior — do not assert on private attributes or call internal methods directly.
 
 ### Step 12 — Quality gates

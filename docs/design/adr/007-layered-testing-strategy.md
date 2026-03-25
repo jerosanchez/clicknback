@@ -98,17 +98,18 @@ def test_create_user_returns_422_on_weak_password(user_service_mock):
 
 ### 2. Integration Tests
 
-**Scope:** Service + Repository + Database interactions
+**Scope:** Complete endpoint-to-database flows with real HTTP routing, service layer, and PostgreSQL
 
 **Approach:**
 
-- Use a real test database (containerized PostgreSQL via docker-compose)
-- Seed test data using factory fixtures
-- Test complete workflows with real DB transactions
-- Clean up/roll back between tests
-- Focus on data persistence and retrieval correctness
+- Use a real test database (containerized PostgreSQL in a dedicated test environment)
+- No mocked dependencies — all collaborators (services, repositories, database) are real
+- Seed data using async helper functions, then exercise HTTP endpoints via `httpx.AsyncClient`
+- Each test runs inside a rolled-back transaction for isolation; no manual cleanup
+- Exercise the happy path and key error scenarios (auth failures, validation errors, conflicts)
+- Do not repeat every edge case — those belong in unit tests
 
-**Why later:** As the application grows, integration tests will verify that services correctly integrate with the data layer.
+**Examples:** One integration test per endpoint (e.g., `test_merchants_create_integration.py`, `test_purchases_ingest_integration.py`). Each test verifies status codes, response fields, and error codes with real data flowing through the full stack.
 
 ### 3. End-to-End Tests
 
@@ -116,10 +117,13 @@ def test_create_user_returns_422_on_weak_password(user_service_mock):
 
 **Approach:**
 
-- Use `TestClient` from FastAPI to make HTTP requests
-- Test complete user journeys (auth, transactions, cashback calculations)
-- Include realistic error scenarios
+- Use Docker Compose to orchestrate the full application stack
+- `httpx.AsyncClient` makes real HTTP requests to the running server
+- Test complete multi-step user journeys (register → purchase → withdraw)
+- Create all test data through the HTTP API (not direct DB inserts)
 - Verify response formats and status codes match contracts
+
+**Status:** Coming soon.
 
 ### What NOT to Unit Test
 
@@ -165,11 +169,13 @@ def find_eligible_cashback_users(self, db, min_transactions, min_amount):
 - ✅ Fast unit test suite (only business logic and contract verification, no DB)
 - ✅ Clear feedback on business logic bugs
 - ✅ Early detection of HTTP contract violations (status codes, error mappings)
+- ✅ Integration tests verify endpoint correctness end-to-end with real database
 - ✅ Reduced maintenance burden on thin repository code
-- ✅ Layered confidence as we add integration and E2E tests
-- ✅ Low cost—API errors use mocked services, so tests run instantly
-- ⚠️ Thin repositories aren't directly tested until integration tests are added
-- ⚠️ Requires discipline to not over-test simple forwarding methods or happy-path API flows
+- ✅ Layered confidence across all three test types
+- ✅ Real-world interactions validated without full Docker Compose overhead
+- ⚠️ Unit tests require discipline not to over-test simple forwarding or happy-path flows
+- ⚠️ Integration tests are slower and require `TEST_DATABASE_URL` to be set
+- ⚠️ E2E tests (full Docker Compose stack) still coming soon
 
 ## Alternatives Considered
 
@@ -185,19 +191,21 @@ def find_eligible_cashback_users(self, db, min_transactions, min_amount):
 - **Cons:** E2E tests are slow (every test starts with an HTTP request and a database operation), making tight feedback loops impossible. A business logic bug in a service requires running the full stack to surface it. Debugging failures is harder because the test exercises many layers simultaneously.
 - **Rejected:** The feedback loop is too slow for iterative development. Unit tests on the service layer surface business logic bugs in milliseconds; E2E tests are the final confidence check, not the primary feedback mechanism.
 
-### Integration Tests for Repositories (Instead of Deferring Them)
+### Integration Tests for Repositories (Deferred)
 
-- **Pros:** Repository correctness is verified earlier, before E2E tests are added.
-- **Cons:** Integration tests require a live test database, which adds setup complexity and slows the CI pipeline. For simple ORM wrappers, the integration test adds cost without proportional value — the same bug would be surfaced by service integration tests or E2E tests anyway.
-- **Rejected:** Repository integration tests are deferred until the application has complex repository logic (joins, aggregations, CTEs) where the test ROI is meaningful. Simple `filter().first()` wrappers do not meet that threshold.
+- **Pros:** Repository correctness is verified early, before E2E tests are added.
+- **Cons:** Endpoint-level integration tests (implemented) already validate that repositories work correctly against live data. Dedicated repository integration tests would duplicate coverage without meaningful additional signal. Unit and endpoint-level integration tests provide sufficient confidence.
+- **Status:** Deferred. Endpoint integration tests currently provide sufficient coverage. Dedicated repository integration tests may be added later if complex repository logic (CTEs, window functions, aggregations) warrants it.
+
+This approach differs from integration tests at the endpoint level, which are now implemented. Endpoint integration tests exercise the entire flow from HTTP request through repository to database and back, providing comprehensive validation without the overhead of dedicated repository-only tests.
 
 ## Rationale
 
 The layered testing strategy maps each test type to a clear responsibility:
 
 - **Service unit tests** verify that business logic branches, validation rules, and exception-raising behaviour work correctly in isolation. Repositories are replaced by `create_autospec()` mocks, so tests run in milliseconds with no database.
-- **API unit tests** verify that the HTTP contract is correct: a `EmailAlreadyRegisteredException` maps to a `409`, a `PasswordNotComplexEnoughException` maps to a `422`, and response fields serialise correctly. The service is replaced by a `Mock` — the test focuses on routing and error-mapping code only.
-- **Integration tests** (added as the application grows) verify that services and repositories work correctly against a real PostgreSQL instance. These tests are slower and require the database to be running, so they are kept separate from the unit suite.
-- **E2E tests** verify complete user workflows through the full HTTP stack. They are the fewest in number and the slowest to run; they act as a final sanity check, not a debugging tool.
+- **API unit tests** verify that the HTTP contract is correct: a `EmailAlreadyRegisteredException` maps to a `409`, a `PasswordNotComplexEnoughException` maps to a `422`, and response fields serialise correctly. Services are replaced by mocks — the test focuses on routing and error-mapping code only.
+- **Integration tests** verify that endpoints work correctly end-to-end with a real PostgreSQL instance. With no mocked dependencies, these tests exercise the full stack from HTTP request through to database write/read and back. They are slower but provide confidence that services and repositories integrate correctly. Edge cases and business logic details remain in unit tests; integration tests cover happy paths and key error scenarios.
+- **E2E tests** (coming soon) verify complete user workflows through the full Docker Compose stack. They are the fewest in number and the slowest to run; they act as a final sanity check, not a debugging tool.
 
-This partitioning gives the fastest possible feedback on the most common class of bug (business logic errors in services) while avoiding the maintenance overhead of testing implementation details (ORM query internals) or duplicating coverage at multiple layers.
+This partitioning gives the fastest possible feedback on the most common class of bug (business logic errors in services) while integration tests validate real-world interactions and E2E tests confirm multi-step user journeys. Together, they provide comprehensive coverage without duplicating effort or maintaining unnecessary tests of implementation details.

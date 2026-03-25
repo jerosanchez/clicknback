@@ -87,8 +87,12 @@ pre-commit run --all-files
 #### 6. Verify Your Setup
 
 ```shell
-# Run the test suite
+# Run the unit test suite
 make test
+
+# Run integration tests (requires TEST_DATABASE_URL)
+# TEST_DATABASE_URL set automatically to match make up container
+make test-integration
 
 # Start the development server (in another terminal)
 # First, activate the venv again if needed
@@ -110,8 +114,10 @@ make up          # Start containers (DB + migrations + app)
 make down        # Stop containers and remove network
 
 # Run tests
-make test        # Run tests with coverage (pytest)
-make coverage    # Run tests and print emoji-graded coverage report
+make test        # Run unit tests with coverage (pytest)
+make test-integration   # Run integration tests against real PostgreSQL (requires TEST_DATABASE_URL)
+make test-e2e    # Run end-to-end tests via Docker Compose (requires docker-compose)
+make coverage    # Run all tests and print emoji-graded coverage report
 
 # Code quality
 make lint        # Run all linters (markdown, flake8, isort, black)
@@ -126,6 +132,26 @@ make db-reset    # Rollback migrations, apply fresh migrations, seed data
 # Clean up artifacts
 make clean       # Remove .venv, __pycache__, coverage reports, etc.
 ```
+
+## Testing Strategy
+
+ClickNBack follows a **three-layer testing pyramid**:
+
+| Layer | Scope | Run with | Purpose |
+| --- | --- | --- | --- |
+| **Unit Tests** | Business logic, services, APIs — all dependencies mocked | `make test` | Fast feedback; one test per behavior; ~6,000+ tests total |
+| **Integration Tests** | HTTP endpoints exercised against real PostgreSQL; no mocks | `make test-integration` | Verify each feature/endpoint works end-to-end with the database |
+| **E2E Tests** | Full system flows via Docker Compose | `make test-e2e` | Multi-step user journeys (coming soon) |
+
+**Coverage gate:** `make coverage` enforces an **85% hard gate** on unit tests. This gate runs the unit test suite and verifies coverage meets the threshold before allowing commits in CI. Integration and E2E tests do not count toward the coverage gate — they complement unit tests by verifying real-world interactions.
+
+**When to write each layer:**
+
+- **Unit test:** Whenever you write a service method, API endpoint, policy, or utility function. Mock all external dependencies (DB, other services, policies). Test both success and failure paths.
+- **Integration test:** One per endpoint. Exercise the HTTP route through to the database with real objects. Verify status codes, response fields, and key error scenarios. Edge cases belong in unit tests.
+- **E2E test:** Reserved for multi-step user flows that span multiple domains (e.g., register → make purchase → withdraw payout). Coming soon.
+
+See [docs/guidelines/unit-testing.md](docs/guidelines/unit-testing.md) for the full testing guidelines, canonical examples, and checklist for every test layer.
 
 ## Navigating the Code
 

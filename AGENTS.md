@@ -106,14 +106,24 @@
 - Tests are fully independent; no shared mutable state between tests.
 - No magic values: extract literals into named variables.
 - Full type hints on all fixtures and test functions.
-- File naming: `tests/{module}/test_{module}_{layer}.py`; mirrors source layout exactly; see `docs/guidelines/unit-testing.md` §2.
+- File naming: `tests/unit/{module}/test_{module}_{layer}.py`; mirrors source layout exactly; see `docs/guidelines/unit-testing.md` §2.
 - Service tests: one mock fixture per dependency; service fixture assembles the class; `db = AsyncMock()` created locally in each read-only test; `uow = _make_uow()` created locally in each write test.
 - Mock ABCs with `create_autospec(TheABC)`; mock callables with `Mock()`; mock `UnitOfWorkABC` with a plain `Mock` (not `create_autospec`).
 - API tests: assert every response field individually (not just status code); one parametrized test must enumerate every domain exception the endpoint can raise.
 - Write tests must assert `uow.commit.assert_called_once()` on success and `uow.commit.assert_not_called()` when an exception prevents commit.
 - Collaborator verification: assert dependencies are called with correct arguments and return values are correctly mapped.
-- Read `tests/conftest.py` first before writing fixtures; reuse existing `{model}_factory` and `{model}_input_data` fixtures.
+- Read `tests/unit/conftest.py` first before writing fixtures; reuse existing `{model}_factory` and `{model}_input_data` fixtures.
 - Full testing guidelines: `docs/guidelines/unit-testing.md`.
+
+## Integration Testing
+
+- Write one integration test file per endpoint alongside the corresponding unit tests; they live under `tests/integration/{module}/`.
+- Integration tests exercise the full stack — HTTP routing, service layer, repository layer, and a real PostgreSQL database — with no mocked dependencies.
+- Isolation strategy: each test runs inside a rolled-back outer transaction (see `tests/integration/conftest.py`); no data persists after the test ends.
+- Use the `http_client` fixture (unauthenticated), `user_http_client` fixture (regular user token), or `admin_http_client` fixture (admin token) from `tests/integration/conftest.py`.
+- Integration tests cover: the happy path and the most important failure modes (not every edge case — those are covered by unit tests).
+- Run with `make test-integration`; they are excluded from the `make test` coverage gate.
+- Full guide: `docs/guidelines/unit-testing.md` §15.
 
 ---
 
@@ -137,8 +147,10 @@
 - Run `make lint && make test && make coverage && make security` after every change; all four must exit 0.
 - Never hand back to the user while any gate is failing; fix issues autonomously and re-run from the start.
 - `make lint` runs `markdownlint`, `flake8`, `isort --check-only`, `black --check`.
-- `make test` runs the full pytest suite with coverage; generates `htmlcov/`, `coverage.xml`, and terminal output.
-- Coverage hard gate: 85% (CI fails below this); aspirational target: 80%.
+- `make test` runs the **unit test** suite (`tests/unit/`) with coverage; generates `htmlcov/`, `coverage.xml`, and terminal output.
+- `make test-integration` runs integration tests (`tests/integration/`) against a real PostgreSQL instance; requires `TEST_DATABASE_URL` env var.
+- `make test-e2e` runs end-to-end tests (`tests/e2e/`) against a full Docker Compose stack.
+- Coverage hard gate: 85% (CI fails below this); aspirational target: 80%. The gate applies to unit tests only.
 - `make security` runs Bandit on `app/` at medium/high severity; do not suppress with `# nosec` without documented reason.
 - Do not add `@pytest.mark.skip`, `@pytest.mark.xfail`, or stub implementations to make tests pass.
 - Do not add `# noqa` suppressions without a documented inline reason.
