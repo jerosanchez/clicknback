@@ -5,6 +5,7 @@ from app.purchases.exceptions import (
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
+    PurchaseAlreadyReversedException,
     PurchaseOwnershipViolationException,
     PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
@@ -16,6 +17,7 @@ from app.purchases.policies import (
     enforce_merchant_active,
     enforce_offer_available,
     enforce_purchase_ownership,
+    enforce_purchase_reversible,
     enforce_purchase_view_ownership,
     enforce_user_active,
 )
@@ -212,3 +214,49 @@ def test_enforce_purchase_view_ownership_raises_on_mismatched_user() -> None:
     assert exc_info.value.purchase_id == purchase_id
     assert exc_info.value.resource_owner_id == purchase_owner_id
     assert exc_info.value.current_user_id == current_user_id
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# enforce_purchase_reversible
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_enforce_purchase_reversible_raises_nothing_on_pending_status() -> None:
+    # Arrange
+    purchase_id = "aa000001-0000-0000-0000-000000000010"
+
+    # Act & Assert — should not raise
+    enforce_purchase_reversible(purchase_id, "pending")
+
+
+def test_enforce_purchase_reversible_raises_nothing_on_confirmed_status() -> None:
+    # Arrange
+    purchase_id = "aa000001-0000-0000-0000-000000000010"
+
+    # Act & Assert — should not raise
+    enforce_purchase_reversible(purchase_id, "confirmed")
+
+
+def test_enforce_purchase_reversible_raises_on_reversed_status() -> None:
+    # Arrange
+    purchase_id = "aa000001-0000-0000-0000-000000000010"
+
+    # Act & Assert
+    with pytest.raises(PurchaseAlreadyReversedException) as exc_info:
+        enforce_purchase_reversible(purchase_id, "reversed")
+
+    assert exc_info.value.purchase_id == purchase_id
+
+
+def test_enforce_purchase_reversible_exception_carries_correct_metadata() -> None:
+    # Arrange
+    purchase_id = "aa000001-0000-0000-0000-000000000010"
+
+    # Act
+    with pytest.raises(PurchaseAlreadyReversedException) as exc_info:
+        enforce_purchase_reversible(purchase_id, "reversed")
+
+    exc = exc_info.value
+    assert exc.current_status == "reversed"
+    assert "pending" in exc.reversible_from_statuses
+    assert "confirmed" in exc.reversible_from_statuses

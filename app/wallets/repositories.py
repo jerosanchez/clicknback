@@ -45,6 +45,16 @@ class WalletRepositoryABC(ABC):
         must commit.
         """
 
+    @abstractmethod
+    async def reverse_available(
+        self, db: AsyncSession, user_id: str, amount: Decimal
+    ) -> None:
+        """Remove *amount* from available_balance (confirmed purchase reversed).
+
+        Decrements available_balance only.  Flushed but not committed — caller
+        must commit.
+        """
+
 
 class WalletRepository(WalletRepositoryABC):
     async def get_by_user_id(self, db: AsyncSession, user_id: str) -> Wallet | None:
@@ -95,5 +105,16 @@ class WalletRepository(WalletRepositoryABC):
             update(Wallet)
             .where(Wallet.user_id == user_id)
             .values(pending_balance=Wallet.pending_balance - amount)
+        )
+        await db.execute(stmt)
+
+    async def reverse_available(
+        self, db: AsyncSession, user_id: str, amount: Decimal
+    ) -> None:
+        """Remove *amount* from available_balance."""
+        stmt = (
+            update(Wallet)
+            .where(Wallet.user_id == user_id)
+            .values(available_balance=Wallet.available_balance - amount)
         )
         await db.execute(stmt)

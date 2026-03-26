@@ -5,12 +5,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.current_user import get_current_admin_user
 from app.core.database import get_async_db
-from app.core.errors.builders import internal_server_error, unprocessable_entity_error
+from app.core.errors.builders import (
+    internal_server_error,
+    not_found_error,
+    unprocessable_entity_error,
+    validation_error,
+)
 from app.core.logging import logging
-from app.purchases.composition import get_purchase_service
+from app.core.unit_of_work import UnitOfWorkABC
+from app.purchases.composition import get_purchase_service, get_unit_of_work
 from app.purchases.errors import ErrorCode
-from app.purchases.exceptions import InvalidPurchaseStatusException
-from app.purchases.schemas import PaginatedPurchaseOut, PurchaseAdminOut
+from app.purchases.exceptions import (
+    InvalidPurchaseStatusException,
+    PurchaseAlreadyReversedException,
+    PurchaseNotFoundException,
+)
+from app.purchases.schemas import PaginatedPurchaseOut, PurchaseAdminOut, PurchaseOut
 from app.purchases.services import PurchaseService
 from app.users.models import User
 
@@ -69,4 +79,49 @@ async def list_all_purchases(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.patch(
+    "/{purchase_id}/reverse",
+    description="Reverse a purchase and its associated cashback. Admin access required.",
+)
+async def reverse_purchase(
+    purchase_id: str,
+    service: PurchaseService = Depends(get_purchase_service),
+    uow: UnitOfWorkABC = Depends(get_unit_of_work),
+    current_admin: User = Depends(get_current_admin_user),
+) -> PurchaseOut:
+    try:
+        purchase = await service.reverse_purchase(
+            purchase_id, str(current_admin.id), uow
+        )
+    except PurchaseNotFoundException as exc:
+        raise not_found_error(
+            message=f"Purchase with ID '{exc.purchase_id}' does not exist.",
+            details={"resource_type": "purchase", "resource_id": exc.purchase_id},
+        ) from None
+    except PurchaseAlreadyReversedException as exc:
+        raise validation_error(
+            code=ErrorCode.PURCHASE_ALREADY_REVERSED,
+            message=str(exc),
+            details=[
+                {
+                    "purchase_id": exc.purchase_id,
+                    "current_status": exc.current_status,
+                    "reversible_from_statuses": exc.reversible_from_statuses,
+                }
+            ],
+        ) from None
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while reversing purchase.",
+            extra={"error": str(e), "purchase_id": purchase_id},
+        )
+        raise internal_server_error()
+
+    return PurchaseOut(
+        id=purchase.id,
+        status=purchase.status,
+        cashback_amount=purchase.cashback_amount,
     )

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 
+from app.core.audit.services import AuditTrailABC
 from app.purchases.clients import (
     CashbackClientABC,
     CashbackResultDTO,
@@ -19,6 +20,7 @@ from app.purchases.exceptions import (
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
+    PurchaseAlreadyReversedException,
     PurchaseNotFoundException,
     PurchaseOwnershipViolationException,
     PurchaseViewForbiddenException,
@@ -92,6 +94,16 @@ def enforce_purchase_view_ownership() -> Mock:
 
 
 @pytest.fixture
+def enforce_purchase_reversible() -> Mock:
+    return Mock()
+
+
+@pytest.fixture
+def audit_trail() -> Mock:
+    return create_autospec(AuditTrailABC)
+
+
+@pytest.fixture
 def purchase_service(
     purchase_repository: Mock,
     cashback_client: Mock,
@@ -105,6 +117,8 @@ def purchase_service(
     enforce_offer_available: Mock,
     enforce_currency_supported: Mock,
     enforce_purchase_view_ownership: Mock,
+    enforce_purchase_reversible: Mock,
+    audit_trail: Mock,
 ) -> PurchaseService:
     return PurchaseService(
         repository=purchase_repository,
@@ -119,6 +133,8 @@ def purchase_service(
         enforce_offer_available=enforce_offer_available,
         enforce_currency_supported=enforce_currency_supported,
         enforce_purchase_view_ownership=enforce_purchase_view_ownership,
+        enforce_purchase_reversible=enforce_purchase_reversible,
+        audit_trail=audit_trail,
     )
 
 
@@ -1142,3 +1158,300 @@ async def test_ingest_purchase_cashback_transaction_not_created_on_failure(
         )
 
     cashback_client.create.assert_not_called()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.reverse_purchase — happy path
+# ──────────────────────────────────────────────────────────────────────────────
+
+_REVERSE_PURCHASE_ID = "aa000001-0000-0000-0000-000000000001"
+_REVERSE_ADMIN_ID = "d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a"
+_REVERSE_USER_ID = "b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d"
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_returns_reversed_purchase_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    cashback_amount = Decimal("5.00")
+    original_purchase = purchase_factory(
+        id=_REVERSE_PURCHASE_ID,
+        user_id=_REVERSE_USER_ID,
+        cashback_amount=cashback_amount,
+        status="pending",
+    )
+    reversed_purchase = purchase_factory(
+        id=_REVERSE_PURCHASE_ID,
+        user_id=_REVERSE_USER_ID,
+        cashback_amount=Decimal("0"),
+        status="reversed",
+    )
+    purchase_repository.get_by_id.return_value = original_purchase
+    purchase_repository.reverse_purchase.return_value = reversed_purchase
+
+    # Act
+    result = await purchase_service.reverse_purchase(
+        _REVERSE_PURCHASE_ID, _REVERSE_ADMIN_ID, uow
+    )
+
+    # Assert
+    assert result.status == "reversed"
+    assert result.cashback_amount == Decimal("0")
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_commits_uow_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    original_purchase = purchase_factory(
+        id=_REVERSE_PURCHASE_ID,
+        user_id=_REVERSE_USER_ID,
+        cashback_amount=Decimal("5.00"),
+        status="pending",
+    )
+    purchase_repository.get_by_id.return_value = original_purchase
+    purchase_repository.reverse_purchase.return_value = purchase_factory(
+        status="reversed", cashback_amount=Decimal("0")
+    )
+
+    # Act
+    await purchase_service.reverse_purchase(
+        _REVERSE_PURCHASE_ID, _REVERSE_ADMIN_ID, uow
+    )
+
+    # Assert
+    uow.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_deducts_from_pending_balance_for_pending_purchase(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    wallets_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    cashback_amount = Decimal("5.00")
+    original_purchase = purchase_factory(
+        id=_REVERSE_PURCHASE_ID,
+        user_id=_REVERSE_USER_ID,
+        cashback_amount=cashback_amount,
+        status="pending",
+    )
+    purchase_repository.get_by_id.return_value = original_purchase
+    purchase_repository.reverse_purchase.return_value = purchase_factory(
+        status="reversed", cashback_amount=Decimal("0")
+    )
+
+    # Act
+    await purchase_service.reverse_purchase(
+        _REVERSE_PURCHASE_ID, _REVERSE_ADMIN_ID, uow
+    )
+
+    # Assert — pending balance decremented, available balance NOT touched
+    wallets_client.reverse_pending.assert_called_once_with(
+        uow.session, _REVERSE_USER_ID, cashback_amount
+    )
+    wallets_client.reverse_available.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_deducts_from_available_balance_for_confirmed_purchase(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    wallets_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    cashback_amount = Decimal("15.00")
+    original_purchase = purchase_factory(
+        id=_REVERSE_PURCHASE_ID,
+        user_id=_REVERSE_USER_ID,
+        cashback_amount=cashback_amount,
+        status="confirmed",
+    )
+    purchase_repository.get_by_id.return_value = original_purchase
+    purchase_repository.reverse_purchase.return_value = purchase_factory(
+        status="reversed", cashback_amount=Decimal("0")
+    )
+
+    # Act
+    await purchase_service.reverse_purchase(
+        _REVERSE_PURCHASE_ID, _REVERSE_ADMIN_ID, uow
+    )
+
+    # Assert — available balance decremented, pending balance NOT touched
+    wallets_client.reverse_available.assert_called_once_with(
+        uow.session, _REVERSE_USER_ID, cashback_amount
+    )
+    wallets_client.reverse_pending.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_calls_cashback_reverse(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    cashback_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    original_purchase = purchase_factory(
+        id=_REVERSE_PURCHASE_ID,
+        user_id=_REVERSE_USER_ID,
+        cashback_amount=Decimal("5.00"),
+        status="pending",
+    )
+    purchase_repository.get_by_id.return_value = original_purchase
+    purchase_repository.reverse_purchase.return_value = purchase_factory(
+        status="reversed", cashback_amount=Decimal("0")
+    )
+
+    # Act
+    await purchase_service.reverse_purchase(
+        _REVERSE_PURCHASE_ID, _REVERSE_ADMIN_ID, uow
+    )
+
+    # Assert — cashback.reverse called with correct session and purchase_id
+    cashback_client.reverse.assert_called_once_with(uow.session, _REVERSE_PURCHASE_ID)
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_records_audit_trail_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    audit_trail: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    original_purchase = purchase_factory(
+        id=_REVERSE_PURCHASE_ID,
+        user_id=_REVERSE_USER_ID,
+        cashback_amount=Decimal("5.00"),
+        status="pending",
+    )
+    purchase_repository.get_by_id.return_value = original_purchase
+    purchase_repository.reverse_purchase.return_value = purchase_factory(
+        status="reversed", cashback_amount=Decimal("0")
+    )
+
+    # Act
+    await purchase_service.reverse_purchase(
+        _REVERSE_PURCHASE_ID, _REVERSE_ADMIN_ID, uow
+    )
+
+    # Assert
+    audit_trail.record.assert_called_once()
+    call_kwargs = audit_trail.record.call_args.kwargs
+    assert call_kwargs["resource_id"] == _REVERSE_PURCHASE_ID
+    assert call_kwargs["actor_id"] == _REVERSE_ADMIN_ID
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.reverse_purchase — not found
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_raises_on_purchase_not_found(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    missing_id = "00000000-0000-0000-0000-000000000000"
+    purchase_repository.get_by_id.return_value = None
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotFoundException) as exc_info:
+        await purchase_service.reverse_purchase(missing_id, _REVERSE_ADMIN_ID, uow)
+
+    assert exc_info.value.purchase_id == missing_id
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_does_not_commit_uow_on_not_found(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    purchase_repository.get_by_id.return_value = None
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotFoundException):
+        await purchase_service.reverse_purchase(
+            "00000000-0000-0000-0000-000000000000", _REVERSE_ADMIN_ID, uow
+        )
+
+    uow.commit.assert_not_called()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.reverse_purchase — already reversed
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_raises_on_already_reversed(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    enforce_purchase_reversible: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    already_reversed = purchase_factory(
+        id=_REVERSE_PURCHASE_ID,
+        user_id=_REVERSE_USER_ID,
+        status="reversed",
+    )
+    purchase_repository.get_by_id.return_value = already_reversed
+    enforce_purchase_reversible.side_effect = PurchaseAlreadyReversedException(
+        _REVERSE_PURCHASE_ID
+    )
+
+    # Act & Assert
+    with pytest.raises(PurchaseAlreadyReversedException) as exc_info:
+        await purchase_service.reverse_purchase(
+            _REVERSE_PURCHASE_ID, _REVERSE_ADMIN_ID, uow
+        )
+
+    assert exc_info.value.purchase_id == _REVERSE_PURCHASE_ID
+
+
+@pytest.mark.asyncio
+async def test_reverse_purchase_does_not_commit_uow_on_already_reversed(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    enforce_purchase_reversible: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    already_reversed = purchase_factory(
+        id=_REVERSE_PURCHASE_ID, user_id=_REVERSE_USER_ID, status="reversed"
+    )
+    purchase_repository.get_by_id.return_value = already_reversed
+    enforce_purchase_reversible.side_effect = PurchaseAlreadyReversedException(
+        _REVERSE_PURCHASE_ID
+    )
+
+    # Act & Assert
+    with pytest.raises(PurchaseAlreadyReversedException):
+        await purchase_service.reverse_purchase(
+            _REVERSE_PURCHASE_ID, _REVERSE_ADMIN_ID, uow
+        )
+
+    uow.commit.assert_not_called()

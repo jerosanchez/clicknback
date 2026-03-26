@@ -1,8 +1,11 @@
 from datetime import date
+from decimal import Decimal
 from typing import Any, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit.enums import AuditAction, AuditActorType, AuditOutcome
+from app.core.audit.services import AuditTrailABC
 from app.core.logging import logger
 from app.core.unit_of_work import UnitOfWorkABC
 from app.purchases.clients import (
@@ -40,6 +43,8 @@ class PurchaseService:
         enforce_offer_available: Callable[[OfferDTO | None, str], None],
         enforce_currency_supported: Callable[[str], None],
         enforce_purchase_view_ownership: Callable[[str, str, str], None],
+        enforce_purchase_reversible: Callable[[str, str], None],
+        audit_trail: AuditTrailABC,
     ):
         self.repository = repository
         self.cashback_client = cashback_client
@@ -53,6 +58,8 @@ class PurchaseService:
         self.enforce_offer_available = enforce_offer_available
         self.enforce_currency_supported = enforce_currency_supported
         self.enforce_purchase_view_ownership = enforce_purchase_view_ownership
+        self.enforce_purchase_reversible = enforce_purchase_reversible
+        self.audit_trail = audit_trail
 
     async def ingest_purchase(
         self, data: dict[str, Any], current_user_id: str, uow: UnitOfWorkABC
@@ -224,3 +231,52 @@ class PurchaseService:
             merchant_name = merchant.name
 
         return purchase, merchant_name
+
+    async def reverse_purchase(
+        self, purchase_id: str, admin_id: str, uow: UnitOfWorkABC
+    ) -> Purchase:
+        db = uow.session
+
+        purchase = await self.repository.get_by_id(db, purchase_id)
+        if purchase is None:
+            raise PurchaseNotFoundException(purchase_id)
+
+        self.enforce_purchase_reversible(purchase_id, purchase.status)
+
+        original_cashback_amount: Decimal = purchase.cashback_amount
+        prior_status: str = purchase.status
+
+        # Reverse cashback transaction first, then adjust wallet
+        await self.cashback_client.reverse(db, purchase_id)
+
+        if prior_status == "pending":
+            await self.wallets_client.reverse_pending(
+                db, purchase.user_id, original_cashback_amount
+            )
+        else:
+            # confirmed status — deduct from available_balance
+            await self.wallets_client.reverse_available(
+                db, purchase.user_id, original_cashback_amount
+            )
+
+        reversed_purchase = await self.repository.reverse_purchase(db, purchase_id)
+
+        await self.audit_trail.record(
+            db=db,
+            actor_type=AuditActorType.admin,
+            actor_id=admin_id,
+            action=AuditAction.PURCHASE_REVERSED,
+            resource_type="purchase",
+            resource_id=purchase_id,
+            outcome=AuditOutcome.success,
+            details={"prior_status": prior_status},
+        )
+
+        await uow.commit()
+
+        logger.info(
+            "Purchase reversed successfully.",
+            extra={"purchase_id": purchase_id, "admin_id": admin_id},
+        )
+
+        return reversed_purchase  # type: ignore[return-value]

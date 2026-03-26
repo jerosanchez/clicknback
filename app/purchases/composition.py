@@ -24,6 +24,7 @@ from app.purchases.policies import (
     enforce_merchant_active,
     enforce_offer_available,
     enforce_purchase_ownership,
+    enforce_purchase_reversible,
     enforce_purchase_view_ownership,
     enforce_user_active,
 )
@@ -61,6 +62,8 @@ def get_purchase_service() -> PurchaseService:
         enforce_offer_available=enforce_offer_available,
         enforce_currency_supported=enforce_currency_eur,
         enforce_purchase_view_ownership=enforce_purchase_view_ownership,
+        enforce_purchase_reversible=enforce_purchase_reversible,
+        audit_trail=get_audit_trail(),
     )
 
 
