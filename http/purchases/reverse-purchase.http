@@ -1,0 +1,67 @@
+# Purchases – Reverse Purchase (Admin)
+# Smoke tests for PATCH /purchases/{id}/reverse.
+#
+# Admin-only endpoint. Reverses a purchase and its associated cashback, and
+# decrements the appropriate wallet balance bucket.
+#
+# Seed data: seeds/dev.sql contains purchases in various states:
+#   aa000001-0000-0000-0000-000000000001  alice / Shoply         status=pending
+#   aa000001-0000-0000-0000-000000000005  alice / Shoply         status=confirmed
+#   aa000001-0000-0000-0000-000000000006  bob   / QuickCart      status=reversed
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste fresh tokens here (use helper login requests below).
+# These placeholder values are expired local-dev tokens from seed data — never real credentials.
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzQ1NTY0NjF9.hanncrFYDSP_4EVMqqSDopmu1zi87-8K4J6Bfb5-YAM
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3NDU1NjQ4NH0.-lNTLB7seIssfdNNjF4zWuHUQzrWpvtlCAKRfFuQPAs
+
+### Helper – obtain a fresh admin token (carol)
+# Returns access_token — paste as "Bearer <token>" into @adminToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: reverse a pending purchase (alice / Shoply)
+# Expected: {"id": "aa000001-...", "status": "reversed", "cashback_amount": 0}
+PATCH {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000001/reverse
+Authorization: {{adminToken}}
+
+### 200 – Happy path: reverse a confirmed purchase (alice / Shoply)
+# Expected: {"id": "aa000001-...", "status": "reversed", "cashback_amount": 0}
+PATCH {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000005/reverse
+Authorization: {{adminToken}}
+
+### 401 – Sad path: unauthenticated request
+# No Authorization header; expects 401 UNAUTHORIZED from the auth middleware.
+PATCH {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000001/reverse
+
+### 403 – Sad path: regular user cannot reverse purchases
+# alice has role=user; this admin-only endpoint returns 403 Forbidden.
+PATCH {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000001/reverse
+Authorization: {{userToken}}
+
+### 400 – Sad path: already reversed purchase
+# bob's QuickCart purchase (txn_seed_006) is already reversed.
+# Expected: 400 PURCHASE_ALREADY_REVERSED
+PATCH {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000006/reverse
+Authorization: {{adminToken}}
+
+### 404 – Sad path: purchase does not exist
+# Unknown UUID; expected: 404 NOT_FOUND
+PATCH {{baseUrl}}/purchases/00000000-0000-0000-0000-000000000000/reverse
+Authorization: {{adminToken}}
