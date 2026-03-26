@@ -102,7 +102,7 @@ _Status legend:_
 | Purchases Listing | Purchases | 🟢 done |
 | User Purchases Listing | Purchases | 🟢 done |
 | Cashback Calculation | Purchases | 🟢 done |
-| Purchase Reversal | Purchases | 🟡 ongoing |
+| Purchase Reversal | Purchases | 🟢 done |
 | **Wallet Management** | | |
 | Wallet Summary | Wallets | 🟢 done |
 | Wallet Transactions Listing | Wallets | 🟢 done |
@@ -111,7 +111,7 @@ _Status legend:_
 | Payout Processing | Payouts | ⚪ backlog |
 | Payouts Listing | Payouts | ⚪ backlog |
 | **Feature Flags** | | |
-| Set Feature Flag | Feature Flags | ⚪ backlog |
+| Set Feature Flag | Feature Flags | 🟡 ongoing |
 | Delete Feature Flag | Feature Flags | ⚪ backlog |
 | List Feature Flags | Feature Flags | ⚪ backlog |
 | Evaluate Feature Flag | Feature Flags | ⚪ backlog |
