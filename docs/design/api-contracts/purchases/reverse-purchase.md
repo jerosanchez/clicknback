@@ -4,6 +4,14 @@
 
 **Roles:** Admin
 
+## Request
+
+### Path Parameters
+
+| Parameter | Type   | Required | Description                           |
+|-----------|--------|----------|---------------------------------------|
+| `id`      | string | Yes      | UUID of the purchase to reverse.      |
+
 ## Success Response
 
 **Status:** 200 OK
@@ -23,12 +31,12 @@
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR",
+    "code": "PURCHASE_ALREADY_REVERSED",
     "message": "Cannot reverse purchase 'a1b2c3d4-5678-90ab-cdef-1234567890ab'. Purchase is already reversed.",
     "details": {
       "purchase_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
       "current_status": "reversed",
-      "allowed_transitions": ["pending", "confirmed"]
+      "reversible_from_statuses": ["pending", "confirmed"]
     }
   }
 }
@@ -75,6 +83,18 @@
       "resource_type": "purchase",
       "resource_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab"
     }
+  }
+}
+```
+
+### 500 Internal Server Error – Unexpected Failure
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_SERVER_ERROR",
+    "message": "An unexpected error occurred. Our team has been notified. Please retry later.",
+    "details": {}
   }
 }
 ```
