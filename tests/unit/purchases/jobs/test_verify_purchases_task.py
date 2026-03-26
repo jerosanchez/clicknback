@@ -13,7 +13,6 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.purchases.clients import CashbackClientABC, WalletsClientABC
 from app.purchases.jobs.verify_purchases import (
@@ -57,11 +56,6 @@ def repository() -> MagicMock:
 
 
 @pytest.fixture
-def audit_trail() -> MagicMock:
-    return create_autospec(AuditTrailABC)
-
-
-@pytest.fixture
 def message_broker() -> MagicMock:
     return create_autospec(MessageBrokerABC)
 
@@ -84,7 +78,6 @@ def cashback_client() -> MagicMock:
 @pytest.mark.asyncio
 async def test_factory_returns_callable_and_runs_without_error_on_no_pending_purchases(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -99,7 +92,6 @@ async def test_factory_returns_callable_and_runs_without_error_on_no_pending_pur
         repository=repository,
         wallets_client=wallets_client,
         cashback_client=cashback_client,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
