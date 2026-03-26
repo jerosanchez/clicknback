@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import date, timedelta
+from decimal import Decimal
 
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,6 +48,15 @@ class PurchaseRepositoryABC(ABC):
         page_size: int = settings.default_page_size,
     ) -> tuple[list[Purchase], int]:
         pass
+
+    @abstractmethod
+    async def reverse_purchase(
+        self, db: AsyncSession, purchase_id: str
+    ) -> Purchase | None:
+        """Set purchase status to 'reversed' and cashback_amount to 0.
+
+        Flushed but not committed — caller must commit.
+        """
 
 
 class PurchaseRepository(PurchaseRepositoryABC):
@@ -139,6 +149,19 @@ class PurchaseRepository(PurchaseRepositoryABC):
         )
         result = await db.execute(items_stmt)
         return list(result.scalars().all()), total
+
+    async def reverse_purchase(
+        self, db: AsyncSession, purchase_id: str
+    ) -> Purchase | None:
+        result = await db.execute(select(Purchase).where(Purchase.id == purchase_id))
+        purchase = result.scalar_one_or_none()
+        if purchase is None:
+            return None
+        purchase.status = "reversed"
+        purchase.cashback_amount = Decimal("0")
+        await db.flush()
+        await db.refresh(purchase)
+        return purchase
 
     def _build_conditions(
         self,

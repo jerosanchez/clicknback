@@ -45,6 +45,15 @@ class WalletsClientABC(ABC):
         Flushed but not committed — caller must commit.
         """
 
+    @abstractmethod
+    async def reverse_available(
+        self, db: AsyncSession, user_id: str, amount: Decimal
+    ) -> None:
+        """Remove *amount* from available_balance (confirmed purchase reversed).
+
+        Flushed but not committed — caller must commit.
+        """
+
 
 class WalletsClient(WalletsClientABC):
     """Modular-monolith implementation — delegates to ``WalletRepository``."""
@@ -66,3 +75,8 @@ class WalletsClient(WalletsClientABC):
         self, db: AsyncSession, user_id: str, amount: Decimal
     ) -> None:
         await self._repository.reverse_pending(db, user_id, amount)
+
+    async def reverse_available(
+        self, db: AsyncSession, user_id: str, amount: Decimal
+    ) -> None:
+        await self._repository.reverse_available(db, user_id, amount)

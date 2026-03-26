@@ -82,6 +82,16 @@ class PurchaseNotFoundException(Exception):
         self.purchase_id = purchase_id
 
 
+class PurchaseAlreadyReversedException(Exception):
+    def __init__(self, purchase_id: str):
+        super().__init__(
+            f"Cannot reverse purchase '{purchase_id}'. Purchase is already reversed."
+        )
+        self.purchase_id = purchase_id
+        self.current_status = "reversed"
+        self.reversible_from_statuses = ["pending", "confirmed"]
+
+
 class PurchaseViewForbiddenException(Exception):
     """The authenticated user is not the owner of the purchase being viewed."""
 

@@ -3,6 +3,7 @@ from app.purchases.exceptions import (
     MerchantInactiveException,
     MerchantNotFoundException,
     OfferNotAvailableException,
+    PurchaseAlreadyReversedException,
     PurchaseOwnershipViolationException,
     PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
@@ -55,3 +56,9 @@ def enforce_purchase_view_ownership(
         raise PurchaseViewForbiddenException(
             purchase_id, purchase_user_id, current_user_id
         )
+
+
+def enforce_purchase_reversible(purchase_id: str, current_status: str) -> None:
+    """Raise if the purchase is already reversed and cannot be reversed again."""
+    if current_status == "reversed":
+        raise PurchaseAlreadyReversedException(purchase_id)
