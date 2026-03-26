@@ -356,7 +356,9 @@ docs/guidelines/
   documentation-organization.md     ← (This file) How to organize docs
   arch-decision-records.md          ← How to write, review, and maintain ADRs
   feature-architecture.md           ← Layer responsibilities, how to add a new feature
-  unit-testing.md                   ← Test structure, fixtures, what to test
+  unit-testing.md                   ← Unit test structure, fixtures, mocking
+  integration-testing.md            ← Integration test structure, fixtures, isolation
+  end-to-end-testing.md             ← E2E test structure, Docker Compose, flows
   feature-documentation.md          ← When/how to document a new feature
   markdown-docs.md                  ← Markdown style, formatting
   http-requests-file.md             ← How to write HTTP test files
@@ -430,20 +432,33 @@ docs/guidelines/
 
 ### 5.4. Testing Guidelines
 
-**Location:** `docs/guidelines/unit-testing.md`
+**Location:** `docs/guidelines/unit-testing.md`, `docs/guidelines/integration-testing.md`, `docs/guidelines/end-to-end-testing.md`
 
 **Purpose:** How to write tests that reflect the architecture and ensure quality.
 
-**Content:**
+**Content (Unit Tests):** [`unit-testing.md`](./unit-testing.md)
 
-- Testing pyramid: unit tests (mocked), API tests (HTTP), integration tests
-- What to test: services, repositories, policy functions, APIs
-- What not to test: trivial getters, ORM boilerplate
 - Test structure and naming: `test_<module>_<layer>.py`
 - Fixtures and conftest organization
+- What to test: service logic, API error mapping, policies, validators
 - Mocking patterns: `create_autospec`, dependency overrides
 - Async test patterns: `@pytest.mark.asyncio`, `AsyncMock`
-- Coverage targets and reporting
+- Private function imports and type guards for optional fields
+
+**Content (Integration Tests):** [`integration-testing.md`](./integration-testing.md)
+
+- Integration test structure: one per endpoint
+- Isolation strategy: rollback transactions, no persistence after test
+- Fixtures for real database, HTTP clients
+- Seeding and payload helpers
+- Coverage strategy: happy path + key failure modes
+
+**Content (End-to-End Tests):** [`end-to-end-testing.md`](./end-to-end-testing.md)
+
+- When to write E2E tests: multi-step flows, background jobs, time transitions
+- Docker Compose environment setup
+- Test data creation and stateful workflows
+- Async waits for background jobs
 
 **Audience:** Developers, QA.
 
@@ -527,12 +542,14 @@ docs/guidelines/
 
 ```text
 .github/prompts/
-  add-migration.prompt.md       ← Prompt for generating database migrations
-  build-feature.prompt.md       ← Prompt for implementing a new feature
-  create-module.prompt.md       ← Prompt for scaffolding a new module
-  review-code.prompt.md         ← Prompt for code review
-  setup-for-prod.prompt.md      ← Prompt for production deployment setup
-  write-tests.prompt.md         ← Prompt for writing tests
+  add-migration.prompt.md           ← Prompt for generating database migrations
+  build-feature.prompt.md           ← Prompt for implementing a new feature
+  create-module.prompt.md           ← Prompt for scaffolding a new module
+  review-code.prompt.md             ← Prompt for code review
+  setup-for-prod.prompt.md          ← Prompt for production deployment setup
+  write-unit-tests.prompt.md        ← Prompt for writing unit tests
+  write-integration-tests.prompt.md ← Prompt for writing integration tests
+  write-e2e-tests.prompt.md         ← Prompt for writing E2E tests
 ```
 
 **Content:** Each prompt file contains:
@@ -620,7 +637,9 @@ Use this map to find what you're looking for:
 → [docs/specs/non-functional/](../../docs/specs/non-functional/)
 
 **"I want to write tests"**
-→ [unit-testing.md](./unit-testing.md)
+→ [Unit Testing](./unit-testing.md)
+→ [Integration Testing](./integration-testing.md)
+→ [E2E Testing](./end-to-end-testing.md)
 
 **"I want to deploy to production"**
 → [deployment-plan.md](../../docs/design/deployment-plan.md)

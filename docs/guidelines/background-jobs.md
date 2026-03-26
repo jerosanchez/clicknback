@@ -44,7 +44,6 @@ from app.core.scheduler import ScheduledTask
 def make_verify_purchases_task(
     *,
     repository: PurchaseRepositoryABC,
-    audit_trail: AuditTrail,
     broker: MessageBrokerABC,
     db_session_factory: async_sessionmaker[AsyncSession],
     rejection_merchant_id: str,
@@ -112,22 +111,29 @@ Use `AsyncSessionLocal` (from `app.core.database`) as the factory. Pass it as an
 
 ## 5. Audit Trail
 
-Every job that transitions a purchase status, updates a wallet balance, or records a financial transaction must record an audit row via `AuditTrail.record(...):`
+Every job that transitions a purchase status, updates a wallet balance, or records a financial transaction must emit a **domain event** after the state change is committed. The audit module subscribes to domain events and persists audit records independently (see ADR-023).
+
+Do **not** call `AuditTrail.record(...)` directly from jobs. Instead, publish the domain event that represents the outcome:
 
 ```python
-await audit_trail.record(
-    db=db,
-    actor_type=AuditActorType.system,  # jobs are always "system" actors
-    actor_id=None,                      # no human involved
-    action=AuditAction.PURCHASE_CONFIRMED,
-    resource_type="purchase",
-    resource_id=purchase.id,
-    outcome=AuditOutcome.success,
-    details={"amount": str(purchase.amount), ...},
+await broker.publish(
+    PurchaseConfirmed(
+        purchase_id=purchase.id,
+        user_id=purchase.user_id,
+        merchant_id=purchase.merchant_id,
+        amount=purchase.amount,
+        currency=purchase.currency,
+        cashback_amount=cashback_amount,
+        verified_at=now,
+    )
 )
 ```
 
-Add new `AuditAction` members to `app/core/audit/enums.py` before implementing the job that uses them.
+The audit module's event handler (`app/core/audit/handlers.py`) subscribes to these domain events and writes the corresponding `AuditLog` row. This keeps jobs decoupled from audit infrastructure.
+
+When adding a new auditable operation, define (or reuse) a domain event in
+`app/core/events/<domain>_events.py` and register a handler in
+`app/core/audit/composition.py`.
 
 ---
 
@@ -246,17 +252,15 @@ from app.purchases.jobs.verify_purchases._runner import _run_verification_with_r
 from app.purchases.jobs.verify_purchases._dispatcher import _dispatch_pending_purchases
 
 @pytest.mark.asyncio
-async def test_confirms_normal_purchase(repository, audit_trail, broker, db):
+async def test_confirms_normal_purchase(repository, broker, db):
     purchase = _make_purchase()
     repository.get_pending_purchases = AsyncMock(return_value=[purchase])
     repository.update_status = AsyncMock()
     broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     await _verify_pending_purchases(
         db=db,
         repository=repository,
-        audit_trail=audit_trail,
         broker=broker,
         rejection_merchant_id="",
         max_verification_attempts=3,
@@ -283,7 +287,7 @@ Pass `datetime_provider=lambda: fixed_now` to the factory. Never patch `datetime
 Verify that the zero-arg closure produced by the factory actually dispatches correctly with no pending items:
 
 ```python
-async def test_task_factory_invokes_dispatcher(repository, audit_trail, broker):
+async def test_task_factory_invokes_dispatcher(repository, broker):
     session_factory, _ = _make_session_factory()
     repository.get_pending_purchases = AsyncMock(return_value=[])
 
@@ -300,7 +304,7 @@ async def test_task_factory_invokes_dispatcher(repository, audit_trail, broker):
 
 | Scenario | What to assert |
 | --- | --- |
-| Happy path | Status updated, event published, audit written |
+| Happy path | Status updated, domain event published |
 | No pending items | None of the above called |
 | Simulation/failure entity within retry window | No status update, no event, no audit |
 | Simulation/failure entity retries exhausted | Correct status, `PurchaseRejected` event, audit |
