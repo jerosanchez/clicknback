@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.audit.composition import get_audit_trail
 from app.core.broker import broker
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, get_async_db
@@ -63,7 +62,7 @@ def get_purchase_service() -> PurchaseService:
         enforce_currency_supported=enforce_currency_eur,
         enforce_purchase_view_ownership=enforce_purchase_view_ownership,
         enforce_purchase_reversible=enforce_purchase_reversible,
-        audit_trail=get_audit_trail(),
+        broker=broker,
     )
 
 
@@ -72,7 +71,6 @@ def get_verify_purchases_task():
         repository=PurchaseRepository(),
         wallets_client=get_wallets_client(),
         cashback_client=get_cashback_client(),
-        audit_trail=get_audit_trail(),
         broker=broker,
         db_session_factory=AsyncSessionLocal,
         verifier=SimulatedPurchaseVerifier(

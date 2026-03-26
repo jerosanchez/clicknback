@@ -177,13 +177,16 @@ app/core/audit/
   enums.py          ← AuditActorType, AuditAction
   models.py         ← AuditLog ORM model
   repositories.py   ← Data access
-  services.py       ← AuditTrail service
-  composition.py    ← Dependency wiring
+  handlers.py       ← Domain event → AuditLog subscribers
+  composition.py    ← Dependency wiring and event subscription
 ```
 
-**Design:** When a critical state-changing operation succeeds in a service (e.g., purchase confirmation), the service calls `audit_trail.record(...)` to atomically write both a database row and a structured log line. This creates an immutable audit log capturing who did what and when.
+**Design:** When a critical state-changing operation succeeds, the service or job publishes a domain
+event (e.g., `PurchaseConfirmed`, `PurchaseReversed`). The audit module subscribes to those domain
+events via the message broker and writes the corresponding `AuditLog` row. Business logic has zero
+knowledge of the audit module — it only publishes domain events.
 
-For details on which operations require auditing and how to integrate audit calls, see [ADR-015](../design/adr/015-persistent-audit-trail.md).
+See [ADR-023](../design/adr/023-event-driven-audit-logging.md) for design rationale and [ADR-015](../design/adr/015-persistent-audit-trail.md) for the audit table schema.
 
 ---
 
@@ -277,7 +280,9 @@ Structured context lets you search and filter logs efficiently and maintains a s
 - **Unexpected errors:** `logger.error(...)` in the API layer (domain/service layers don't know about HTTP, so they don't log `*Error` cases — that's the caller's responsibility).
 - **Read-only operations:** Generally skip; they clutter logs and offer little value.
 
-For audit-critical operations (e.g., purchase confirmation, withdrawal processing), the `AuditTrail` service automatically emits both a DB row and a structured `INFO` log — do not add additional logging for these operations.
+For audit-critical operations (e.g., purchase confirmation, withdrawal processing),
+the audit event handler automatically emits a structured `INFO` log together with the
+DB row — do not add additional logging for these operations.
 
 ### Log Levels and When to Use Them
 
@@ -303,16 +308,16 @@ For audit-critical operations (e.g., purchase confirmation, withdrawal processin
 
 ### Audit Trail — Persistent Record of Critical Operations
 
-Runtime logging is not a substitute for a persistent audit record. For every critical state-changing operation (purchase confirmation/rejection, cashback crediting, withdrawal processing, admin overrides), the service must also call `AuditTrail.record(...)` **in addition** to emitting the regular log line.
+Runtime logging is not a substitute for a persistent audit record. For every critical state-changing operation (purchase confirmation/rejection, cashback crediting, withdrawal processing, admin overrides), the service must publish a **domain event** after success so the audit module can persist a corresponding `AuditLog` row.
 
 The distinction:
 
 | Concern | Tool | Storage | Use for |
 | --- | --- | --- | --- |
 | Debugging & alerting | `logging.info/warn/error` | stdout / log aggregator | Runtime diagnostics, performance, errors |
-| Compliance & traceability | `AuditTrail.record(...)` | PostgreSQL `audit_logs` | Who did what, when, with what outcome — permanently |
+| Compliance & traceability | Domain event → audit handler | PostgreSQL `audit_logs` | Who did what, when, with what outcome — permanently |
 
-See the `core/audit/` section above and [ADR-015](../design/adr/015-persistent-audit-trail.md) for full details. See [NFR-10](../specs/non-functional/10-logging-observability.md) for the complete list of operations that require an audit row.
+See the `core/audit/` section above and [ADR-023](../design/adr/023-event-driven-audit-logging.md) for full details. See [NFR-10](../specs/non-functional/10-logging-observability.md) for the complete list of operations that require an audit row.
 
 ---
 

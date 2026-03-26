@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 
-from app.core.audit.services import AuditTrailABC
+from app.core.broker import MessageBrokerABC
+from app.core.events.purchase_events import PurchaseReversed
 from app.purchases.clients import (
     CashbackClientABC,
     CashbackResultDTO,
@@ -99,8 +100,8 @@ def enforce_purchase_reversible() -> Mock:
 
 
 @pytest.fixture
-def audit_trail() -> Mock:
-    return create_autospec(AuditTrailABC)
+def broker() -> Mock:
+    return create_autospec(MessageBrokerABC)
 
 
 @pytest.fixture
@@ -118,7 +119,7 @@ def purchase_service(
     enforce_currency_supported: Mock,
     enforce_purchase_view_ownership: Mock,
     enforce_purchase_reversible: Mock,
-    audit_trail: Mock,
+    broker: Mock,
 ) -> PurchaseService:
     return PurchaseService(
         repository=purchase_repository,
@@ -134,7 +135,7 @@ def purchase_service(
         enforce_currency_supported=enforce_currency_supported,
         enforce_purchase_view_ownership=enforce_purchase_view_ownership,
         enforce_purchase_reversible=enforce_purchase_reversible,
-        audit_trail=audit_trail,
+        broker=broker,
     )
 
 
@@ -1327,10 +1328,10 @@ async def test_reverse_purchase_calls_cashback_reverse(
 
 
 @pytest.mark.asyncio
-async def test_reverse_purchase_records_audit_trail_on_success(
+async def test_reverse_purchase_publishes_domain_event_on_success(
     purchase_service: PurchaseService,
     purchase_repository: Mock,
-    audit_trail: Mock,
+    broker: Mock,
     purchase_factory: Callable[..., Purchase],
 ) -> None:
     # Arrange
@@ -1352,10 +1353,11 @@ async def test_reverse_purchase_records_audit_trail_on_success(
     )
 
     # Assert
-    audit_trail.record.assert_called_once()
-    call_kwargs = audit_trail.record.call_args.kwargs
-    assert call_kwargs["resource_id"] == _REVERSE_PURCHASE_ID
-    assert call_kwargs["actor_id"] == _REVERSE_ADMIN_ID
+    broker.publish.assert_called_once()
+    event = broker.publish.call_args[0][0]
+    assert isinstance(event, PurchaseReversed)
+    assert event.purchase_id == _REVERSE_PURCHASE_ID
+    assert event.admin_id == _REVERSE_ADMIN_ID
 
 
 # ──────────────────────────────────────────────────────────────────────────────

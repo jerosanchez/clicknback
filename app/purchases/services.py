@@ -4,8 +4,8 @@ from typing import Any, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.audit.enums import AuditAction, AuditActorType, AuditOutcome
-from app.core.audit.services import AuditTrailABC
+from app.core.broker import MessageBrokerABC
+from app.core.events.purchase_events import PurchaseReversed
 from app.core.logging import logger
 from app.core.unit_of_work import UnitOfWorkABC
 from app.purchases.clients import (
@@ -44,7 +44,7 @@ class PurchaseService:
         enforce_currency_supported: Callable[[str], None],
         enforce_purchase_view_ownership: Callable[[str, str, str], None],
         enforce_purchase_reversible: Callable[[str, str], None],
-        audit_trail: AuditTrailABC,
+        broker: MessageBrokerABC,
     ):
         self.repository = repository
         self.cashback_client = cashback_client
@@ -59,7 +59,7 @@ class PurchaseService:
         self.enforce_currency_supported = enforce_currency_supported
         self.enforce_purchase_view_ownership = enforce_purchase_view_ownership
         self.enforce_purchase_reversible = enforce_purchase_reversible
-        self.audit_trail = audit_trail
+        self.broker = broker
 
     async def ingest_purchase(
         self, data: dict[str, Any], current_user_id: str, uow: UnitOfWorkABC
@@ -261,18 +261,19 @@ class PurchaseService:
 
         reversed_purchase = await self.repository.reverse_purchase(db, purchase_id)
 
-        await self.audit_trail.record(
-            db=db,
-            actor_type=AuditActorType.admin,
-            actor_id=admin_id,
-            action=AuditAction.PURCHASE_REVERSED,
-            resource_type="purchase",
-            resource_id=purchase_id,
-            outcome=AuditOutcome.success,
-            details={"prior_status": prior_status},
-        )
-
         await uow.commit()
+
+        await self.broker.publish(
+            PurchaseReversed(
+                purchase_id=purchase_id,
+                user_id=purchase.user_id,
+                admin_id=admin_id,
+                merchant_id=purchase.merchant_id,
+                amount=purchase.amount,
+                currency=purchase.currency,
+                prior_status=prior_status,
+            )
+        )
 
         logger.info(
             "Purchase reversed successfully.",

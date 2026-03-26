@@ -3,6 +3,8 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import api as auth_api
+from app.core.audit.composition import subscribe_audit_handlers
+from app.core.broker import broker
 from app.core.config import settings
 from app.core.errors.handlers import register_error_handlers
 from app.core.health import router as health_router
@@ -27,6 +29,8 @@ scheduler.schedule(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Wire audit event handlers to subscribe to all audit events
+    subscribe_audit_handlers(broker)
     await scheduler.start()  # spawns background asyncio Tasks
     yield
     await scheduler.stop()  # cancels them cleanly on shutdown

@@ -1,8 +1,8 @@
-# Testing Guidelines for AI Agents
+# Unit Testing Guidelines for AI Agents
 
-Self-contained reference for writing **all** tests in ClickNBack — unit, integration, and end-to-end. When asked to write a new test suite, follow every rule here and mirror the structure of the examples below exactly.
+Self-contained reference for writing **unit tests** in ClickNBack. When asked to write a new unit test suite, follow every rule here and mirror the structure of the examples below exactly. For integration and E2E tests, see [Integration Testing Guidelines](./integration-testing.md) and [End-to-End Testing Guidelines](./end-to-end-testing.md).
 
-All three test layers share the same quality standards (AAA structure, naming conventions, type hints). Layer-specific rules are in §5–§14 (unit), §15 (integration), and §16 (E2E).
+All test layers share common quality standards (AAA structure, naming conventions, type hints). Unit-specific rules are in §5–§14. See [Unit Testing Guidelines](./unit-testing.md) § 1 for shared quality standards that apply across all test layers.
 
 ---
 
@@ -13,8 +13,8 @@ All three test layers share the same quality standards (AAA structure, naming co
 | Layer | Count | Description |
 | --- | --- | --- |
 | Unit Tests | Many | Fast, isolated, all dependencies mocked |
-| Integration Tests | Some | Real database, containers (see §15) |
-| E2E Tests | Few | Full HTTP flows via Docker Compose (see §16) |
+| Integration Tests | Some | Real database, containers (see [Integration Testing Guidelines](./integration-testing.md)) |
+| E2E Tests | Few | Full HTTP flows via Docker Compose (see [End-to-End Testing Guidelines](./end-to-end-testing.md)) |
 
 ### What to Test
 
@@ -822,200 +822,151 @@ API tests:
 
 ---
 
-## 15. Integration Tests
+## 14a. Testing Private Implementation Details
 
-Integration tests exercise the full stack — FastAPI routing, service layer, repository layer, and a real PostgreSQL database — with **no mocked dependencies**.
+Occasionally, a module exports internal helper functions (prefixed with `_`) that implement behavior critical enough to warrant direct unit testing. Examples include internal event handlers (`_handle_purchase_confirmed`) and shared persistence helpers (`_persist_audit_log`). These are not meant for external consumption but **are** part of the module's correctness.
 
-### Setup
+### When to test private functions
 
-Set `TEST_DATABASE_URL` to point to a dedicated PostgreSQL test database:
+Test private functions when they:
 
-```text
-TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/clicknback_test
-```
+- Have significant business logic or state-transformation responsibility
+- Are called by multiple public entry points and changing them affects API contract
+- Implement domain-critical patterns (e.g., event-to-audit mapping, persistence logic)
 
-Run integration tests with:
+Do **not** test trivial private helpers or thin wrappers; those are covered implicitly by testing their callers.
 
-```bash
-make test-integration
-```
+### Import and annotation rules
 
-### File layout
-
-One file per endpoint; placed under `tests/integration/{module}/`:
-
-```text
-tests/integration/
-    conftest.py          # engine, session (with rollback), http_client fixtures
-    {module}/
-        __init__.py
-        test_{module}_{feature}_integration.py
-```
-
-Naming convention: `test_{module}_{verb}_{resource}_integration.py` — e.g., `test_merchants_create_integration.py`, `test_purchases_list_admin_integration.py`.
-
-### Isolation strategy
-
-Each test runs inside an outer connection-level transaction that is rolled back on teardown. `UnitOfWork.commit()` inside services creates and releases a savepoint via `join_transaction_mode="create_savepoint"` rather than committing the outer transaction, so all writes are visible within the test but nothing persists after the test ends. No manual cleanup is needed.
-
-### Fixtures (in `tests/integration/conftest.py`)
-
-| Fixture | Scope | Purpose |
-| --- | --- | --- |
-| `create_tables` | session | Creates all tables once; drops them after the session |
-| `db` | function | Yields a rolled-back `AsyncSession` |
-| `http_client` | function | Unauthenticated `httpx.AsyncClient` wired to the app |
-| `user_http_client` | function | Authenticated client with a regular-user token |
-| `admin_http_client` | function | Authenticated client with an admin token |
-| `user_http_client_with_user` | function | Like `user_http_client` but yields `(client, user)` tuple — use when the request body needs the user's own ID |
-
-Two helper functions are also exported from `conftest.py`:
-
-| Helper | Signature | Purpose |
-| --- | --- | --- |
-| `create_user` | `async (db, *, role, email, password) → (User, str)` | Insert a user directly into the test session; returns `(user, plain_password)` |
-| `make_token` | `(user) → str` | Generate a real JWT for a given `User` instance |
-
-### AAA structure
-
-Integration tests **must** follow the same AAA structure as unit tests. Every test function must contain `# Arrange`, `# Act`, and `# Assert` comments (or `# Act & Assert` for `pytest.raises` blocks). This rule applies regardless of how simple the test is — even a two-line test still needs the two comments.
-
-The only exception is when there is genuinely no arrangement needed (e.g., a read endpoint with a brand-new user and no seeded data). In that case, omit `# Arrange` but always include `# Act` and `# Assert`.
+1. **Always add a comment above the import** explaining why the private functions are being tested:
 
 ```python
-# ✅ Simple test — no Arrange needed, but Act + Assert are mandatory
-async def test_get_wallet_returns_200_for_new_user(
-user_http_client: AsyncClient, ) -> None:
-    # Act
-response = await user_http_client.get("/api/v1/users/me/wallet")
-
-    # Assert
-assert response.status_code == status.HTTP_200_OK
-
-
-# ✅ Test with seeding — full AAA
-async def test_list_purchases_returns_seeded_purchase(
-user_http_client_with_user: tuple[AsyncClient, User], db: AsyncSession, ) -> None:
-    # Arrange
-client, user = user_http_client_with_user merchant = await _seed_merchant_with_offer(db) await client.post( "/api/v1/purchases/", json={"external_id": f"ext-{uuid.uuid4()}", "user_id": str(user.id), "merchant_id": merchant.id, "amount": "50.00", "currency": "EUR"}, )
-
-    # Act
-response = await client.get("/api/v1/users/me/purchases")
-
-    # Assert
-assert response.status_code == status.HTTP_200_OK assert response.json()["total"] >= 1
+# Testing internal handlers to verify handler behavior and event-to-audit mapping.
+# See docs/guidelines/unit-testing.md § Testing Private Implementation Details.
+from app.core.audit.handlers import (
+    _handle_purchase_confirmed,  # pyright: ignore[reportPrivateUsage]
+    _handle_purchase_rejected,  # pyright: ignore[reportPrivateUsage]
+    _handle_purchase_reversed,  # pyright: ignore[reportPrivateUsage]
+)
 ```
 
-### Seeding helpers
+1. **Add `# pyright: ignore[reportPrivateUsage]`** on each imported private function to suppress the type checker warning. This acknowledges that importing private symbols is intentional for testing purposes.
 
-Extract repeated DB setup into module-level `async def _seed_*(db)` helpers. They must be `async` (since they call `await db.flush()`) and should return the primary entity needed by the test.
+### Organizing private function tests
+
+- Use section separators to separate tests for private functions from public API tests (see §12).
+- Name tests `test_{function_name}_{result}_on_{condition}` — e.g., `test_handle_purchase_confirmed_persists_correct_audit_record`.
+- Include `# Arrange`, `# Act`, `# Assert` comments exactly as in public API tests.
+- Mock all dependencies (repositories, session, datetime provider) using the same patterns as service tests.
+
+### Documentation reference
+
+Link to this section from any test file that imports private functions:
 
 ```python
-async def _seed_merchant_with_offer(db: AsyncSession) -> Merchant:
-merchant = Merchant( name=f"Test Merchant {uuid.uuid4().hex[:6]}", default_cashback_percentage=5.0, active=True, ) db.add(merchant) await db.flush() offer = Offer( merchant_id=merchant.id, percentage=5.0, fixed_amount=None, start_date=date.today(), end_date=date.today() + timedelta(days=30), monthly_cap_per_user=100.0, active=True, ) db.add(offer) await db.flush() return merchant
+# See docs/guidelines/unit-testing.md § Testing Private Implementation Details.
+from app.core.audit.handlers import (  # noqa: F401
+    _internal_helper,
+)
 ```
 
-### Request payload helpers
-
-Extract repeated request payloads into module-level `_payload()` functions:
-
-```python
-def _payload(user_id: str, merchant_id: str, external_id: str) -> dict[str, Any]:
-return { "external_id": external_id, "user_id": user_id, "merchant_id": merchant_id, "amount": "50.00", "currency": "EUR", }
-```
-
-### asyncio configuration
-
-Every integration test file must declare:
-
-```python
-import pytest
-
-pytestmark = pytest.mark.asyncio
-```
-
-This marks all test functions in the file as async without requiring `@pytest.mark.asyncio` on each function individually.
-
-### Coverage
-
-Integration tests run separately from unit tests and do not contribute to the `make coverage` gate. The 85% hard gate applies to unit tests only.
-
-### What to cover
-
-- Happy path for each endpoint: verify status code and the key response fields
-- Key failure modes: 401/403/404/409/422 responses with correct error codes
-- Do **not** repeat every edge case — those belong in unit tests
-
-### Canonical examples
-
-`tests/integration/purchases/test_purchases_ingest_integration.py` — seeding, `_payload()` helper, duplicate-detection, auth checks.
-
-`tests/integration/purchases/test_purchases_get_details_integration.py` — creating a second user via `create_user()` and `make_token()` to test ownership enforcement.
-
-`tests/integration/merchants/test_merchants_create_integration.py` — admin endpoint with no seeding (read canonical for the simplest possible structure).
-
-### Integration test checklist
-
-- [ ] `pytestmark = pytest.mark.asyncio` declared at module level
-- [ ] `# Arrange`, `# Act`, `# Assert` (or `# Act & Assert`) present in every
-test function; `# Arrange` may be omitted only when nothing needs seeding
-- [ ] Seeding uses `async def _seed_*(db: AsyncSession)` helpers; helpers call `await db.flush()`, never `await db.commit()`
-- [ ] No mocked dependencies — all collaborators are real
-- [ ] Tests cover: happy path, key failure modes (auth, validation, conflict)
-- [ ] Edge cases are left to unit tests
-- [ ] `db` fixture injected only when the test seeds data; omit it otherwise
-- [ ] Status codes use `fastapi.status` constants, never raw integers
-- [ ] File placed under `tests/integration/{module}/`; named
-`test_{module}_{endpoint}_integration.py`
+Keep the reference short and include the section number for easy navigation.
 
 ---
 
-## 16. End-to-End Tests
+## 14b. Type Guards for Optional Model Fields
 
-E2E tests spin up the full stack via Docker Compose and issue real HTTP requests against the running service. They are slow and few — reserve them for critical user-facing flows that span multiple domain operations.
+When asserting on optional model fields (typed as `FieldType | None`), use an explicit `assert field_name is not None` before accessing its contents. This prevents type checker errors like "Object of type 'None' is not subscriptable" and serves as a meaningful test assertion.
 
-Run E2E tests with:
+### Pattern
 
-```bash
-make test-e2e
+```python
+# ❌ Wrong — type checker complains that None is not subscriptable
+assert audit_log.details["merchant_id"] == "merchant-123"
+
+# ✅ Correct — explicit type guard + assertion + field access
+assert audit_log.details is not None
+assert audit_log.details["merchant_id"] == "merchant-123"
 ```
 
-### When to write an E2E test
+### When to apply
 
-Write an E2E test when a feature involves a multi-step flow that cross-cuts multiple domain modules and would be impractical to wire together in an integration test (e.g., a full cashback lifecycle: register → purchase → cashback confirmation → wallet withdrawal).
+- Extracting values from optional dictionary/sequence fields
+- Testing object attributes typed as `Type | None`
+- Any subscript operation on fields that could be `None` according to the type system
 
-### E2E test structure
+### Why this matters
 
-- Docker Compose environment started once per test session (session-scoped
-fixture).
-- `httpx.AsyncClient` targeting `http://localhost:{port}`; the port is read from env / settings.
-- Unique test data generated with `uuid4()` so parallel runs do not collide.
-- Tests do **not** rely on pre-seeded DB state — each test creates its own
-data through the API.
-- Cleanup: each test creates its own data; the suite truncates or re-applies seeds after the session.
+Type guards serve dual purposes:
 
-### Quality standards
+1. **Type checker satisfaction** — guides Pyright/mypy to narrow the type to non-None
+2. **Test clarity** — explicitly asserts that the field was populated (not just accident of mocking)
 
-E2E tests follow the **same** AAA structure, naming convention, and type-hint rules as unit and integration tests. There are no exceptions.
+### Example from tests
 
-### E2E file layout
-
-```text
-tests/e2e/ conftest.py          # Docker Compose lifecycle, base_url, session client test_{flow}.py       # one file per user-facing flow
+```python
+@pytest.mark.asyncio
+async def test_handler_persists_details() -> None:
+    # ...
+    audit_log: AuditLog = repository.add.call_args[0][1]
+    
+    # Type guard — ensures details is not None
+    assert audit_log.details is not None
+    
+    # Now safe to access fields
+    assert audit_log.details["merchant_id"] == _MERCHANT_ID
+    assert audit_log.details["amount"] == "100.00"
 ```
-
-### E2E test checklist
-
-- [ ] `pytestmark = pytest.mark.asyncio` declared at module level
-- [ ] `# Arrange`, `# Act`, `# Assert` in every test function
-- [ ] All test data created through the HTTP API (not direct DB inserts)
-- [ ] Test data uses `uuid4()` to ensure uniqueness
-- [ ] No dependency on pre-existing database state
-- [ ] Status codes use `fastapi.status` constants
 
 ---
 
-## 17. Common Issues and Fixes
+## 15. Unit Testing Checklist
+
+Use this before submitting any new unit test file:
+
+### All unit test files
+
+- [ ] Imports follow stdlib → third-party → local order
+- [ ] All fixtures and test functions have full type hints and `-> None` return
+- [ ] `# Arrange`, `# Act`, `# Assert` (or `# Act & Assert`) present in every test function
+- [ ] No magic literals — use named variables or `settings.*`
+- [ ] Section separators present when fixtures exist or multiple test groups
+- [ ] Each separator pair carries a short descriptive label (e.g., "POST /api/v1/users")
+
+### Service test files
+
+- [ ] One `create_autospec` fixture per ABC dependency
+- [ ] One `Mock()` fixture per callable dependency
+- [ ] One service assembly fixture
+- [ ] `db = AsyncMock()` created locally in each test (for async) or `Mock(spec=Session)` for sync
+- [ ] All branches (happy path, each exception) covered
+
+### API test files
+
+- [ ] `client` fixture is a generator, clears overrides after yield
+- [ ] Authenticated endpoints: `get_current_admin_user` overridden
+- [ ] Parametrized test covering status code + error code for all exceptions
+- [ ] Separate detail test for each domain exception with rich error shape
+- [ ] Input data function is a plain function (not fixture) when self-contained
+- [ ] All assertions for multi-field responses extracted into `_assert_*` helpers
+
+### Policy test files
+
+- [ ] `@pytest.mark.parametrize` used for valid and invalid inputs
+- [ ] Boundary values commented (lower boundary, upper boundary, midpoint)
+- [ ] Valid inputs: verify no exception raised
+- [ ] Invalid inputs: verify exception type and message substring
+
+### Schema validator test files
+
+- [ ] Module-level `_valid_payload(**overrides)` helper present
+- [ ] One parametrized test for valid inputs — asserts parsed field value
+- [ ] One parametrized test for invalid inputs — asserts `ValidationError` and message substring
+- [ ] Each parametrize entry is commented with its role
+
+---
+
+## 16. Common Issues and Fixes
 
 ### `AttributeError: return_value` not found on fixture
 
@@ -1053,73 +1004,3 @@ def client(...) -> Generator[TestClient, None, None]:
 ```python
 app.dependency_overrides[get_current_admin_user] = lambda: Mock()
 ```
-
----
-
-## 18. Quick Reference Checklist
-
-Use this before submitting any new test file.
-
-### All test files (unit, integration, E2E)
-
-- [ ] Imports follow stdlib → third-party → local order
-- [ ] All fixtures and test functions have full type hints and `-> None` return
-- [ ] `# Arrange`, `# Act`, `# Assert` (or `# Act & Assert`) present in every
-test function — these are section headers, not prose; never replace them with ad-hoc comments
-- [ ] No magic literals — use named variables or `settings.*`
-- [ ] Section separators present in unit test files: one before the first test
-(when fixtures exist), one before each additional test group
-- [ ] Each separator pair carries a short descriptive label line between the two rule lines
-
-### Unit — service test files
-
-- [ ] One `create_autospec` fixture per ABC dependency
-- [ ] One `Mock()` fixture per callable dependency
-- [ ] One service assembly fixture
-- [ ] `db = Mock(spec=Session)` created locally in each test
-- [ ] All branches (happy path, each exception) covered
-
-### Unit — API test files
-
-- [ ] `client` fixture is a generator, clears overrides after yield
-- [ ] Authenticated endpoints: `get_current_admin_user` overridden
-- [ ] Parametrized test covering status code + error code for all exceptions
-- [ ] Separate detail test for each domain exception with rich error shape
-- [ ] Input data function is a plain function (not fixture) when self-contained
-- [ ] All assertions for multi-field responses extracted into `_assert_*` helpers
-
-### Unit — policy test files
-
-- [ ] `@pytest.mark.parametrize` used for valid and invalid inputs
-- [ ] Boundary values commented (lower boundary, upper boundary, midpoint)
-- [ ] Valid inputs: verify no exception raised
-- [ ] Invalid inputs: verify exception type and message substring
-
-### Unit — schema validator test files
-
-- [ ] Module-level `_valid_payload(**overrides)` helper present
-- [ ] One parametrized test for valid inputs — asserts parsed field value
-- [ ] One parametrized test for invalid inputs — asserts `ValidationError` and
-message substring
-- [ ] Each parametrize entry is commented with its role
-
-### Integration test files
-
-- [ ] `pytestmark = pytest.mark.asyncio` declared at module level
-- [ ] `# Arrange`, `# Act`, `# Assert` in every test; `# Arrange` only omitted
-when the test has zero setup (pure read on a fresh empty state)
-- [ ] DB seeding uses `async def _seed_*(db: AsyncSession)` helpers
-- [ ] Helpers call `await db.flush()`, never `await db.commit()`
-- [ ] No mocked dependencies
-- [ ] Covers: happy path, auth/403, key conflict/404/422 cases
-- [ ] Does **not** repeat edge cases already covered by unit tests
-- [ ] File placed under `tests/integration/{module}/`, named
-`test_{module}_{endpoint}_integration.py`
-
-### E2E test files
-
-- [ ] `pytestmark = pytest.mark.asyncio` declared at module level
-- [ ] `# Arrange`, `# Act`, `# Assert` in every test
-- [ ] All test data created through the public API (no direct DB inserts)
-- [ ] `uuid4()` used for uniqueness; no reliance on pre-existing DB state
-- [ ] Status codes use `fastapi.status` constants

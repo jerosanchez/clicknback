@@ -17,8 +17,6 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.audit.enums import AuditAction, AuditActorType, AuditOutcome
-from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.core.events.purchase_events import PurchaseConfirmed, PurchaseRejected
 from app.purchases.clients import CashbackClientABC, WalletsClientABC
@@ -95,11 +93,6 @@ def repository() -> MagicMock:
 
 
 @pytest.fixture
-def audit_trail() -> MagicMock:
-    return create_autospec(AuditTrailABC)
-
-
-@pytest.fixture
 def message_broker() -> MagicMock:
     return create_autospec(MessageBrokerABC)
 
@@ -122,7 +115,6 @@ def cashback_client() -> MagicMock:
 @pytest.mark.asyncio
 async def test_confirm_purchase_on_first_attempt(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -134,13 +126,11 @@ async def test_confirm_purchase_on_first_attempt(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -164,7 +154,6 @@ async def test_confirm_purchase_on_first_attempt(
 @pytest.mark.asyncio
 async def test_normal_purchase_publishes_confirmed_event(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -175,13 +164,11 @@ async def test_normal_purchase_publishes_confirmed_event(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -196,17 +183,17 @@ async def test_normal_purchase_publishes_confirmed_event(
     )
 
     # Assert
-    message_broker.publish.assert_called_once()
-    event = message_broker.publish.call_args[0][0]
-    assert isinstance(event, PurchaseConfirmed)
-    assert event.purchase_id == _PURCHASE_ID
-    assert event.verified_at == _FIXED_NOW
+    # One domain event published: PurchaseConfirmed
+    assert message_broker.publish.call_count == 1
+    first_event = message_broker.publish.call_args_list[0][0][0]
+    assert isinstance(first_event, PurchaseConfirmed)
+    assert first_event.purchase_id == _PURCHASE_ID
+    assert first_event.verified_at == _FIXED_NOW
 
 
 @pytest.mark.asyncio
-async def test_normal_purchase_writes_confirmed_audit_record(
+async def test_normal_purchase_confirmed_event_carries_financial_details(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -217,13 +204,11 @@ async def test_normal_purchase_writes_confirmed_audit_record(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -238,27 +223,14 @@ async def test_normal_purchase_writes_confirmed_audit_record(
     )
 
     # Assert
-    audit_trail.record.assert_called_once_with(
-        db=session,
-        actor_type=AuditActorType.system,
-        actor_id=None,
-        action=AuditAction.PURCHASE_CONFIRMED,
-        resource_type="purchase",
-        resource_id=_PURCHASE_ID,
-        outcome=AuditOutcome.success,
-        details={
-            "merchant_id": purchase.merchant_id,
-            "amount": str(purchase.amount),
-            "currency": purchase.currency,
-            "cashback_amount": str(purchase.cashback_amount),
-        },
-    )
+    event: PurchaseConfirmed = message_broker.publish.call_args_list[0][0][0]
+    assert event.currency == "EUR"
+    assert event.cashback_amount == _CASHBACK_AMOUNT
 
 
 @pytest.mark.asyncio
 async def test_in_flight_cleaned_up_after_confirmation(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -269,7 +241,6 @@ async def test_in_flight_cleaned_up_after_confirmation(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     in_flight = InMemoryInFlightTracker()
     in_flight.add(_PURCHASE_ID, MagicMock())
@@ -278,7 +249,6 @@ async def test_in_flight_cleaned_up_after_confirmation(
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -304,7 +274,6 @@ async def test_in_flight_cleaned_up_after_confirmation(
 @pytest.mark.asyncio
 async def test_rejection_merchant_force_rejected_after_max_attempts(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -316,13 +285,11 @@ async def test_rejection_merchant_force_rejected_after_max_attempts(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -347,7 +314,6 @@ async def test_rejection_merchant_force_rejected_after_max_attempts(
 @pytest.mark.asyncio
 async def test_rejection_merchant_publishes_rejected_event(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -358,13 +324,11 @@ async def test_rejection_merchant_publishes_rejected_event(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -379,63 +343,18 @@ async def test_rejection_merchant_publishes_rejected_event(
     )
 
     # Assert
-    message_broker.publish.assert_called_once()
-    event = message_broker.publish.call_args[0][0]
-    assert isinstance(event, PurchaseRejected)
-    assert event.purchase_id == _PURCHASE_ID
-    assert event.failed_at == _FIXED_NOW
-    assert "verification attempt" in event.reason
-
-
-@pytest.mark.asyncio
-async def test_rejection_merchant_writes_rejected_audit_record(
-    repository: MagicMock,
-    audit_trail: MagicMock,
-    message_broker: MagicMock,
-    wallets_client: MagicMock,
-    cashback_client: MagicMock,
-) -> None:
-    # Arrange
-    purchase = _make_purchase(merchant_id=_REJECTION_MERCHANT_ID)
-    session_factory, _ = _make_session_factory()
-    repository.get_by_id = AsyncMock(return_value=purchase)
-    repository.update_status = AsyncMock()
-    message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
-
-    # Act
-    await _run_verification_with_retry(
-        purchase_id=_PURCHASE_ID,
-        repository=repository,
-        audit_trail=audit_trail,
-        broker=message_broker,
-        db_session_factory=session_factory,
-        verifier=SimulatedPurchaseVerifier(
-            rejection_merchant_id=_REJECTION_MERCHANT_ID
-        ),
-        max_attempts=_MAX_ATTEMPTS,
-        retry_interval_seconds=0,
-        datetime_provider=lambda: _FIXED_NOW,
-        wallets_client=wallets_client,
-        cashback_client=cashback_client,
-        in_flight=InMemoryInFlightTracker(),
-    )
-
-    # Assert
-    audit_trail.record.assert_called_once()
-    kwargs = audit_trail.record.call_args.kwargs
-    assert kwargs["action"] == AuditAction.PURCHASE_REJECTED
-    assert kwargs["actor_type"] == AuditActorType.system
-    assert kwargs["actor_id"] is None
-    assert kwargs["resource_id"] == _PURCHASE_ID
-    assert kwargs["outcome"] == AuditOutcome.success
-    assert kwargs["details"]["attempt"] == _MAX_ATTEMPTS
+    # Only one domain event published: PurchaseRejected
+    assert message_broker.publish.call_count == 1
+    first_event = message_broker.publish.call_args_list[0][0][0]
+    assert isinstance(first_event, PurchaseRejected)
+    assert first_event.purchase_id == _PURCHASE_ID
+    assert first_event.failed_at == _FIXED_NOW
+    assert "verification attempt" in first_event.reason
 
 
 @pytest.mark.asyncio
 async def test_rejection_merchant_cleans_up_in_flight(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -446,7 +365,6 @@ async def test_rejection_merchant_cleans_up_in_flight(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     in_flight = InMemoryInFlightTracker()
     in_flight.add(_PURCHASE_ID, MagicMock())
@@ -455,7 +373,6 @@ async def test_rejection_merchant_cleans_up_in_flight(
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -476,7 +393,6 @@ async def test_rejection_merchant_cleans_up_in_flight(
 @pytest.mark.asyncio
 async def test_purchase_id_in_flight_during_retries(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -488,7 +404,6 @@ async def test_purchase_id_in_flight_during_retries(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     in_flight = InMemoryInFlightTracker()
 
@@ -500,7 +415,6 @@ async def test_purchase_id_in_flight_during_retries(
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=AlwaysFailVerifier(),
@@ -524,7 +438,6 @@ async def test_purchase_id_in_flight_during_retries(
 @pytest.mark.asyncio
 async def test_hard_decline_rejects_immediately_without_retrying(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -536,7 +449,6 @@ async def test_hard_decline_rejects_immediately_without_retrying(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     hard_decline_verifier = MagicMock()
     hard_decline_verifier.verify = AsyncMock(
@@ -549,7 +461,6 @@ async def test_hard_decline_rejects_immediately_without_retrying(
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=hard_decline_verifier,
@@ -566,7 +477,9 @@ async def test_hard_decline_rejects_immediately_without_retrying(
     repository.update_status.assert_called_once_with(
         session, _PURCHASE_ID, PurchaseStatus.REJECTED.value
     )
-    event = message_broker.publish.call_args[0][0]
+    # Only one domain event published: PurchaseRejected
+    assert message_broker.publish.call_count == 1
+    event = message_broker.publish.call_args_list[0][0][0]
     assert isinstance(event, PurchaseRejected)
     assert event.reason == "Insufficient funds."
 
@@ -579,7 +492,6 @@ async def test_hard_decline_rejects_immediately_without_retrying(
 @pytest.mark.asyncio
 async def test_no_action_when_purchase_already_confirmed(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -591,13 +503,11 @@ async def test_no_action_when_purchase_already_confirmed(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -614,13 +524,11 @@ async def test_no_action_when_purchase_already_confirmed(
     # Assert
     repository.update_status.assert_not_called()
     message_broker.publish.assert_not_called()
-    audit_trail.record.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_no_action_when_purchase_not_found(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -631,13 +539,11 @@ async def test_no_action_when_purchase_not_found(
     repository.get_by_id = AsyncMock(return_value=None)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
-    # A
+    # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -664,7 +570,6 @@ async def test_no_action_when_purchase_not_found(
 @pytest.mark.asyncio
 async def test_confirm_purchase_moves_pending_balance_to_available(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -676,13 +581,11 @@ async def test_confirm_purchase_moves_pending_balance_to_available(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -705,7 +608,6 @@ async def test_confirm_purchase_moves_pending_balance_to_available(
 @pytest.mark.asyncio
 async def test_rejection_reverses_pending_balance(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -719,13 +621,11 @@ async def test_rejection_reverses_pending_balance(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -748,7 +648,6 @@ async def test_rejection_reverses_pending_balance(
 @pytest.mark.asyncio
 async def test_no_wallet_update_when_cashback_amount_is_zero(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -761,13 +660,11 @@ async def test_no_wallet_update_when_cashback_amount_is_zero(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -794,7 +691,6 @@ async def test_no_wallet_update_when_cashback_amount_is_zero(
 @pytest.mark.asyncio
 async def test_confirm_purchase_confirms_cashback_transaction(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -806,13 +702,11 @@ async def test_confirm_purchase_confirms_cashback_transaction(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -833,7 +727,6 @@ async def test_confirm_purchase_confirms_cashback_transaction(
 @pytest.mark.asyncio
 async def test_rejection_reverses_cashback_transaction(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -847,13 +740,11 @@ async def test_rejection_reverses_cashback_transaction(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(
@@ -874,7 +765,6 @@ async def test_rejection_reverses_cashback_transaction(
 @pytest.mark.asyncio
 async def test_no_cashback_transaction_update_when_cashback_amount_is_zero(
     repository: MagicMock,
-    audit_trail: MagicMock,
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
@@ -886,13 +776,11 @@ async def test_no_cashback_transaction_update_when_cashback_amount_is_zero(
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
-    audit_trail.record = AsyncMock()
 
     # Act
     await _run_verification_with_retry(
         purchase_id=_PURCHASE_ID,
         repository=repository,
-        audit_trail=audit_trail,
         broker=message_broker,
         db_session_factory=session_factory,
         verifier=SimulatedPurchaseVerifier(

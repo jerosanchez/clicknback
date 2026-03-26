@@ -43,7 +43,7 @@
 - Each module owns its models, business logic, repositories, schemas, and API surface.
 - Cross-module access is only through explicit client abstractions in the module's `clients/` package — never direct imports of another module's models or repositories.
 - Strict layering: `api → services + policies → repositories → DB`; no layer skips or reverse dependencies.
-- `app/core/` holds shared infrastructure: config, DB sessions, auth dependencies, error builders, logging, audit trail, scheduler, broker.
+- `app/core/` holds shared infrastructure: config, DB sessions, auth dependencies, error builders, logging, event-driven audit trail, scheduler, and message broker.
 - `app/main.py` is the composition root: wires routers, schedules background jobs, registers global handlers.
 - All ORM models must be imported in `app/models.py` for Alembic autogenerate to work.
 - Migrations live in `alembic/versions/`; run via `alembic upgrade head`.
@@ -106,14 +106,14 @@
 - Tests are fully independent; no shared mutable state between tests.
 - No magic values: extract literals into named variables.
 - Full type hints on all fixtures and test functions.
-- File naming: `tests/unit/{module}/test_{module}_{layer}.py`; mirrors source layout exactly; see `docs/guidelines/unit-testing.md` §2.
+- File naming: `tests/unit/{module}/test_{module}_{layer}.py`; mirrors source layout exactly; see [Unit Testing Guidelines](docs/guidelines/unit-testing.md) § 2.
 - Service tests: one mock fixture per dependency; service fixture assembles the class; `db = AsyncMock()` created locally in each read-only test; `uow = _make_uow()` created locally in each write test.
 - Mock ABCs with `create_autospec(TheABC)`; mock callables with `Mock()`; mock `UnitOfWorkABC` with a plain `Mock` (not `create_autospec`).
 - API tests: assert every response field individually (not just status code); one parametrized test must enumerate every domain exception the endpoint can raise.
 - Write tests must assert `uow.commit.assert_called_once()` on success and `uow.commit.assert_not_called()` when an exception prevents commit.
 - Collaborator verification: assert dependencies are called with correct arguments and return values are correctly mapped.
 - Read `tests/unit/conftest.py` first before writing fixtures; reuse existing `{model}_factory` and `{model}_input_data` fixtures.
-- Full testing guidelines: `docs/guidelines/unit-testing.md`.
+- Full testing guidelines: [Unit Testing Guidelines](docs/guidelines/unit-testing.md).
 
 ## Integration Testing
 
@@ -123,7 +123,7 @@
 - Use the `http_client` fixture (unauthenticated), `user_http_client` fixture (regular user token), or `admin_http_client` fixture (admin token) from `tests/integration/conftest.py`.
 - Integration tests cover: the happy path and the most important failure modes (not every edge case — those are covered by unit tests).
 - Run with `make test-integration`; they are excluded from the `make test` coverage gate.
-- Full guide: `docs/guidelines/unit-testing.md` §15.
+- Full guide: [Integration Testing Guidelines](docs/guidelines/integration-testing.md).
 
 ---
 
@@ -135,7 +135,7 @@
 - Inject `datetime_provider` as a factory parameter (default: `lambda: datetime.now(timezone.utc)`) so tests can freeze time.
 - Extract core logic to an internal `_<job_name>(*, db, ...)` function for direct testing without mocking the session factory.
 - Jobs open their own `AsyncSession` via the injected `db_session_factory`; they are not part of the request lifecycle.
-- Every critical state-changing job records an audit row via `AuditTrail.record(actor_type=AuditActorType.system, ...)`.
+- Every critical state-changing job publishes a **domain event** after the operation succeeds (e.g., `await broker.publish(PurchaseConfirmed(...))`). The audit module subscribes to domain events and persists audit records independently — business code has zero knowledge of the audit module (see [ADR-023](docs/design/adr/023-event-driven-audit-logging.md)).
 - Wire jobs in two steps: `<domain>/composition.py` constructs the task; `app/main.py` schedules it before the `lifespan` block.
 - Each job interval and behavioral knob must be a `Settings` field in `app/core/config.py`.
 - Full guide: `docs/guidelines/background-jobs.md`.

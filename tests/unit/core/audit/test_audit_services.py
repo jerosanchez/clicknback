@@ -247,21 +247,3 @@ async def test_record_emits_info_log_with_structured_extra(
     assert extra["resource_id"] == "payout-uuid-321"
     assert extra["outcome"] == AuditOutcome.success.value
     assert extra.get("details") is None  # details are not included in log extra
-
-
-# ---------------------------------------------------------------------------
-# get_audit_trail factory
-# ---------------------------------------------------------------------------
-
-
-def test_get_audit_trail_returns_audit_trail_instance() -> None:
-    """get_audit_trail() must return an AuditTrail bound to a real repository."""
-    # Arrange
-    # Local import to avoid import-time side effects and potential circular imports during test discovery.
-    from app.core.audit.composition import get_audit_trail
-
-    # Act
-    instance = get_audit_trail()
-
-    # Assert
-    assert isinstance(instance, AuditTrail)

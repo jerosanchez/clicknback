@@ -25,7 +25,6 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.audit.services import AuditTrailABC
 from app.core.broker import MessageBrokerABC
 from app.core.logging import logger
 from app.purchases.clients import CashbackClientABC, WalletsClientABC
@@ -52,7 +51,6 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
     repository: PurchaseRepositoryABC,
     wallets_client: WalletsClientABC,
     cashback_client: CashbackClientABC,
-    audit_trail: AuditTrailABC,
     broker: MessageBrokerABC,
     db_session_factory: async_sessionmaker[AsyncSession],
     verifier: PurchaseVerifierABC,
@@ -99,7 +97,6 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                         repository=repository,
                         wallets_client=wallets_client,
                         cashback_client=cashback_client,
-                        audit_trail=audit_trail,
                         broker=broker,
                     )
                     return
@@ -114,7 +111,6 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                         repository=repository,
                         wallets_client=wallets_client,
                         cashback_client=cashback_client,
-                        audit_trail=audit_trail,
                         broker=broker,
                     )
                     return
@@ -149,7 +145,6 @@ async def _run_verification_with_retry(  # pyright: ignore[reportUnusedFunction]
                     repository=repository,
                     wallets_client=wallets_client,
                     cashback_client=cashback_client,
-                    audit_trail=audit_trail,
                     broker=broker,
                 )
     finally:
