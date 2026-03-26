@@ -2,7 +2,11 @@
 
 ## Status
 
-Proposed
+Accepted
+
+**Date:** 2026-03-26  
+**Author(s):** AI Assistant  
+**Implementation:** Complete — Phase 7 (All acceptance criteria met)
 
 ## Context
 
@@ -19,17 +23,29 @@ The codebase already has a message broker pattern in place (ADR-014) used to pub
 
 ## Decision
 
-Refactor the audit logging system to use an **event-driven model**:
+Refactor the audit logging system to use an **event-driven model** built on the domain events already published by business modules:
 
-1. **Audit Events:** Define semantic event classes in `app/core/events/` (e.g., `PurchaseConfirmed`, `PurchaseReversed`, `CashbackPaid`, `WithdrawalProcessed`) that capture the full context (actor type, actor ID, action, resource type, resource ID, outcome, details).
+1. **Domain Events as the Audit Source:** Business modules publish rich domain events
+   (`PurchaseConfirmed`, `PurchaseRejected`, `PurchaseReversed`, …) that carry all
+   audit-relevant context (actor, amount, currency, outcome details). There is no separate
+   `AuditEvent` class — the audit module subscribes directly to domain events.
 
-2. **Audit Handler:** Implement an async event subscriber in `app/core/audit/handlers.py` that listens to audit events via the message broker and writes audit records to the database.
+2. **Audit Handlers:** `app/core/audit/handlers.py` provides one handler per subscribable
+   domain event (`_handle_purchase_confirmed`, `_handle_purchase_rejected`,
+   `_handle_purchase_reversed`). An internal `_persist_audit_log()` helper centralises the
+   `AuditLog` persistence logic.
 
-3. **Event Emission:** Replace all `await audit_trail.record(...)` calls with `await broker.publish(AuditEvent(...))` in services, jobs, and handlers. The operation's success determines whether the event is published — audit records reflect true outcomes.
+3. **Event Emission:** Business services publish domain events **after** `uow.commit()`;
+   background jobs publish after `db.commit()`. The audit handler fires only when the
+   business operation has durably succeeded.
 
-4. **Subscriber Registration:** Wire the audit handler into the message broker during application startup in `app/main.py` so it subscribes to all audit events on boot.
+4. **Subscriber Registration:** `app/core/audit/composition.py` exposes
+   `subscribe_audit_handlers(broker, …)` which registers one subscription per domain event
+   type. It is called in `app/main.py` at startup.
 
-5. **No Injection:** The `AuditTrail` service is no longer injected as a dependency. Business logic publishes events; the audit system subscribes independently.
+5. **No Injection:** The `AuditTrail` service is no longer injected into any service, job, or
+   handler. Business logic publishes domain events; the audit module is a fully independent
+   subscriber with zero coupling to the callers.
 
 ### Benefits
 

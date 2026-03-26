@@ -36,16 +36,14 @@ app/core/audit/
   enums.py         ← AuditActorType, AuditOutcome, AuditAction
   models.py        ← AuditLog ORM model
   repositories.py  ← AuditTrailRepositoryABC + AuditTrailRepository
-  services.py      ← AuditTrail service
-  composition.py   ← get_audit_trail() FastAPI Depends factory
+  handlers.py      ← Audit event handler (_handle_audit_event)
 ```
 
 - **`AuditActorType`** — string enum: `system` | `admin` | `user`.
 - **`AuditAction`** — string enum listing every auditable action (e.g. `PURCHASE_CONFIRMED`, `WITHDRAWAL_PROCESSED`). New actions are added to `enums.py` as features are implemented.
 - **`AuditLog`** — SQLAlchemy ORM model mapped to the `audit_logs` table.
 - **`AuditTrailRepositoryABC`** and **`AuditTrailRepository`** — the repository pair following the project's standard pattern (ABCs enable mocking in unit tests).
-- **`AuditTrail`** — the thin service class injected into feature services. Exposes a single primary method: `record(...)`. Internally, it both persists the row *and* emits a structured log line via the root Python logger, so the runtime log and the DB record are always in sync.
-- **`get_audit_trail()`** — FastAPI `Depends()` factory that provides a fully wired `AuditTrail` instance; accepts `AsyncSession` so the audit write participates in the same transaction as the business operation when needed.
+- **`_handle_purchase_confirmed()`**, **`_handle_purchase_rejected()`**, **`_handle_purchase_reversed()`** — per-domain-event handlers in `app/core/audit/handlers.py` that subscribe to purchase domain events (see [ADR-023](023-event-driven-audit-logging.md)) and persist `AuditLog` rows. This replaces the old direct service injection pattern.
 
 ### `audit_logs` table
 
@@ -61,36 +59,15 @@ app/core/audit/
 | outcome        | string   | `success` \| `failure`                                                   |
 | details        | JSON     | nullable; action-specific payload (amounts, status change, reason, etc.) |
 
-### Usage pattern in services
+### Usage pattern in services (deprecated; see ADR-023)
 
-Services that perform auditable operations receive an `AuditTrail` instance via `__init__()`, alongside their other dependencies:
+**Note:** As of ADR-023 (Event-Driven Audit Logging), the direct service injection pattern described below is no longer used. Services and jobs publish domain events (e.g., `PurchaseConfirmed`, `PurchaseReversed`) via the message broker instead of calling `AuditTrail.record()` directly. This section remains for historical context.
 
-```python
-class PurchaseService:
-    def __init__(
-        self,
-        purchase_repository: PurchaseRepositoryABC,
-        audit_trail: AuditTrail,
-    ): ...
+Previously, services that performed auditable operations received an `AuditTrail` instance via `__init__()`. The `record()` call was placed **after** the business operation succeeded — if the operation failed and raised an exception, no audit row was written, accurately reflecting the outcome.
 
-    async def confirm_purchase(self, purchase_id: str, db: AsyncSession) -> Purchase:
-        purchase = await self._confirm_internally(purchase_id, db)
-        await self.audit_trail.record(
-            db=db,
-            actor_type=AuditActorType.SYSTEM,
-            actor_id=None,
-            action=AuditAction.PURCHASE_CONFIRMED,
-            resource_type="purchase",
-            resource_id=purchase.id,
-            outcome="success",
-            details={"amount": str(purchase.amount), "merchant_id": purchase.merchant_id},
-        )
-        return purchase
-```
+For manual admin operations, `actor_type=AuditActorType.ADMIN` and `actor_id` was set to the authenticated user's ID.
 
-The `record()` call is placed **after** the business operation succeeds. If the operation fails and raises an exception, no audit row is written — which accurately reflects the outcome.
-
-For manual admin operations, `actor_type=AuditActorType.ADMIN` and `actor_id` is set to the authenticated user's ID, obtained from the route handler and passed down to the service.
+**Current pattern (ADR-023):** Services and jobs publish domain events (e.g., `PurchaseConfirmed`, `PurchaseReversed`) via the message broker. Per-event audit handlers in `app/core/audit/handlers.py` subscribe and persist `AuditLog` rows after the business transaction succeeds.
 
 ### Querying audit records (future)
 
@@ -125,5 +102,6 @@ The `audit_logs` table is immediately queryable via SQL for compliance reviews, 
 - [ADR-009: Python's Native Logging](009-native-logging-over-fastapi.md)
 - [ADR-013: Async Purchase Confirmation](013-async-purchase-confirmation.md)
 - [ADR-014: In-Process Broker and Scheduler](014-in-process-broker-and-scheduler.md)
+- [ADR-023: Event-Driven Audit Logging](023-event-driven-audit-logging.md) (current implementation pattern)
 - [NFR-10: Logging & Observability](../../specs/non-functional/10-logging-observability.md)
 - [Data Model](../data-model.md)
