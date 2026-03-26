@@ -1,11 +1,14 @@
-# Prompt: Write Tests for a Feature
+# Prompt: Write Unit Tests for a Feature
 
-Use this prompt after a feature is fully implemented and all manual smoke tests in the `.http` files are passing. Do not write tests speculatively — the implementation must be stable first.
+Use this prompt after a feature is fully implemented and all manual smoke tests in the `.http` files are passing. Do not write unit tests speculatively — the implementation must be stable first.
 
 ## Context
 
 - Read `AGENTS.md` for project context, testing conventions, and quality gates.
-- Read `docs/guidelines/unit-testing.md` — all conventions, patterns, naming rules; follow it exactly, including § 14b on type guards for optional fields.
+- Read `docs/guidelines/unit-testing.md` — all conventions, patterns, naming rules; follow it exactly.
+  - § 1-4: Shared standards (AAA structure, imports, fixtures)
+  - § 5-14: Unit testing specifics (services, API endpoints, policies, validators, helpers)
+  - § 15-16: Checklist and common issues
 - Read the functional spec for this feature — BDD scenarios are the test coverage checklist.
 - Read the implemented files: `models.py`, `schemas.py`, `policies.py`, `services.py`, `api.py`, etc.
 - Read `tests/unit/conftest.py` before writing any fixtures — reuse existing factories.
@@ -55,16 +58,7 @@ Use this prompt after a feature is fully implemented and all manual smoke tests 
 - Write one parametrized test enumerating every domain exception the handler can raise, including the generic `Exception` → 500 fallback — no exception may be omitted.
 - Cover all HTTP response codes: success, validation errors, domain errors, and auth failures (401, 403).
 
-### Step 6 — Write integration tests
-
-- Create `tests/integration/<module>/test_<module>_<endpoint>_integration.py` (one file per endpoint).
-- Use the `http_client`, `user_http_client`, or `admin_http_client` fixture from `tests/integration/conftest.py`.
-- Cover the happy path (assert status code and key response fields) and the most important failure
-  modes (wrong auth, duplicate data, missing resource).
-- Do not repeat every edge case — those are covered by unit tests.
-- Read `tests/integration/conftest.py` to understand available fixtures before writing any test.
-
-### Step 7 — Test private implementation details (if applicable)
+### Step 6 — Test private implementation details (if applicable)
 
 If the module exports internal/private functions (prefixed with `_`) that have significant business logic or are called by multiple entry points, add direct unit tests for them:
 
@@ -73,7 +67,7 @@ If the module exports internal/private functions (prefixed with `_`) that have s
 - **Add `# pyright: ignore[reportPrivateUsage]`** on each imported private function line to suppress type checker warnings.
 - Mock all dependencies exactly as in service tests.
 - Follow AAA structure and naming conventions.
-- See `docs/guidelines/unit-testing.md` § Testing Private Implementation Details for detailed rules.
+- See [Unit Testing Guidelines](../../docs/guidelines/unit-testing.md) § 14a for detailed rules.
 
 Example:
 
@@ -84,4 +78,19 @@ from app.core.audit.handlers import (
     _handle_purchase_confirmed,  # pyright: ignore[reportPrivateUsage]
     _handle_purchase_rejected,  # pyright: ignore[reportPrivateUsage]
 )
+```
+
+---
+
+## After Writing Unit Tests
+
+When complete, use these additional prompts:
+- [Write Integration Tests](./write-integration-tests.prompt.md) — for testing endpoints against a real database
+- [Write E2E Tests](./write-e2e-tests.prompt.md) — for testing multi-step user flows across modules
+
+Before submitting, verify all tests pass:
+```bash
+make test         # unit tests
+make lint         # code style
+make coverage     # 85% hard gate
 ```

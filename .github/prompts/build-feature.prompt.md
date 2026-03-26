@@ -23,7 +23,7 @@ Use this prompt to implement a single feature (one endpoint) inside an existing 
 - Repositories flush with `await db.flush()`, never `db.commit()`.
 - Write service methods accept `uow: UnitOfWorkABC` and call `await uow.commit()` once; read-only methods accept `db: AsyncSession` directly.
 - Small infrastructure modules (broker, scheduler) keep ABC and implementation in the same file under `app/core/`; promote to sub-package only when the component grows to encompass its own model, repository, and service.
-- Critical state-changing operations must call `AuditTrail.record(...)` after success — see ADR-015.
+- Critical state-changing operations must publish a domain event after success so the audit module can persist an audit record — see ADR-023.
 - Domain-specific background jobs live under `app/<domain>/jobs/<job_name>/` following Fan-Out Dispatcher + Per-Item Runner — see ADR-016 and `docs/guidelines/background-jobs.md`.
 - Feature flags follow the `clients/feature_flags.py` client pattern; resolution is fail-open; seed the key in `seeds/all.sql` with `enabled = true` — see ADR-018.
 
@@ -76,7 +76,7 @@ Use this prompt to implement a single feature (one endpoint) inside an existing 
 - Add one method per endpoint; orchestrate policy checks, repository calls, and client calls.
 - Write methods: accept `uow: UnitOfWorkABC`, access session via `uow.session`, call `await uow.commit()` once at the end.
 - Read methods: accept `db: AsyncSession` directly.
-- Call `AuditTrail.record(...)` after every critical state-changing operation.
+- Publish a domain event after every critical state-changing operation; do **not** call `AuditTrail.record(...)` directly.
 - Log `INFO` for successful state mutations; `DEBUG` for expected negative paths; no logging for reads.
 
 ### Step 6 — `composition.py`
@@ -112,9 +112,9 @@ Use this prompt to implement a single feature (one endpoint) inside an existing 
 
 ### Step 11 — Tests
 
-- Follow `write-tests.prompt.md` to write the full test suite for this feature.
-- This includes both unit tests (Steps 1–5 of `write-tests.prompt.md`) **and** integration
-  tests (Step 6) — both are required for every new endpoint.
+- Follow [write-unit-tests.prompt.md](./write-unit-tests.prompt.md) to write unit tests (service logic, policies, API error mapping).
+- Follow [write-integration-tests.prompt.md](./write-integration-tests.prompt.md) to write integration tests (one per endpoint, real database, no mocks).
+- For critical multi-step flows, follow [write-e2e-tests.prompt.md](./write-e2e-tests.prompt.md) (optional, only if needed).
 - Place unit tests under `tests/unit/<module>/` and integration tests under `tests/integration/<module>/`.
 - When testing schedulers or brokers, observe only public-contract behavior — do not assert on private attributes or call internal methods directly.
 
