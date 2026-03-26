@@ -10,10 +10,15 @@ from app.auth.exceptions import InvalidTokenException
 from app.core.current_user import get_current_admin_user
 from app.core.database import get_async_db
 from app.core.errors.codes import ErrorCode
+from app.core.unit_of_work import UnitOfWorkABC
 from app.main import app
-from app.purchases.composition import get_purchase_service
+from app.purchases.composition import get_purchase_service, get_unit_of_work
 from app.purchases.errors import ErrorCode as PurchaseErrorCode
-from app.purchases.exceptions import InvalidPurchaseStatusException
+from app.purchases.exceptions import (
+    InvalidPurchaseStatusException,
+    PurchaseAlreadyReversedException,
+    PurchaseNotFoundException,
+)
 from app.purchases.models import Purchase
 from app.purchases.services import PurchaseService
 
@@ -27,14 +32,24 @@ def purchase_service_mock() -> Mock:
     return create_autospec(PurchaseService)
 
 
+@pytest.fixture
+def uow_mock() -> Mock:
+    mock = Mock(spec=UnitOfWorkABC)
+    mock.commit = AsyncMock()
+    return mock
+
+
 async def _mock_get_async_db() -> AsyncGenerator[AsyncMock, Any]:
     yield AsyncMock()
 
 
 @pytest.fixture
-def client(purchase_service_mock: Mock) -> Generator[TestClient, None, None]:
+def client(
+    purchase_service_mock: Mock, uow_mock: Mock
+) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_purchase_service] = lambda: purchase_service_mock
+    app.dependency_overrides[get_unit_of_work] = lambda: uow_mock
     app.dependency_overrides[get_current_admin_user] = lambda: Mock()
 
     test_client = TestClient(app)
@@ -46,12 +61,14 @@ def client(purchase_service_mock: Mock) -> Generator[TestClient, None, None]:
 @pytest.fixture
 def non_admin_client(
     purchase_service_mock: Mock,
+    uow_mock: Mock,
 ) -> Generator[TestClient, None, None]:
     def _raise_invalid_token() -> None:
         raise InvalidTokenException()
 
     app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_purchase_service] = lambda: purchase_service_mock
+    app.dependency_overrides[get_unit_of_work] = lambda: uow_mock
     app.dependency_overrides[get_current_admin_user] = _raise_invalid_token
 
     yield TestClient(app)
@@ -62,10 +79,12 @@ def non_admin_client(
 @pytest.fixture
 def unauthenticated_client(
     purchase_service_mock: Mock,
+    uow_mock: Mock,
 ) -> Generator[TestClient, None, None]:
     """Client that does NOT override the auth dependency — auth is absent."""
     app.dependency_overrides[get_async_db] = _mock_get_async_db
     app.dependency_overrides[get_purchase_service] = lambda: purchase_service_mock
+    app.dependency_overrides[get_unit_of_work] = lambda: uow_mock
 
     yield TestClient(app, raise_server_exceptions=False)
 
@@ -302,6 +321,146 @@ def test_list_all_purchases_returns_422_on_invalid_pagination_params(
     response = client.get(f"/api/v1/purchases?{query_string}")
 
     # Assert
-    assert (
-        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-    ), f"Expected 422 for: {description}"
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT, (
+        f"Expected 422 for: {description}"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PATCH /api/v1/purchases/{purchase_id}/reverse — success
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_reverse_purchase_returns_200_on_success(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory(status="reversed", cashback_amount=Decimal("0"))
+    purchase_service_mock.reverse_purchase = AsyncMock(return_value=purchase)
+
+    # Act
+    response = client.patch(f"/api/v1/purchases/{purchase.id}/reverse")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["id"] == purchase.id
+    assert data["status"] == "reversed"
+    assert Decimal(data["cashback_amount"]) == Decimal("0")
+
+
+def test_reverse_purchase_calls_service_with_correct_args(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory(status="reversed", cashback_amount=Decimal("0"))
+    purchase_service_mock.reverse_purchase = AsyncMock(return_value=purchase)
+    purchase_id = purchase.id
+
+    # Act
+    client.patch(f"/api/v1/purchases/{purchase_id}/reverse")
+
+    # Assert
+    purchase_service_mock.reverse_purchase.assert_called_once()
+    call_args = purchase_service_mock.reverse_purchase.call_args
+    assert call_args.args[0] == purchase_id
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PATCH /api/v1/purchases/{purchase_id}/reverse — exception handling
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "side_effect,expected_status,expected_code",
+    [
+        (
+            PurchaseNotFoundException("some-purchase-id"),
+            status.HTTP_404_NOT_FOUND,
+            ErrorCode.NOT_FOUND,
+        ),
+        (
+            PurchaseAlreadyReversedException("some-purchase-id"),
+            status.HTTP_400_BAD_REQUEST,
+            PurchaseErrorCode.PURCHASE_ALREADY_REVERSED,
+        ),
+        (
+            Exception("unexpected failure"),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+        ),
+    ],
+)
+def test_reverse_purchase_returns_error_on_exception(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    side_effect: Exception,
+    expected_status: int,
+    expected_code: str,
+) -> None:
+    # Arrange
+    purchase_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    purchase_service_mock.reverse_purchase = AsyncMock(side_effect=side_effect)
+
+    # Act
+    response = client.patch(f"/api/v1/purchases/{purchase_id}/reverse")
+
+    # Assert
+    assert response.status_code == expected_status
+    _assert_error_payload(response.json(), expected_code)
+
+
+def test_reverse_purchase_returns_already_reversed_details(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    exc = PurchaseAlreadyReversedException(purchase_id)
+    purchase_service_mock.reverse_purchase = AsyncMock(side_effect=exc)
+
+    # Act
+    response = client.patch(f"/api/v1/purchases/{purchase_id}/reverse")
+
+    # Assert
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    data = response.json()
+    violation = data["error"]["details"]["violations"][0]
+    assert violation["purchase_id"] == purchase_id
+    assert violation["current_status"] == "reversed"
+    assert "pending" in violation["reversible_from_statuses"]
+    assert "confirmed" in violation["reversible_from_statuses"]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PATCH /api/v1/purchases/{purchase_id}/reverse — authorization
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_reverse_purchase_returns_401_on_missing_auth(
+    unauthenticated_client: TestClient,
+) -> None:
+    # Act
+    response = unauthenticated_client.patch(
+        "/api/v1/purchases/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/reverse"
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_reverse_purchase_returns_401_on_non_admin(
+    non_admin_client: TestClient,
+) -> None:
+    # Act
+    response = non_admin_client.patch(
+        "/api/v1/purchases/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/reverse"
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    _assert_error_payload(response.json(), ErrorCode.INVALID_TOKEN)
