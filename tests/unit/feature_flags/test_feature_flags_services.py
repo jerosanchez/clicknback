@@ -251,3 +251,114 @@ async def test_is_enabled_falls_back_to_global_when_scoped_flag_missing(
 
     # Assert
     assert result is True
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FeatureFlagService.list_flags
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_flags_returns_all_flags_without_filters(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    flag1 = _make_flag(key="purchase_confirmation_job", enabled=True)
+    flag2 = _make_flag(
+        id="ff000001-0000-0000-0000-000000000002",
+        key="purchase_confirmation_job",
+        enabled=False,
+        scope_type="merchant",
+    )
+    feature_flag_repository.list.return_value = ([flag1, flag2], 2)
+
+    # Act
+    flags, total = await feature_flag_service.list_flags(db)
+
+    # Assert
+    assert len(flags) == 2
+    assert total == 2
+    assert flags[0] == flag1
+    assert flags[1] == flag2
+    feature_flag_repository.list.assert_called_once_with(db, None, None, None)
+
+
+@pytest.mark.asyncio
+async def test_list_flags_filters_by_key(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    flag = _make_flag(key="purchase_confirmation_job")
+    feature_flag_repository.list.return_value = ([flag], 1)
+
+    # Act
+    flags, total = await feature_flag_service.list_flags(
+        db, key="purchase_confirmation_job"
+    )
+
+    # Assert
+    assert len(flags) == 1
+    assert total == 1
+    feature_flag_repository.list.assert_called_once_with(
+        db, "purchase_confirmation_job", None, None
+    )
+
+
+@pytest.mark.asyncio
+async def test_list_flags_filters_by_scope_type(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    flag = _make_flag(scope_type="merchant")
+    feature_flag_repository.list.return_value = ([flag], 1)
+
+    # Act
+    flags, total = await feature_flag_service.list_flags(db, scope_type="merchant")
+
+    # Assert
+    assert len(flags) == 1
+    assert total == 1
+    feature_flag_repository.list.assert_called_once_with(db, None, "merchant", None)
+
+
+@pytest.mark.asyncio
+async def test_list_flags_filters_by_scope_id(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    scope_id = "f0000000-0000-0000-0000-000000000001"
+    flag = _make_flag(scope_id=scope_id)
+    feature_flag_repository.list.return_value = ([flag], 1)
+
+    # Act
+    flags, total = await feature_flag_service.list_flags(db, scope_id=scope_id)
+
+    # Assert
+    assert len(flags) == 1
+    assert total == 1
+    feature_flag_repository.list.assert_called_once_with(db, None, None, scope_id)
+
+
+@pytest.mark.asyncio
+async def test_list_flags_returns_empty_when_no_match(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    feature_flag_repository.list.return_value = ([], 0)
+
+    # Act
+    flags, total = await feature_flag_service.list_flags(db, key="nonexistent")
+
+    # Assert
+    assert len(flags) == 0
+    assert total == 0
