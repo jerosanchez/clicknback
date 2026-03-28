@@ -11,7 +11,7 @@
 
 <!-- markdownlint-enable MD041 -->
 
-**A production-grade cashback platform backend.**
+**A production-grade platform backend.**
 
 Live at [clicknback.com](https://clicknback.com/docs) — no setup required.
 
@@ -35,7 +35,7 @@ Product specs are still evolving (see the [feature roadmap](#feature-roadmap) to
 
 ## Technical and Domain Features
 
-ClickNBack demonstrates a wide range of technical and domain features designed for real-world financial systems:
+ClickNBack demonstrates a wide range of technical and domain features designed for real-world systems:
 
 - **Layered, modular architecture** with strict separation between HTTP, business logic, and data access. Each domain (users, merchants, offers, purchases, wallets) is a self-contained module, making the codebase easy to navigate and ready for future extraction to services ([ADR-001](docs/design/adr/001-adopt-modular-monolith-approach.md)).
 - **Financial correctness and precision**: all monetary values use `Decimal` (never `float`), and wallet updates use row-level locking to prevent race conditions. Idempotency is enforced on purchases by external ID, ensuring no double-crediting.
@@ -111,9 +111,9 @@ _Status legend:_
 | Payout Processing | Payouts | ⚪ backlog |
 | Payouts Listing | Payouts | ⚪ backlog |
 | **Feature Flags** | | |
-| Set Feature Flag | Feature Flags | 🟡 ongoing |
+| Set Feature Flag | Feature Flags | 🟢 done |
 | Delete Feature Flag | Feature Flags | ⚪ backlog |
-| List Feature Flags | Feature Flags | ⚪ backlog |
+| List Feature Flags | Feature Flags | 🟡 ongoing |
 | Evaluate Feature Flag | Feature Flags | ⚪ backlog |
 | **Notifications** | | |
 | Purchase Creation Notification | Notifications | ⚫ planned |
@@ -134,9 +134,7 @@ _Status legend:_
 
 The API is continuously deployed at **[clicknback.com/docs](https://clicknback.com/docs)** — no setup required.
 
-See [QUICKSTART.md](QUICKSTART.md) for a complete guided tour: demo credentials, a step-by-step
-REST client walkthrough ([http/quickstart.http](http/quickstart.http)), and a curl reference —
-the full cashback lifecycle from login to wallet balance in under five minutes.
+See [QUICKSTART.md](QUICKSTART.md) for a complete guided tour: demo credentials, a step-by-step REST client walkthrough ([http/quickstart.http](http/quickstart.http)), and a curl reference — the full cashback lifecycle from login to wallet balance in under five minutes.
 
 ---
 
