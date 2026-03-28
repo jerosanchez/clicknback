@@ -14,7 +14,7 @@ lint: ## Run linting
 	@markdownlint "**/*.md"
 	@bash -c "$(VENV_ACTIVATE) flake8 app/ --max-line-length=$(MAX_LINE_LENGTH)"
 	@bash -c "$(VENV_ACTIVATE) isort --check-only app/ --profile=black --line-length=$(MAX_LINE_LENGTH)"
-	@bash -c "$(VENV_ACTIVATE) black --check app/ --line-length=$(MAX_LINE_LENGTH)"
+	@bash -c "$(VENV_ACTIVATE) black --check app/ --line-length=$(MAX_LINE_LENGTH) --target-version=py313"
 
 test: ## Run unit tests
 	@bash -c "$(VENV_ACTIVATE) python -m pytest tests/unit/ --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml"
