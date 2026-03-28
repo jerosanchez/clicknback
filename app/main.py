@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.errors.handlers import register_error_handlers
 from app.core.health import router as health_router
 from app.core.scheduler import InMemoryTaskScheduler
+from app.feature_flags import api as feature_flags_api
 from app.merchants import api as merchants_api
 from app.offers import api as offers_api
 from app.purchases import api as purchases_api
@@ -70,3 +71,4 @@ app.include_router(purchases_api.admin_router, prefix="/api/v1")
 app.include_router(purchases_api.public_router, prefix="/api/v1")
 app.include_router(purchases_api.users_router, prefix="/api/v1")
 app.include_router(wallets_api.router, prefix="/api/v1")
+app.include_router(feature_flags_api.router, prefix="/api/v1")
