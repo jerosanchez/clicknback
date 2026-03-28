@@ -130,6 +130,28 @@ def test_get_wallet_summary_returns_200_on_success(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/users/me/wallet — 500
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_get_wallet_summary_returns_500_on_unexpected_error(
+    client: TestClient,
+    wallet_service_mock: Mock,
+) -> None:
+    # Arrange
+    wallet_service_mock.get_wallet_summary = AsyncMock(
+        side_effect=RuntimeError("database exploded")
+    )
+
+    # Act
+    response = client.get("/api/v1/users/me/wallet")
+
+    # Assert
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    _assert_error_payload(response.json(), "INTERNAL_SERVER_ERROR")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # GET /api/v1/users/me/wallet — auth failures
 # ──────────────────────────────────────────────────────────────────────────────
 
