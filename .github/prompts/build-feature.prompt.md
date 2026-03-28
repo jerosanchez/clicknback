@@ -110,15 +110,38 @@ Use this prompt to implement a single feature (one endpoint) inside an existing 
 - Add realistic seed rows covering the happy path and important negative states.
 - Add enough rows to cover pagination (at least `page_size + 1`) for listing endpoints.
 
-### Step 11 — Tests
+### Step 11 — Unit tests (mandatory)
 
-- Follow [write-unit-tests.prompt.md](./write-unit-tests.prompt.md) to write unit tests (service logic, policies, API error mapping).
-- Follow [write-integration-tests.prompt.md](./write-integration-tests.prompt.md) to write integration tests (one per endpoint, real database, no mocks).
-- For critical multi-step flows, follow [write-e2e-tests.prompt.md](./write-e2e-tests.prompt.md) (optional, only if needed).
-- Place unit tests under `tests/unit/<module>/` and integration tests under `tests/integration/<module>/`.
+Follow [write-unit-tests.prompt.md](./write-unit-tests.prompt.md) in full.
+
+- Cover all BDD scenarios: every scenario must map to exactly one test.
+- Place tests under `tests/unit/<module>/`.
 - When testing schedulers or brokers, observe only public-contract behavior — do not assert on private attributes or call internal methods directly.
+
+### Step 11b — Integration tests (mandatory)
+
+**This step is NOT optional. Every implemented endpoint requires at least one integration test file. Do not skip this step under any circumstances.**
+
+Follow [write-integration-tests.prompt.md](./write-integration-tests.prompt.md) in full.
+
+- Create `tests/integration/<module>/test_<verb>_<resource>_integration.py` for **each** implemented endpoint.
+- Create `tests/integration/<module>/__init__.py` if the directory does not already exist.
+- Each file must include:
+  - At least one happy-path test asserting status code AND all key response fields.
+  - A test for 401 (unauthenticated) if the endpoint requires auth.
+  - A test for 403 (forbidden role) if the endpoint is role-restricted.
+  - A test for the most important 422 / 409 failure mode (if applicable).
+- Use `admin_http_client`, `user_http_client`, or `http_client` fixtures from `tests/integration/conftest.py`.
+- Use `_seed_*` helpers (flush, never commit) when the test needs existing DB state.
+- Do NOT mock any dependency — all collaborators must be real.
+- Verify isolation: the DB fixture rolls back automatically; no manual cleanup is needed.
+
+### Step 11c — E2E tests (optional)
+
+For critical multi-step flows only, follow [write-e2e-tests.prompt.md](./write-e2e-tests.prompt.md).
 
 ### Step 12 — Quality gates
 
 - Run `make lint && make test && make coverage && make security` — all must pass.
 - Confirm the coverage grade is at least ✅ Approved.
+- Confirm `tests/integration/<module>/` exists and contains at least one test file per implemented endpoint.
