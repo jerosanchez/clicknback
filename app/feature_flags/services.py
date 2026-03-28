@@ -77,3 +77,13 @@ class FeatureFlagService:
             return global_flag.enabled
 
         return True
+
+    async def list_flags(
+        self,
+        db: AsyncSession,
+        key: str | None = None,
+        scope_type: str | None = None,
+        scope_id: str | None = None,
+    ) -> tuple[list[FeatureFlag], int]:
+        """List feature flags with optional filters."""
+        return await self._repository.list(db, key, scope_type, scope_id)
