@@ -25,7 +25,7 @@ Use this prompt to implement a single feature (one endpoint) inside an existing 
 - Small infrastructure modules (broker, scheduler) keep ABC and implementation in the same file under `app/core/`; promote to sub-package only when the component grows to encompass its own model, repository, and service.
 - Critical state-changing operations must publish a domain event after success so the audit module can persist an audit record — see ADR-023.
 - Domain-specific background jobs live under `app/<domain>/jobs/<job_name>/` following Fan-Out Dispatcher + Per-Item Runner — see ADR-016 and `docs/guidelines/background-jobs.md`.
-- Feature flags follow the `clients/feature_flags.py` client pattern; resolution is fail-open; seed the key in `seeds/all.sql` with `enabled = true` — see ADR-018.
+- Feature flags follow the `clients/feature_flags.py` client pattern; resolution is fail-open; seed the key in `seeds/dev.sql` with `enabled = true` — see ADR-018.
 
 ---
 
@@ -105,7 +105,7 @@ Use this prompt to implement a single feature (one endpoint) inside an existing 
 
 - Follow `add-migration.prompt.md` for all migration steps.
 
-### Step 10 — `seeds/all.sql`
+### Step 10 — `seeds/dev.sql`
 
 - Add realistic seed rows covering the happy path and important negative states.
 - Add enough rows to cover pagination (at least `page_size + 1`) for listing endpoints.
