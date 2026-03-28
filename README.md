@@ -114,7 +114,7 @@ _Status legend:_
 | Set Feature Flag | Feature Flags | 🟢 done |
 | Delete Feature Flag | Feature Flags | ⚪ backlog |
 | List Feature Flags | Feature Flags | 🟡 ongoing |
-| Evaluate Feature Flag | Feature Flags | ⚪ backlog |
+| Evaluate Feature Flag | Feature Flags | 🟢 done |
 | **Notifications** | | |
 | Purchase Creation Notification | Notifications | ⚫ planned |
 | Purchase Confirmation Notification | Notifications | ⚫ planned |
