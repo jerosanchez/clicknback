@@ -178,3 +178,29 @@ INSERT INTO cashback_transactions (id, user_id, purchase_id, amount, status, cre
     ('ct000001-0000-0000-0000-000000000012', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'bb000001-0000-0000-0000-000000000001', 4.95,  'pending',   NOW() - INTERVAL '1 hour'),
     -- bob – BankSimFail 5%: 49.50 → 2.48 (pending — rejection-sim, will be reversed by job)
     ('ct000001-0000-0000-0000-000000000013', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'bb000001-0000-0000-0000-000000000002', 2.48,  'pending',   NOW() - INTERVAL '2 hours');
+
+-- Feature Flags
+-- Global flag: purchase_confirmation_job enabled (default state for normal operation)
+-- Merchant-scoped flag: purchase_confirmation_job disabled for BankSimFail
+--   (demonstrates scoped override without affecting the global flag)
+INSERT INTO feature_flags (id, key, enabled, scope_type, scope_id, description, created_at, updated_at) VALUES
+    (
+        'ff000001-0000-0000-0000-000000000001',
+        'purchase_confirmation_job',
+        TRUE,
+        'global',
+        NULL,
+        'Controls whether the purchase confirmation background job runs.',
+        NOW(),
+        NOW()
+    ),
+    (
+        'ff000001-0000-0000-0000-000000000002',
+        'purchase_confirmation_job',
+        FALSE,
+        'merchant',
+        'f0000000-0000-0000-0000-000000000001',
+        'Disable confirmation job for BankSimFail during manual testing.',
+        NOW(),
+        NOW()
+    );

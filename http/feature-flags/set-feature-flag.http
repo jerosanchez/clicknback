@@ -1,0 +1,117 @@
+# Feature Flags – Set Feature Flag
+# Smoke tests for PUT /feature-flags/{key}.
+#
+# Admin-only endpoint. Creates or updates a feature flag (upsert semantics)
+# identified by (key, scope_type, scope_id). Seed data includes:
+#   - ff000001-0000-0000-0000-000000000001  purchase_confirmation_job (global, enabled)
+#   - ff000001-0000-0000-0000-000000000002  purchase_confirmation_job (merchant / BankSimFail, disabled)
+#
+# Run the helper login requests below to obtain a fresh token.
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste fresh tokens here (use helper login requests below).
+# These placeholder values are expired local-dev tokens from seed data — never real credentials.
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzQ3MzEzODV9.1OfwOkq47-DNrLyTRcXBHzpVhHrGP50KV5w1-Ttxpfg
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3NDczMTQ2N30.RM_RctGkiWolGFWWt2HFMXLyY6G71NN6ykWQo2kYTHA
+
+# Seed UUIDs
+@bankSimFailMerchantId = f0000000-0000-0000-0000-000000000001
+@aliceUserId = b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d
+
+### Helper – obtain a fresh admin token (carol)
+# Returns access_token — paste as "Bearer <token>" into @adminToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: create (or update) a global flag
+# Expected: 200 with full flag record (scope_type=global, scope_id=null).
+PUT {{baseUrl}}/feature-flags/purchase_confirmation_job
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "enabled": false,
+  "description": "Paused for manual testing"
+}
+
+### 200 – Happy path: set a merchant-scoped flag
+# Expected: 200 with scope_type=merchant and scope_id matching bankSimFail merchant.
+PUT {{baseUrl}}/feature-flags/fraud_check
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "enabled": false,
+  "scope_type": "merchant",
+  "scope_id": "{{bankSimFailMerchantId}}",
+  "description": "Disable fraud check for BankSimFail during migration"
+}
+
+### 200 – Happy path: set a user-scoped flag
+# Expected: 200 with scope_type=user and scope_id matching alice's user UUID.
+PUT {{baseUrl}}/feature-flags/new_cashback_rules
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "enabled": true,
+  "scope_type": "user",
+  "scope_id": "{{aliceUserId}}",
+  "description": "Enable new rules for alice as pilot user"
+}
+
+### 401 – Unauthenticated: no Authorization header
+# Expected: 401 INVALID_CREDENTIALS.
+PUT {{baseUrl}}/feature-flags/purchase_confirmation_job
+Content-Type: application/json
+
+{
+  "enabled": true
+}
+
+### 403 – Forbidden: regular user cannot set flags
+# Expected: 403 FORBIDDEN.
+PUT {{baseUrl}}/feature-flags/purchase_confirmation_job
+Authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "enabled": true
+}
+
+### 422 – Validation error: merchant scope without scope_id
+# Expected: 422 FEATURE_FLAG_SCOPE_ID_REQUIRED.
+PUT {{baseUrl}}/feature-flags/fraud_check
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "enabled": false,
+  "scope_type": "merchant"
+}
+
+### 422 – Validation error: invalid key format (not snake_case)
+# Expected: 422 VALIDATION_ERROR.
+PUT {{baseUrl}}/feature-flags/Purchase-Confirmation-Job
+Authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "enabled": false
+}

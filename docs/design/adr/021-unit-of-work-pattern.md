@@ -76,7 +76,7 @@ The concrete `SQLAlchemyUnitOfWork` wraps an `AsyncSession` and is wired in `com
 
 ## Decision
 
-Use the Unit of Work pattern (Option 3). Introduce `UnitOfWorkABC` and `SQLAlchemyUnitOfWork` in `app/core/unit_of_work.py`. Any service method that must commit across multiple repositories or clients shall accept a `UnitOfWorkABC` instead of a raw `AsyncSession`, and call `await uow.commit()` to close the transaction.
+Use the Unit of Work pattern (Option 3). Introduce `UnitOfWorkABC` and `SQLAlchemyUnitOfWork` in `app/core/unit_of_work.py`. Any service method that performs a write (commit), regardless of the number of repositories or clients, must accept a `UnitOfWorkABC` instead of a raw `AsyncSession`, and call `await uow.commit()` to close the transaction.
 
 Read-only service methods that do not commit continue to accept `db: AsyncSession` directly — there is no benefit in wrapping a read-only session in a UoW.
 
