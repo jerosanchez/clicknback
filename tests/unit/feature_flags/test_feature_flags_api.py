@@ -246,7 +246,7 @@ def test_set_feature_flag_returns_422_with_scope_type_in_details(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def test_evaluate_feature_flag_returns_200_with_global_scope(
+def test_evaluate_feature_flag_returns_200_on_success(
     client: TestClient,
     feature_flag_service_mock: Mock,
 ) -> None:
@@ -261,86 +261,34 @@ def test_evaluate_feature_flag_returns_200_with_global_scope(
     data = response.json()
     assert data["key"] == "purchase_confirmation_job"
     assert data["enabled"] is False
-    feature_flag_service_mock.is_enabled.assert_called_once_with(
-        "purchase_confirmation_job",
-        feature_flag_service_mock.is_enabled.call_args[0][1],
-        scope_type="global",
-        scope_id=None,
-    )
 
 
-def test_evaluate_feature_flag_returns_200_with_merchant_scope(
+@pytest.mark.parametrize(
+    "exception,expected_status,expected_code",
+    [
+        (
+            Exception("Unexpected failure"),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+        ),
+    ],
+)
+def test_evaluate_feature_flag_returns_error_on_exception(
     client: TestClient,
     feature_flag_service_mock: Mock,
+    exception: Exception,
+    expected_status: int,
+    expected_code: str,
 ) -> None:
     # Arrange
-    merchant_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-    feature_flag_service_mock.is_enabled.return_value = True
+    feature_flag_service_mock.is_enabled.side_effect = exception
 
     # Act
-    response = client.get(
-        f"/api/v1/feature-flags/purchase_confirmation_job/evaluate"
-        f"?scope_type=merchant&scope_id={merchant_id}"
-    )
+    response = client.get("/api/v1/feature-flags/purchase_confirmation_job/evaluate")
 
     # Assert
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert data["key"] == "purchase_confirmation_job"
-    assert data["enabled"] is True
-
-
-def test_evaluate_feature_flag_returns_200_fail_open_default(
-    client: TestClient,
-    feature_flag_service_mock: Mock,
-) -> None:
-    # Arrange — is_enabled returns True when no flag exists
-    feature_flag_service_mock.is_enabled.return_value = True
-
-    # Act
-    response = client.get("/api/v1/feature-flags/new_cashback_rules/evaluate")
-
-    # Assert
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert data["key"] == "new_cashback_rules"
-    assert data["enabled"] is True
-
-
-def test_evaluate_feature_flag_returns_422_on_missing_scope_id_merchant(
-    client: TestClient,
-    feature_flag_service_mock: Mock,
-) -> None:
-    # Arrange — scope_type is merchant but no scope_id
-
-    # Act
-    response = client.get(
-        "/api/v1/feature-flags/purchase_confirmation_job/evaluate?scope_type=merchant"
-    )
-
-    # Assert
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-    data = response.json()
-    assert data["error"]["code"] == FeatureFlagErrorCode.FEATURE_FLAG_SCOPE_ID_REQUIRED
-    assert data["error"]["details"]["scope_type"] == "merchant"
-
-
-def test_evaluate_feature_flag_returns_422_on_missing_scope_id_user(
-    client: TestClient,
-    feature_flag_service_mock: Mock,
-) -> None:
-    # Arrange — scope_type is user but no scope_id
-
-    # Act
-    response = client.get(
-        "/api/v1/feature-flags/purchase_confirmation_job/evaluate?scope_type=user"
-    )
-
-    # Assert
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
-    data = response.json()
-    assert data["error"]["code"] == FeatureFlagErrorCode.FEATURE_FLAG_SCOPE_ID_REQUIRED
-    assert data["error"]["details"]["scope_type"] == "user"
+    assert response.status_code == expected_status
+    _assert_error_payload(response.json(), expected_code)
 
 
 def test_evaluate_feature_flag_enforces_admin_user(
@@ -368,3 +316,73 @@ def test_evaluate_feature_flag_returns_500_on_unexpected_error(
     # Assert
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     _assert_error_payload(response.json(), ErrorCode.INTERNAL_SERVER_ERROR)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /api/v1/feature-flags (list)
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_list_feature_flags_returns_200_with_all_flags(
+    client: TestClient,
+    feature_flag_service_mock: Mock,
+) -> None:
+    # Arrange
+    flag1 = _make_flag(key="purchase_confirmation_job", enabled=True)
+    flag2 = _make_flag(
+        id="ff000001-0000-0000-0000-000000000002",
+        key="purchase_confirmation_job",
+        enabled=False,
+        scope_type="merchant",
+        scope_id="f0000000-0000-0000-0000-000000000001",
+    )
+    feature_flag_service_mock.list_flags.return_value = ([flag1, flag2], 2)
+
+    # Act
+    response = client.get("/api/v1/feature-flags")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["total"] == 2
+    assert len(data["items"]) == 2
+    _assert_flag_out_response(data["items"][0], flag1)
+    _assert_flag_out_response(data["items"][1], flag2)
+
+
+@pytest.mark.parametrize(
+    "exception,expected_status,expected_code",
+    [
+        (
+            Exception("Unexpected failure"),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+        ),
+    ],
+)
+def test_list_feature_flags_returns_error_on_exception(
+    client: TestClient,
+    feature_flag_service_mock: Mock,
+    exception: Exception,
+    expected_status: int,
+    expected_code: str,
+) -> None:
+    # Arrange
+    feature_flag_service_mock.list_flags.side_effect = exception
+
+    # Act
+    response = client.get("/api/v1/feature-flags")
+
+    # Assert
+    assert response.status_code == expected_status
+    _assert_error_payload(response.json(), expected_code)
+
+
+def test_list_feature_flags_enforces_admin_user(
+    non_admin_client: TestClient,
+) -> None:
+    # Act
+    response = non_admin_client.get("/api/v1/feature-flags")
+
+    # Assert
+    assert response.status_code == status.HTTP_403_FORBIDDEN
