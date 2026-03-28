@@ -39,3 +39,8 @@ class FeatureFlagKeyValidator(BaseModel):
                 "must start with a letter)."
             )
         return v
+
+
+class EvaluateFeatureFlagOut(BaseModel):
+    key: str
+    enabled: bool
