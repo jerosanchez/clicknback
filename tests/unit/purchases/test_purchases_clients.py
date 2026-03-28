@@ -215,7 +215,7 @@ def cashback_repo_mock() -> Mock:
 @pytest.fixture
 def cashback_client(calculator_mock: Mock, cashback_repo_mock: Mock) -> CashbackClient:
     client = CashbackClient(calculator=calculator_mock)
-    client._repository = cashback_repo_mock
+    client._repository = cashback_repo_mock  # pyright: ignore[reportPrivateUsage]
     return client
 
 
@@ -317,7 +317,7 @@ def wallet_repo_mock() -> Mock:
 @pytest.fixture
 def wallets_client(wallet_repo_mock: Mock) -> WalletsClient:
     client = WalletsClient()
-    client._repository = wallet_repo_mock
+    client._repository = wallet_repo_mock  # pyright: ignore[reportPrivateUsage]
     return client
 
 
