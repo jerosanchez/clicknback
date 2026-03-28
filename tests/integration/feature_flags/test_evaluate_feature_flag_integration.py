@@ -197,7 +197,7 @@ async def test_evaluate_feature_flag_returns_422_on_missing_scope_id_for_merchan
     )
 
     # Assert
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     body = response.json()
     assert body["error"]["code"] == "FEATURE_FLAG_SCOPE_ID_REQUIRED"
     assert body["error"]["details"]["scope_type"] == "merchant"
@@ -212,7 +212,7 @@ async def test_evaluate_feature_flag_returns_422_on_missing_scope_id_for_user(
     )
 
     # Assert
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     body = response.json()
     assert body["error"]["code"] == "FEATURE_FLAG_SCOPE_ID_REQUIRED"
     assert body["error"]["details"]["scope_type"] == "user"
