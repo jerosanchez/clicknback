@@ -690,6 +690,23 @@ def test_list_user_purchases_passes_status_filter_to_service(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+def test_list_user_purchases_returns_500_on_unexpected_error(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_service_mock.list_user_purchases.side_effect = RuntimeError(
+        "database exploded"
+    )
+
+    # Act
+    response = client.get("/api/v1/users/me/purchases")
+
+    # Assert
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    _assert_error_payload(response.json(), ErrorCode.INTERNAL_SERVER_ERROR)
+
+
 def test_list_user_purchases_returns_401_when_unauthenticated(
     unauthenticated_client: TestClient,
 ) -> None:
