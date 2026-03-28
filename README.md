@@ -97,7 +97,7 @@ _Status legend:_
 | **Purchase & Cashback** | | |
 | Purchase Ingestion | Purchases | 🟢 done |
 | Purchase Confirmation (job) | Purchases | 🟢 done |
-| Purchase Confirmation (manual) | Purchases | ⚪ backlog |
+| Purchase Confirmation (manual) | Purchases | 🟡 ongoing |
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
 | User Purchases Listing | Purchases | 🟢 done |
@@ -112,8 +112,8 @@ _Status legend:_
 | Payouts Listing | Payouts | ⚪ backlog |
 | **Feature Flags** | | |
 | Set Feature Flag | Feature Flags | 🟢 done |
-| Delete Feature Flag | Feature Flags | ⚪ backlog |
-| List Feature Flags | Feature Flags | 🟡 ongoing |
+| Delete Feature Flag | Feature Flags | ⚫ planned |
+| List Feature Flags | Feature Flags | 🟢 done |
 | Evaluate Feature Flag | Feature Flags | 🟢 done |
 | **Notifications** | | |
 | Purchase Creation Notification | Notifications | ⚫ planned |
