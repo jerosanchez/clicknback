@@ -44,3 +44,8 @@ class FeatureFlagKeyValidator(BaseModel):
 class EvaluateFeatureFlagOut(BaseModel):
     key: str
     enabled: bool
+
+
+class ListFeatureFlagsOut(BaseModel):
+    items: list[FeatureFlagOut]
+    total: int

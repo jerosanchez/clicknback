@@ -2,24 +2,6 @@
 
 > Read in full all referenced documents before working on any request.
 
----
-
-## AI behaviour
-
-- Do not ask for permission before running read-only or non-destructive shell commands (e.g., `ls`, `cat`, `tail`, `wc`, `grep`, `find`, `head`, `diff`, `stat`).
-- Do not ask for permission before running Makefile targets, unless the target is destructive or deploys to production.
-- Do not ask for permission before running shell commands that only change source code files (e.g., code generation, formatting, refactoring, or applying patches), but always summarize the change before and after.
-- Never stage, commit, or push changes to version control; always leave the decision to commit or deploy to the human.
-- Never execute commands that are not easily reversible or that could cause data loss (e.g., `rm`, `mv`, `dd`, `chmod` on critical files, database drops, or destructive migrations) without explicit human approval.
-- Never run commands that affect production infrastructure, external services, or perform deployments without explicit human approval.
-- Always prefer idempotent and reversible actions; if an action is not reversible, warn the user and require explicit approval.
-- Never expose, print, or log secrets, credentials, or sensitive data at any time.
-- Always validate the safety and intent of any command before execution; if in doubt, ask for clarification or escalate to the human.
-- When generating or modifying files, always follow project conventions and summarize the change for review.
-- When in doubt about the safety or reversibility of an action, default to asking for human approval.
-
----
-
 ## Product Context
 
 - **ClickNBack** is a production-grade cashback platform backend demonstrating real-world financial correctness, idempotency, and concurrency safety.

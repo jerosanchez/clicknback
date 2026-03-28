@@ -17,6 +17,7 @@ from app.feature_flags.schemas import (
     FeatureFlagKeyValidator,
     FeatureFlagOut,
     FeatureFlagSet,
+    ListFeatureFlagsOut,
 )
 from app.feature_flags.services import FeatureFlagService
 from app.users.models import User
@@ -107,6 +108,35 @@ async def evaluate_feature_flag(
     except Exception as exc:
         logging.error(
             "Unexpected error while evaluating feature flag.",
+            extra={"error": str(exc)},
+        )
+        raise internal_server_error()
+
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    description="List all feature flags with optional filters.",
+)
+async def list_feature_flags(
+    key: str | None = Query(None),
+    scope_type: str | None = Query(None),
+    scope_id: UUID | None = Query(None),
+    db: AsyncSession = Depends(get_async_db),
+    feature_flag_service: FeatureFlagService = Depends(get_feature_flag_service),
+    _current_user: User = Depends(get_current_admin_user),
+) -> ListFeatureFlagsOut:
+    try:
+        scope_id_str = str(scope_id) if scope_id is not None else None
+        flags, total = await feature_flag_service.list_flags(
+            db, key=key, scope_type=scope_type, scope_id=scope_id_str
+        )
+        items = [FeatureFlagOut.model_validate(flag) for flag in flags]
+        return ListFeatureFlagsOut(items=items, total=total)
+
+    except Exception as exc:
+        logging.error(
+            "Unexpected error while listing feature flags.",
             extra={"error": str(exc)},
         )
         raise internal_server_error()
