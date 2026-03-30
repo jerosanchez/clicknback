@@ -19,6 +19,7 @@ from app.purchases.exceptions import (
     InvalidPurchaseStatusException,
     PurchaseAlreadyReversedException,
     PurchaseNotFoundException,
+    PurchaseNotPendingException,
 )
 from app.purchases.schemas import PaginatedPurchaseOut, PurchaseAdminOut, PurchaseOut
 from app.purchases.services import PurchaseService
@@ -116,6 +117,51 @@ async def reverse_purchase(
     except Exception as e:
         logging.error(
             "An unexpected error occurred while reversing purchase.",
+            extra={"error": str(e), "purchase_id": purchase_id},
+        )
+        raise internal_server_error()
+
+    return PurchaseOut(
+        id=purchase.id,
+        status=purchase.status,
+        cashback_amount=purchase.cashback_amount,
+    )
+
+
+@router.post(
+    "/{purchase_id}/confirmation",
+    description="Manually confirm a pending purchase and credit cashback. Admin access required.",
+)
+async def admin_confirm_purchase(
+    purchase_id: str,
+    service: PurchaseService = Depends(get_purchase_service),
+    uow: UnitOfWorkABC = Depends(get_unit_of_work),
+    current_admin: User = Depends(get_current_admin_user),
+) -> PurchaseOut:
+    try:
+        purchase = await service.confirm_purchase_manually(
+            purchase_id, str(current_admin.id), uow
+        )
+    except PurchaseNotFoundException as exc:
+        raise not_found_error(
+            message=f"Purchase with ID '{exc.purchase_id}' does not exist.",
+            details={"resource_type": "purchase", "resource_id": exc.purchase_id},
+        ) from None
+    except PurchaseNotPendingException as exc:
+        raise validation_error(
+            code=ErrorCode.PURCHASE_NOT_PENDING,
+            message=str(exc),
+            details=[
+                {
+                    "purchase_id": exc.purchase_id,
+                    "current_status": exc.current_status,
+                    "required_status": exc.required_status,
+                }
+            ],
+        ) from None
+    except Exception as e:
+        logging.error(
+            "An unexpected error occurred while confirming purchase.",
             extra={"error": str(e), "purchase_id": purchase_id},
         )
         raise internal_server_error()

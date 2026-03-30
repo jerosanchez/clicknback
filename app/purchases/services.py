@@ -1,13 +1,14 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.broker import MessageBrokerABC
-from app.core.events.purchase_events import PurchaseReversed
+from app.core.events.purchase_events import PurchaseConfirmedByAdmin, PurchaseReversed
 from app.core.logging import logger
 from app.core.unit_of_work import UnitOfWorkABC
+from app.purchases._helpers import apply_purchase_confirmation
 from app.purchases.clients import (
     CashbackClientABC,
     MerchantDTO,
@@ -44,6 +45,7 @@ class PurchaseService:
         enforce_currency_supported: Callable[[str], None],
         enforce_purchase_view_ownership: Callable[[str, str, str], None],
         enforce_purchase_reversible: Callable[[str, str], None],
+        enforce_purchase_pending: Callable[[str, str], None],
         broker: MessageBrokerABC,
     ):
         self.repository = repository
@@ -59,6 +61,7 @@ class PurchaseService:
         self.enforce_currency_supported = enforce_currency_supported
         self.enforce_purchase_view_ownership = enforce_purchase_view_ownership
         self.enforce_purchase_reversible = enforce_purchase_reversible
+        self.enforce_purchase_pending = enforce_purchase_pending
         self.broker = broker
 
     async def ingest_purchase(
@@ -281,3 +284,48 @@ class PurchaseService:
         )
 
         return reversed_purchase  # type: ignore[return-value]
+
+    async def confirm_purchase_manually(
+        self, purchase_id: str, admin_id: str, uow: UnitOfWorkABC
+    ) -> Purchase:
+        """Manually confirm a pending purchase by an admin."""
+        db = uow.session
+
+        purchase = await self.repository.get_by_id(db, purchase_id)
+        if purchase is None:
+            raise PurchaseNotFoundException(purchase_id)
+
+        self.enforce_purchase_pending(purchase_id, purchase.status)
+
+        confirmed_purchase = await apply_purchase_confirmation(
+            purchase=purchase,
+            db=db,
+            repository=self.repository,
+            cashback_client=self.cashback_client,
+            wallets_client=self.wallets_client,
+        )
+
+        # Commit all changes together to ensure atomicity
+        await uow.commit()
+
+        # Publish event for audit trail (with admin context, not job context)
+        confirmed_at = datetime.now(timezone.utc)
+        await self.broker.publish(
+            PurchaseConfirmedByAdmin(
+                purchase_id=purchase_id,
+                user_id=purchase.user_id,
+                admin_id=admin_id,
+                merchant_id=purchase.merchant_id,
+                amount=purchase.amount,
+                currency=purchase.currency,
+                cashback_amount=purchase.cashback_amount,
+                confirmed_at=confirmed_at,
+            )
+        )
+
+        logger.info(
+            "Purchase confirmed manually by admin successfully.",
+            extra={"purchase_id": purchase_id, "admin_id": admin_id},
+        )
+
+        return confirmed_purchase  # type: ignore[return-value]

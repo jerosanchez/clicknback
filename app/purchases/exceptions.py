@@ -102,3 +102,16 @@ class PurchaseViewForbiddenException(Exception):
         self.purchase_id = purchase_id
         self.resource_owner_id = resource_owner_id
         self.current_user_id = current_user_id
+
+
+class PurchaseNotPendingException(Exception):
+    """The purchase cannot be confirmed because it is not in pending status."""
+
+    def __init__(self, purchase_id: str, current_status: str):
+        super().__init__(
+            f"Cannot confirm purchase '{purchase_id}'. "
+            f"Purchase status is '{current_status}', not 'pending'."
+        )
+        self.purchase_id = purchase_id
+        self.current_status = current_status
+        self.required_status = "pending"
