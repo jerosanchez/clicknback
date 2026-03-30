@@ -76,8 +76,8 @@ down: ## Stop development environment
 	docker network rm clicknback-nw
 
 db-reset: ## Reset the database
-	alembic downgrade base
-	alembic upgrade head
+	@bash -c "$(VENV_ACTIVATE) alembic downgrade base"
+	@bash -c "$(VENV_ACTIVATE) alembic upgrade head"
 	docker exec -i clicknback-clicknback-db-1 \
 		psql -U user -d db < seeds/dev.sql
 
