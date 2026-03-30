@@ -26,6 +26,7 @@ Use this prompt to implement a single feature (one endpoint) inside an existing 
 - Critical state-changing operations must publish a domain event after success so the audit module can persist an audit record — see ADR-023.
 - Domain-specific background jobs live under `app/<domain>/jobs/<job_name>/` following Fan-Out Dispatcher + Per-Item Runner — see ADR-016 and `docs/guidelines/background-jobs.md`.
 - Feature flags follow the `clients/feature_flags.py` client pattern; resolution is fail-open; seed the key in `seeds/dev.sql` with `enabled = true` — see ADR-018.
+- If a feature introduces helper functions that support multiple layers (services, repositories, background jobs), place them in `app/<module>/_helpers.py` — never scatter them across layers. Inject helpers via `composition.py` factory functions. See `docs/guidelines/code-organization.md` § 1.1 and `docs/guidelines/feature-architecture.md` for patterns.
 
 ---
 

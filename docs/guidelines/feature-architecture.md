@@ -106,6 +106,59 @@ This pattern isolates **all** cross-module coupling to the `clients/` package. I
 
 **Write operations:** The same rule applies when this module needs to *write* to another module's domain (e.g. `purchases` crediting a `wallets` balance). The client ABC defines the write interface; the concrete class delegates to the foreign repository in the monolith. A future microservice client would replace the repository delegation with an API call and handle its own consistency guarantees (e.g. a saga or outbox pattern).
 
+#### `_helpers.py` – Module Helper Functions
+
+Internal helper functions that support business logic across multiple layers (services, repositories, background jobs, or API handlers) but do not belong in any single layer.
+
+Examples of helpers:
+
+- **State transition helpers** — pure functions that orchestrate a multi-step domain transition (e.g., `apply_purchase_confirmation()` atomically updates purchase status, confirms cashback, and moves wallet balance).
+- **Complex calculations** — domain math that is reused across services (e.g., reward calculations with rounding, boundary conditions).
+- **Data formatters** — functions that prepare data for APIs or external systems (e.g., JSON serialization, timestamp formatting).
+- **Batch operations** — utilities for processing collections with shared business logic.
+
+**Characteristics:**
+
+- **Module-private** — Helpers are imported within the module but never external. Other modules write their own helpers if they need them.
+- **No business logic ownership** — A helper may *implement* business logic, but it does not *own* it. A helper that calculates amounts is acceptable; a helper that determines whether a transaction is allowed should be a policy in `policies.py`.
+- **Fully typed** — All helpers have complete type hints including parameter and return types.
+- **Testable** — Complex helpers are unit tested directly; simple ones are tested indirectly through their callers.
+- **Injected via composition** — Helpers are wired through `composition.py` factory functions, allowing tests to mock or swap implementations.
+
+**Wiring:**
+
+```python
+# app/<module>/_helpers.py
+async def apply_state_transition(
+    *,
+    entity: Entity,
+    db: AsyncSession,
+    repository: RepositoryABC,
+    client: ClientABC,
+) -> Entity:
+    # Implementation...
+
+# app/<module>/composition.py
+from typing import Any, Callable
+from app.<module>._helpers import apply_state_transition
+
+def get_apply_state_transition() -> Callable[..., Any]:
+    return apply_state_transition
+
+def get_service() -> Service:
+    return Service(
+        ...,
+        apply_state_transition=get_apply_state_transition(),
+    )
+
+# Tests can mock the helper:
+def test_service_uses_helper(service):
+    service.apply_state_transition = AsyncMock(return_value=...)
+    # ...
+```
+
+See `docs/guidelines/code-organization.md` § 1.1 for more detail on the `_helpers.py` pattern and its role in module organization.
+
 ---
 
 ## 2. Cross-Cutting Concerns – The `core` Module

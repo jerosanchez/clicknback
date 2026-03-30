@@ -236,6 +236,109 @@ uow.commit.assert_called_once()
 - [ ] `pytest.raises` used with `# Act & Assert` comment
 - [ ] **Collaborator verification** (where applicable) — assert that dependencies are called with correct arguments and their return values are transformed/mapped correctly (e.g., `dependency.method.assert_called_once_with(expected_args)`, then verify the returned data is correctly transformed)
 
+### Collaborator Verification — Mandatory Testing Pattern
+
+**This section is critical for production safety. Every service method must have a test that verifies every collaborator (client, repository, policy) is called correctly.**
+
+When a service method calls a collaborator, **you must test that call**. Omitting collaborator verification creates silent bugs where the service skips important operations (like confirming a transaction) and tests still pass.
+
+#### Pattern: Every Dataflow Must Be Tested
+
+For a service method like:
+
+```python
+async def confirm_purchase_manually(
+    self, purchase_id: str, admin_id: str, uow: UnitOfWorkABC
+) -> Purchase:
+    db = uow.session
+    purchase = await self.repository.get_by_id(db, purchase_id)
+    # ... validation ...
+    await self.cashback_client.confirm(db, purchase_id)  # ← MUST TEST THIS
+    await self.wallets_client.confirm_pending(db, purchase.user_id, cashback_amount)  # ← MUST TEST THIS
+    confirmed = await self.repository.update_status(db, purchase_id, "confirmed")  # ← MUST TEST THIS
+    await uow.commit()  # ← MUST TEST THIS
+    return confirmed
+```
+
+Write **at least one test per collaborator call** that asserts:
+
+1. The method was called (e.g., `cashback_client.confirm.assert_called()`)
+2. The method was called **once** (no duplicate calls): `.assert_called_once()`
+3. The method was called with **correct arguments**: `.assert_called_once_with(expected_db, expected_id)`
+
+Example test (critical safety pattern):
+
+```python
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_confirms_cashback_transaction(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    cashback_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    # Without confirming the cashback transaction, wallet and transaction states diverge,
+    # silently corrupting user balances and preventing legitimate withdrawals in production.
+    uow = _make_uow()
+    purchase = purchase_factory(
+        id="purchase-1",
+        user_id="user-1",
+        cashback_amount=Decimal("25.00"),
+        status="pending",
+    )
+    purchase_repository.get_by_id.return_value = purchase
+    purchase_repository.update_status.return_value = purchase_factory(status="confirmed")
+
+    # Act
+    await purchase_service.confirm_purchase_manually("purchase-1", "admin-1", uow)
+
+    # Assert — cashback must be confirmed, with exact arguments
+    cashback_client.confirm.assert_called_once_with(uow.session, "purchase-1")
+```
+
+#### Comparison with Reference Implementations
+
+If a similar operation already exists elsewhere (e.g., an auto-confirm job), **copy its implementation pattern exactly or document why it differs**. Divergence between similar operations is a major source of bugs.
+
+**Example:** If an auto-confirm background job confirms purchases by calling:
+
+```python
+await cashback_client.confirm(db, purchase_id)
+await wallets_client.confirm_pending(db, user_id, cashback_amount)
+```
+
+Then manual-confirm **must call the same sequence**, in the same order, with the same arguments. Any deviation must be justified in code comments.
+
+#### Zero-Value Cleanups
+
+Edge case: If a collaborator is called with a zero or empty value (e.g., `cashback_amount == 0`), document the behavior in a test:
+
+```python
+async def test_confirm_purchase_manually_skips_cashback_on_zero_amount(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    cashback_client: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    zero_cashback_purchase = purchase_factory(
+        id="purchase-1",
+        user_id="user-1",
+        cashback_amount=Decimal("0"),
+        status="pending",
+    )
+    purchase_repository.get_by_id.return_value = zero_cashback_purchase
+    purchase_repository.update_status.return_value = zero_cashback_purchase
+
+    # Act
+    await purchase_service.confirm_purchase_manually("purchase-1", "admin-1", uow)
+
+    # Assert — no wallet or cashback operations when amount is zero
+    cashback_client.confirm.assert_not_called()
+    wallets_client.confirm_pending.assert_not_called()
+```
+
 ---
 
 ## 6. Unit Testing API Endpoints
