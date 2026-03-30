@@ -40,12 +40,13 @@ FRs are organized into domain areas covering authentication, merchants, offers, 
 ### Purchase Management
 
 - **[PU-01: Purchase Ingestion](functional/purchases/PU-01-purchase-ingestion.md)** — Authenticated users can record their own purchases with idempotent external IDs.
-- **[PU-02: Purchase Confirmation](functional/purchases/PU-02-purchase-confirmation.md)** — Admin users can confirm pending purchases and release cashback to available balances.
+- **[PU-02: Purchase Confirmation](functional/purchases/PU-02-purchase-confirmation.md)** — System automatically confirms pending purchases and releases cashback to available balances via background job.
 - **[PU-03: Purchase Cashback Calculation](functional/purchases/PU-03-purchase-cashback-calculation.md)** — System automatically calculates and allocates cashback based on active offers, respecting monthly caps.
 - **[PU-04: Purchase Details View](functional/purchases/PU-04-purchase-details-view.md)** — Users can view detailed information about their purchases including cashback status.
 - **[PU-05: Purchases Listing (Admin)](functional/purchases/PU-05-purchases-listing.md)** — Admin users can view paginated, filterable lists of all purchases across users.
 - **[PU-06: List User Purchases](functional/purchases/PU-06-list-user-purchases.md)** — Users can view their purchase history with associated cashback information.
 - **[PU-07: Purchase Cancellation](functional/purchases/PU-07-reverse-purchase.md)** — Admin users can reverse/cancel purchases and adjust associated cashback allocations.
+- **[PU-08: Admin Manual Purchase Confirmation](functional/purchases/PU-08-admin-manual-confirm-purchase.md)** — Admin users can manually confirm pending purchases to override automatic verification and immediately credit cashback.
 
 ### Payout Management
 
@@ -95,7 +96,7 @@ Admins manage the ecosystem:
 
 - **Merchants**: Create (**M-01**) → Activate/Deactivate (**M-02**) → Monitor (**M-03**)
 - **Offers**: Create (**O-01**) → Activate/Deactivate (**O-02**) → Monitor (**O-05**)
-- **Purchases**: Confirm (**PU-02**) → Reverse if needed (**PU-07**) → Monitor (**PU-05**)
+- **Purchases**: Auto-confirm via job (**PU-02**) or manually confirm (**PU-08**) → Reverse if needed (**PU-07**) → Monitor (**PU-05**)
 - **Payouts**: Process (**PA-02**) → Monitor (**PA-03**)
 - **Feature Flags**: Set (**FF-01**) → Evaluate (**FF-04**) → Delete when no longer needed (**FF-02**) → Inspect current state (**FF-03**)
 
@@ -189,9 +190,9 @@ For a demo/MVP, FRs and NFRs should be prioritized together to ensure a cohesive
 
 ### Phase 3 (Purchase & Cashback Processing)
 
-**FRs**: PU-01, PU-03, PU-02, PU-06, PU-04, PU-05, PU-07
+**FRs**: PU-01, PU-03, PU-02, PU-08, PU-06, PU-04, PU-05, PU-07
 **NFRs**: NFR-07, NFR-10, NFR-11
-**Goal**: Ingest purchases, calculate cashback atomically, and provide comprehensive purchase history with scalability.
+**Goal**: Ingest purchases, calculate cashback atomically, provide manual/automatic confirmation, and offer comprehensive purchase history with scalability.
 
 ### Phase 4 (Payouts & Production Readiness)
 
