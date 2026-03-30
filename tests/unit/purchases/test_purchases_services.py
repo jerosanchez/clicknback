@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, create_autospec
 import pytest
 
 from app.core.broker import MessageBrokerABC
-from app.core.events.purchase_events import PurchaseReversed
+from app.core.events.purchase_events import PurchaseConfirmedByAdmin, PurchaseReversed
 from app.purchases.clients import (
     CashbackClientABC,
     CashbackResultDTO,
@@ -23,6 +23,7 @@ from app.purchases.exceptions import (
     OfferNotAvailableException,
     PurchaseAlreadyReversedException,
     PurchaseNotFoundException,
+    PurchaseNotPendingException,
     PurchaseOwnershipViolationException,
     PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
@@ -100,6 +101,11 @@ def enforce_purchase_reversible() -> Mock:
 
 
 @pytest.fixture
+def enforce_purchase_pending() -> Mock:
+    return Mock()
+
+
+@pytest.fixture
 def broker() -> Mock:
     return create_autospec(MessageBrokerABC)
 
@@ -119,6 +125,7 @@ def purchase_service(
     enforce_currency_supported: Mock,
     enforce_purchase_view_ownership: Mock,
     enforce_purchase_reversible: Mock,
+    enforce_purchase_pending: Mock,
     broker: Mock,
 ) -> PurchaseService:
     return PurchaseService(
@@ -135,6 +142,7 @@ def purchase_service(
         enforce_currency_supported=enforce_currency_supported,
         enforce_purchase_view_ownership=enforce_purchase_view_ownership,
         enforce_purchase_reversible=enforce_purchase_reversible,
+        enforce_purchase_pending=enforce_purchase_pending,
         broker=broker,
     )
 
@@ -1457,3 +1465,260 @@ async def test_reverse_purchase_does_not_commit_uow_on_already_reversed(
         )
 
     uow.commit.assert_not_called()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.confirm_purchase_manually — happy path
+# ──────────────────────────────────────────────────────────────────────────────
+
+_CONFIRM_PURCHASE_ID = "bb000001-0000-0000-0000-000000000001"
+_CONFIRM_ADMIN_ID = "e9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b2a"
+_CONFIRM_USER_ID = "c7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c7d"
+
+
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_returns_confirmed_purchase_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    cashback_amount = Decimal("10.00")
+    pending_purchase = purchase_factory(
+        id=_CONFIRM_PURCHASE_ID,
+        user_id=_CONFIRM_USER_ID,
+        cashback_amount=cashback_amount,
+        status="pending",
+    )
+    confirmed_purchase = purchase_factory(
+        id=_CONFIRM_PURCHASE_ID,
+        user_id=_CONFIRM_USER_ID,
+        cashback_amount=cashback_amount,
+        status="confirmed",
+    )
+    purchase_repository.get_by_id = AsyncMock(return_value=pending_purchase)
+    purchase_repository.update_status = AsyncMock(return_value=confirmed_purchase)
+    purchase_service.repository = purchase_repository
+    purchase_service.cashback_client.confirm = AsyncMock()
+    purchase_service.wallets_client.confirm_pending = AsyncMock()
+
+    # Act
+    result = await purchase_service.confirm_purchase_manually(
+        _CONFIRM_PURCHASE_ID, _CONFIRM_ADMIN_ID, uow
+    )
+
+    # Assert
+    assert result.status == "confirmed"
+    assert result.cashback_amount == cashback_amount
+
+
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_commits_uow_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    pending_purchase = purchase_factory(
+        id=_CONFIRM_PURCHASE_ID,
+        user_id=_CONFIRM_USER_ID,
+        cashback_amount=Decimal("10.00"),
+        status="pending",
+    )
+    confirmed_purchase = purchase_factory(status="confirmed")
+    purchase_repository.get_by_id = AsyncMock(return_value=pending_purchase)
+    purchase_repository.update_status = AsyncMock(return_value=confirmed_purchase)
+    purchase_service.repository = purchase_repository
+    purchase_service.cashback_client.confirm = AsyncMock()
+    purchase_service.wallets_client.confirm_pending = AsyncMock()
+
+    # Act
+    await purchase_service.confirm_purchase_manually(
+        _CONFIRM_PURCHASE_ID, _CONFIRM_ADMIN_ID, uow
+    )
+
+    # Assert
+    uow.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_publishes_domain_event_on_success(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    broker: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    cashback_amount = Decimal("10.00")
+    pending_purchase = purchase_factory(
+        id=_CONFIRM_PURCHASE_ID,
+        user_id=_CONFIRM_USER_ID,
+        merchant_id="m1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        amount=Decimal("100.00"),
+        currency="EUR",
+        cashback_amount=cashback_amount,
+        status="pending",
+    )
+    confirmed_purchase = purchase_factory(status="confirmed")
+    purchase_repository.get_by_id = AsyncMock(return_value=pending_purchase)
+    purchase_repository.update_status = AsyncMock(return_value=confirmed_purchase)
+    purchase_service.repository = purchase_repository
+    purchase_service.cashback_client.confirm = AsyncMock()
+    purchase_service.wallets_client.confirm_pending = AsyncMock()
+    purchase_service.broker = broker
+    broker.publish = AsyncMock()
+
+    # Act
+    await purchase_service.confirm_purchase_manually(
+        _CONFIRM_PURCHASE_ID, _CONFIRM_ADMIN_ID, uow
+    )
+
+    # Assert
+    broker.publish.assert_called_once()
+    event = broker.publish.call_args[0][0]
+    assert isinstance(event, PurchaseConfirmedByAdmin)
+    assert event.purchase_id == _CONFIRM_PURCHASE_ID
+    assert event.user_id == _CONFIRM_USER_ID
+    assert event.admin_id == _CONFIRM_ADMIN_ID
+    assert event.merchant_id == pending_purchase.merchant_id
+    assert event.amount == Decimal("100.00")
+    assert event.currency == "EUR"
+    assert event.cashback_amount == cashback_amount
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PurchaseService.confirm_purchase_manually — sad paths
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_raises_on_purchase_not_found(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    purchase_repository.get_by_id.return_value = None
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotFoundException) as exc_info:
+        await purchase_service.confirm_purchase_manually(
+            _CONFIRM_PURCHASE_ID, _CONFIRM_ADMIN_ID, uow
+        )
+
+    assert exc_info.value.purchase_id == _CONFIRM_PURCHASE_ID
+
+
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_does_not_commit_uow_on_not_found(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    purchase_repository.get_by_id.return_value = None
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotFoundException):
+        await purchase_service.confirm_purchase_manually(
+            _CONFIRM_PURCHASE_ID, _CONFIRM_ADMIN_ID, uow
+        )
+
+    uow.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_raises_on_not_pending(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    enforce_purchase_pending: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    confirmed_purchase = purchase_factory(
+        id=_CONFIRM_PURCHASE_ID, user_id=_CONFIRM_USER_ID, status="confirmed"
+    )
+    purchase_repository.get_by_id.return_value = confirmed_purchase
+    enforce_purchase_pending.side_effect = PurchaseNotPendingException(
+        _CONFIRM_PURCHASE_ID, "confirmed"
+    )
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotPendingException) as exc_info:
+        await purchase_service.confirm_purchase_manually(
+            _CONFIRM_PURCHASE_ID, _CONFIRM_ADMIN_ID, uow
+        )
+
+    assert exc_info.value.purchase_id == _CONFIRM_PURCHASE_ID
+    assert exc_info.value.current_status == "confirmed"
+
+
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_does_not_commit_uow_on_not_pending(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    enforce_purchase_pending: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    uow = _make_uow()
+    confirmed_purchase = purchase_factory(
+        id=_CONFIRM_PURCHASE_ID, user_id=_CONFIRM_USER_ID, status="confirmed"
+    )
+    purchase_repository.get_by_id.return_value = confirmed_purchase
+    enforce_purchase_pending.side_effect = PurchaseNotPendingException(
+        _CONFIRM_PURCHASE_ID, "confirmed"
+    )
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotPendingException):
+        await purchase_service.confirm_purchase_manually(
+            _CONFIRM_PURCHASE_ID, _CONFIRM_ADMIN_ID, uow
+        )
+
+    uow.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_confirm_purchase_manually_calls_apply_helper(
+    purchase_service: PurchaseService,
+    purchase_repository: Mock,
+    purchase_factory: Callable[..., Purchase],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify confirm_purchase_manually calls apply_purchase_confirmation helper."""
+    # Arrange
+    uow = _make_uow()
+    pending_purchase = purchase_factory(
+        id=_CONFIRM_PURCHASE_ID,
+        user_id=_CONFIRM_USER_ID,
+        cashback_amount=Decimal("10.00"),
+        status="pending",
+    )
+    confirmed_purchase = purchase_factory(status="confirmed")
+    purchase_repository.get_by_id = AsyncMock(return_value=pending_purchase)
+    purchase_service.repository = purchase_repository
+
+    apply_helper_mock = AsyncMock(return_value=confirmed_purchase)
+    monkeypatch.setattr(
+        "app.purchases.services.apply_purchase_confirmation",
+        apply_helper_mock,
+    )
+
+    # Act
+    await purchase_service.confirm_purchase_manually(
+        _CONFIRM_PURCHASE_ID, _CONFIRM_ADMIN_ID, uow
+    )
+
+    # Assert
+    apply_helper_mock.assert_called_once_with(
+        purchase=pending_purchase,
+        db=uow.session,
+        repository=purchase_repository,
+        cashback_client=purchase_service.cashback_client,
+        wallets_client=purchase_service.wallets_client,
+    )

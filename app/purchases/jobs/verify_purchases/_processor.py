@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.broker import MessageBrokerABC
 from app.core.events.purchase_events import PurchaseConfirmed, PurchaseRejected
 from app.core.logging import logger
+from app.purchases._helpers import apply_purchase_confirmation
 from app.purchases.clients import CashbackClientABC, WalletsClientABC
 from app.purchases.models import Purchase
 from app.purchases.repositories import PurchaseRepositoryABC
@@ -35,12 +36,13 @@ async def _confirm_purchase(  # pyright: ignore[reportUnusedFunction]
     broker: MessageBrokerABC,
 ) -> None:
     """Update status to confirmed, move pending balance to available, publish events."""
-    await repository.update_status(db, purchase.id, PurchaseStatus.CONFIRMED.value)
-
-    cashback_amount: Decimal = purchase.cashback_amount
-    if cashback_amount > Decimal("0"):
-        await cashback_client.confirm(db, purchase.id)
-        await wallets_client.confirm_pending(db, purchase.user_id, cashback_amount)
+    await apply_purchase_confirmation(
+        purchase=purchase,
+        db=db,
+        repository=repository,
+        cashback_client=cashback_client,
+        wallets_client=wallets_client,
+    )
 
     await db.commit()
 
@@ -51,7 +53,7 @@ async def _confirm_purchase(  # pyright: ignore[reportUnusedFunction]
             merchant_id=purchase.merchant_id,
             amount=purchase.amount,
             currency=purchase.currency,
-            cashback_amount=cashback_amount,
+            cashback_amount=purchase.cashback_amount,
             verified_at=verified_at,
         )
     )

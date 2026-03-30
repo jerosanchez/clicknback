@@ -86,3 +86,33 @@ class PurchaseReversed:
     amount: Decimal
     currency: str
     prior_status: str
+
+
+@dataclass(frozen=True)
+class PurchaseConfirmedByAdmin:
+    """Published when an admin manually confirms a pending purchase via the API.
+
+    Expected subscribers:
+    - Audit module: records a PURCHASE_CONFIRMED_BY_ADMIN audit log entry,
+      capturing the admin's user ID to distinguish from automatic confirmation.
+    - Notification service (future): sends confirmation email/push to the user.
+
+    Fields:
+        purchase_id:    Internal UUID of the confirmed purchase.
+        user_id:        UUID of the user who ingested the purchase.
+        admin_id:       UUID of the admin who performed the confirmation.
+        merchant_id:    UUID of the merchant linked to the purchase.
+        amount:         Original purchase amount (Decimal, EUR).
+        currency:       ISO 4217 currency code (e.g. "EUR").
+        cashback_amount: Cashback amount credited to the user's wallet (Decimal).
+        confirmed_at:   UTC timestamp when the admin confirmed the purchase.
+    """
+
+    purchase_id: str
+    user_id: str
+    admin_id: str
+    merchant_id: str
+    amount: Decimal
+    currency: str
+    cashback_amount: Decimal
+    confirmed_at: datetime

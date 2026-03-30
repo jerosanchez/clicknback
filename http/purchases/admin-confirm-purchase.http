@@ -1,0 +1,69 @@
+# Purchases – Admin Confirm Purchase
+# Smoke tests for POST /purchases/{id}/confirmation.
+#
+# Admin-only endpoint. Manually confirms a pending purchase and credits cashback
+# to the user's available wallet balance. The confirmation is logged for audit trail.
+#
+# Seed data: seeds/dev.sql contains a pending purchase in:
+#   aa000001-0000-0000-0000-000000000003  alice / Shoply         status=pending
+
+@baseUrl = http://localhost:8001/api/v1
+
+# Paste fresh tokens here (use helper login requests below).
+# These placeholder values are expired local-dev tokens from seed data — never real credentials.
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzQ5MTE3ODh9.eEDmGb1lZx3kvaxErjsyM4r5S8rb-pejJKIIBv7UT3U
+@userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3NDkxMTgxM30.nHSwggkYH8Th8n4mSSonR6iQyE1MrwmQnNvvRtvgkgA
+
+### Helper – obtain a fresh admin token (carol)
+# Returns access_token — paste as "Bearer <token>" into @adminToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "carol@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### Helper – obtain a fresh user token (alice)
+# Returns access_token — paste as "Bearer <token>" into @userToken above.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: manually confirm a pending purchase (alice / Shoply)
+# Expected: {"id": "aa000001-...", "status": "confirmed", "cashback_amount": 5.0}
+POST {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000003/confirmation
+Authorization: {{adminToken}}
+
+### 401 – Sad path: unauthenticated request
+# No Authorization header; expects 401 UNAUTHORIZED from the auth middleware.
+POST {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000003/confirmation
+
+### 403 – Sad path: regular user cannot manually confirm purchases
+# alice has role=user; this admin-only endpoint returns 403 Forbidden.
+POST {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000003/confirmation
+Authorization: {{userToken}}
+
+### 404 – Sad path: nonexistent purchase
+# purchase_id does not exist in the database.
+# Expected: 404 NOT_FOUND with message containing the purchase_id
+POST {{baseUrl}}/purchases/00000000-0000-0000-0000-000000000000/confirmation
+Authorization: {{adminToken}}
+
+### 422 – Sad path: already confirmed purchase
+# alice's confirmed Shoply purchase (aa000001-0000-0000-0000-000000000005):
+# status is already "confirmed", not "pending".
+# Expected: 422 PURCHASE_NOT_PENDING
+POST {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000005/confirmation
+Authorization: {{adminToken}}
+
+### 422 – Sad path: reversed purchase
+# bob's reversed QuickCart purchase (aa000001-0000-0000-0000-000000000006):
+# status is "reversed", not "pending".
+# Expected: 422 PURCHASE_NOT_PENDING
+POST {{baseUrl}}/purchases/aa000001-0000-0000-0000-000000000006/confirmation
+Authorization: {{adminToken}}

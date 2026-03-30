@@ -18,6 +18,7 @@ from app.purchases.exceptions import (
     InvalidPurchaseStatusException,
     PurchaseAlreadyReversedException,
     PurchaseNotFoundException,
+    PurchaseNotPendingException,
 )
 from app.purchases.models import Purchase
 from app.purchases.services import PurchaseService
@@ -459,6 +460,154 @@ def test_reverse_purchase_returns_401_on_non_admin(
     # Act
     response = non_admin_client.patch(
         "/api/v1/purchases/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/reverse"
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    _assert_error_payload(response.json(), ErrorCode.INVALID_TOKEN)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /api/v1/purchases/{purchase_id}/confirmation — success
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_admin_confirm_purchase_returns_200_on_success(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory(status="confirmed", cashback_amount=Decimal("10.00"))
+    purchase_service_mock.confirm_purchase_manually = AsyncMock(return_value=purchase)
+
+    # Act
+    response = client.post(f"/api/v1/purchases/{purchase.id}/confirmation")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["id"] == purchase.id
+    assert data["status"] == "confirmed"
+    assert Decimal(data["cashback_amount"]) == Decimal("10.00")
+
+
+def test_admin_confirm_purchase_calls_service_with_correct_args(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    purchase_factory: Callable[..., Purchase],
+) -> None:
+    # Arrange
+    purchase = purchase_factory(status="confirmed", cashback_amount=Decimal("10.00"))
+    purchase_service_mock.confirm_purchase_manually = AsyncMock(return_value=purchase)
+    purchase_id = purchase.id
+    admin_user = Mock()
+    admin_user.id = "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+
+    # Override the current_admin_user dependency to return a known admin
+    app.dependency_overrides[get_current_admin_user] = lambda: admin_user
+
+    # Act
+    client.post(f"/api/v1/purchases/{purchase_id}/confirmation")
+
+    # Assert
+    purchase_service_mock.confirm_purchase_manually.assert_called_once()
+    call_args = purchase_service_mock.confirm_purchase_manually.call_args
+    assert call_args.args[0] == purchase_id
+    assert call_args.args[1] == "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+
+    # Clean up
+    app.dependency_overrides.pop(get_current_admin_user, None)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /api/v1/purchases/{purchase_id}/confirmation — exception handling
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "side_effect,expected_status,expected_code",
+    [
+        (
+            PurchaseNotFoundException("some-purchase-id"),
+            status.HTTP_404_NOT_FOUND,
+            ErrorCode.NOT_FOUND,
+        ),
+        (
+            PurchaseNotPendingException("some-purchase-id", "confirmed"),
+            status.HTTP_400_BAD_REQUEST,
+            PurchaseErrorCode.PURCHASE_NOT_PENDING,
+        ),
+        (
+            Exception("unexpected failure"),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+        ),
+    ],
+)
+def test_admin_confirm_purchase_returns_error_on_exception(
+    client: TestClient,
+    purchase_service_mock: Mock,
+    side_effect: Exception,
+    expected_status: int,
+    expected_code: str,
+) -> None:
+    # Arrange
+    purchase_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    purchase_service_mock.confirm_purchase_manually = AsyncMock(side_effect=side_effect)
+
+    # Act
+    response = client.post(f"/api/v1/purchases/{purchase_id}/confirmation")
+
+    # Assert
+    assert response.status_code == expected_status
+    _assert_error_payload(response.json(), expected_code)
+
+
+def test_admin_confirm_purchase_returns_not_pending_details(
+    client: TestClient,
+    purchase_service_mock: Mock,
+) -> None:
+    # Arrange
+    purchase_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    exc = PurchaseNotPendingException(purchase_id, "confirmed")
+    purchase_service_mock.confirm_purchase_manually = AsyncMock(side_effect=exc)
+
+    # Act
+    response = client.post(f"/api/v1/purchases/{purchase_id}/confirmation")
+
+    # Assert
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    data = response.json()
+    violation = data["error"]["details"]["violations"][0]
+    assert violation["purchase_id"] == purchase_id
+    assert violation["current_status"] == "confirmed"
+    assert violation["required_status"] == "pending"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /api/v1/purchases/{purchase_id}/confirmation — authorization
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_admin_confirm_purchase_returns_401_on_missing_auth(
+    unauthenticated_client: TestClient,
+) -> None:
+    # Act
+    response = unauthenticated_client.post(
+        "/api/v1/purchases/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/confirmation"
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_admin_confirm_purchase_returns_401_on_non_admin(
+    non_admin_client: TestClient,
+) -> None:
+    # Act
+    response = non_admin_client.post(
+        "/api/v1/purchases/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/confirmation"
     )
 
     # Assert

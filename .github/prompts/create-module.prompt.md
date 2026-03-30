@@ -6,6 +6,7 @@ Use this prompt to create the empty skeleton of a brand-new domain module before
 
 - Read `AGENTS.md` for project context, architecture, module anatomy, and quality gates.
 - Read `app/merchants/` as a structural reference for an existing module.
+- Understand that modules may grow a `_helpers.py` file later when helper functions are needed. See `docs/guidelines/code-organization.md` § 1.1 and `docs/guidelines/feature-architecture.md` for the pattern.
 
 ## Constraints
 

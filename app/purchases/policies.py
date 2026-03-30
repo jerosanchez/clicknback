@@ -4,6 +4,7 @@ from app.purchases.exceptions import (
     MerchantNotFoundException,
     OfferNotAvailableException,
     PurchaseAlreadyReversedException,
+    PurchaseNotPendingException,
     PurchaseOwnershipViolationException,
     PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
@@ -62,3 +63,9 @@ def enforce_purchase_reversible(purchase_id: str, current_status: str) -> None:
     """Raise if the purchase is already reversed and cannot be reversed again."""
     if current_status == "reversed":
         raise PurchaseAlreadyReversedException(purchase_id)
+
+
+def enforce_purchase_pending(purchase_id: str, current_status: str) -> None:
+    """Raise if the purchase is not in pending status and cannot be confirmed."""
+    if current_status != "pending":
+        raise PurchaseNotPendingException(purchase_id, current_status)

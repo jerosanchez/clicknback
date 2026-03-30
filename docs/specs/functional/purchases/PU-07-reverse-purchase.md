@@ -34,23 +34,16 @@ and adjust cashback allocations._
 ## BDD Acceptance Criteria
 
 **Scenario:** Admin successfully reverses a pending purchase
-
 **Given** I am an authenticated admin user
-
 **And** the purchase exists with status `pending`
-
 **When** the admin submits a reversal request
-
 **Then** purchase status changes to `reversed`, cashback transaction status
 changes to `reversed`, `cashback_amount` is set to `0`, and `pending_balance`
 is decremented by the original cashback amount
 
 **Scenario:** Admin successfully reverses a confirmed purchase
-
 **Given** I am an authenticated admin user
-
 **And** the purchase exists with status `confirmed`
-
 **When** the admin submits a reversal request
 
 **Then** purchase status changes to `reversed`, cashback transaction status
@@ -58,29 +51,19 @@ changes to `reversed`, `cashback_amount` is set to `0`, and `available_balance`
 is decremented by the original cashback amount
 
 **Scenario:** Non-admin user attempts to reverse a purchase
-
 **Given** I am an authenticated non-admin user
-
 **When** the system checks authorization
-
 **Then** access is denied with 403 Forbidden
 
 **Scenario:** Admin attempts to reverse non-existent purchase
-
 **Given** I am an authenticated admin user
-
 **When** the system attempts to find the purchase
-
 **Then** a 404 Not Found error is returned
 
 **Scenario:** Admin attempts to reverse already reversed purchase
-
 **Given** I am an authenticated admin user
-
 **And** the purchase already has status `reversed`
-
 **When** the system checks purchase status
-
 **Then** a 400 Bad Request error is returned with code `PURCHASE_ALREADY_REVERSED`
 
 ---

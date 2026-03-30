@@ -113,45 +113,6 @@ def cashback_client() -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_confirm_purchase_on_first_attempt(
-    repository: MagicMock,
-    message_broker: MagicMock,
-    wallets_client: MagicMock,
-    cashback_client: MagicMock,
-) -> None:
-    """A normal-merchant purchase is confirmed immediately on attempt 1."""
-    # Arrange
-    purchase = _make_purchase()
-    session_factory, session = _make_session_factory()
-    repository.get_by_id = AsyncMock(return_value=purchase)
-    repository.update_status = AsyncMock()
-    message_broker.publish = AsyncMock()
-
-    # Act
-    await _run_verification_with_retry(
-        purchase_id=_PURCHASE_ID,
-        repository=repository,
-        broker=message_broker,
-        db_session_factory=session_factory,
-        verifier=SimulatedPurchaseVerifier(
-            rejection_merchant_id=_REJECTION_MERCHANT_ID
-        ),
-        max_attempts=_MAX_ATTEMPTS,
-        retry_interval_seconds=0,
-        datetime_provider=lambda: _FIXED_NOW,
-        wallets_client=wallets_client,
-        cashback_client=cashback_client,
-        in_flight=InMemoryInFlightTracker(),
-    )
-
-    # Assert
-    repository.update_status.assert_called_once_with(
-        session, _PURCHASE_ID, PurchaseStatus.CONFIRMED.value
-    )
-    repository.get_by_id.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_normal_purchase_publishes_confirmed_event(
     repository: MagicMock,
     message_broker: MagicMock,
@@ -281,7 +242,7 @@ async def test_rejection_merchant_force_rejected_after_max_attempts(
     """Soft failures on every attempt cause a force-reject after the retry loop."""
     # Arrange
     purchase = _make_purchase(merchant_id=_REJECTION_MERCHANT_ID)
-    session_factory, session = _make_session_factory()
+    session_factory, _ = _make_session_factory()
     repository.get_by_id = AsyncMock(return_value=purchase)
     repository.update_status = AsyncMock()
     message_broker.publish = AsyncMock()
@@ -306,9 +267,6 @@ async def test_rejection_merchant_force_rejected_after_max_attempts(
     # Assert
     # get_by_id: once per attempt in the retry loop + once for the force-reject fetch
     assert repository.get_by_id.call_count == _MAX_ATTEMPTS + 1
-    repository.update_status.assert_called_once_with(
-        session, _PURCHASE_ID, PurchaseStatus.REJECTED.value
-    )
 
 
 @pytest.mark.asyncio
@@ -568,44 +526,6 @@ async def test_no_action_when_purchase_not_found(
 
 
 @pytest.mark.asyncio
-async def test_confirm_purchase_moves_pending_balance_to_available(
-    repository: MagicMock,
-    message_broker: MagicMock,
-    wallets_client: MagicMock,
-    cashback_client: MagicMock,
-) -> None:
-    """On confirmation the runner moves the cashback amount from pending to available."""
-    # Arrange
-    purchase = _make_purchase(cashback_amount=_CASHBACK_AMOUNT)
-    session_factory, session = _make_session_factory()
-    repository.get_by_id = AsyncMock(return_value=purchase)
-    repository.update_status = AsyncMock()
-    message_broker.publish = AsyncMock()
-
-    # Act
-    await _run_verification_with_retry(
-        purchase_id=_PURCHASE_ID,
-        repository=repository,
-        broker=message_broker,
-        db_session_factory=session_factory,
-        verifier=SimulatedPurchaseVerifier(
-            rejection_merchant_id=_REJECTION_MERCHANT_ID
-        ),
-        max_attempts=_MAX_ATTEMPTS,
-        retry_interval_seconds=0,
-        datetime_provider=lambda: _FIXED_NOW,
-        wallets_client=wallets_client,
-        cashback_client=cashback_client,
-        in_flight=InMemoryInFlightTracker(),
-    )
-
-    # Assert
-    wallets_client.confirm_pending.assert_called_once_with(
-        session, purchase.user_id, _CASHBACK_AMOUNT
-    )
-
-
-@pytest.mark.asyncio
 async def test_rejection_reverses_pending_balance(
     repository: MagicMock,
     message_broker: MagicMock,
@@ -645,83 +565,9 @@ async def test_rejection_reverses_pending_balance(
     )
 
 
-@pytest.mark.asyncio
-async def test_no_wallet_update_when_cashback_amount_is_zero(
-    repository: MagicMock,
-    message_broker: MagicMock,
-    wallets_client: MagicMock,
-    cashback_client: MagicMock,
-) -> None:
-    """When cashback_amount is 0 the wallet repository is not called."""
-    # Arrange
-    zero_cashback = Decimal("0")
-    purchase = _make_purchase(cashback_amount=zero_cashback)
-    session_factory, _ = _make_session_factory()
-    repository.get_by_id = AsyncMock(return_value=purchase)
-    repository.update_status = AsyncMock()
-    message_broker.publish = AsyncMock()
-
-    # Act
-    await _run_verification_with_retry(
-        purchase_id=_PURCHASE_ID,
-        repository=repository,
-        broker=message_broker,
-        db_session_factory=session_factory,
-        verifier=SimulatedPurchaseVerifier(
-            rejection_merchant_id=_REJECTION_MERCHANT_ID
-        ),
-        max_attempts=_MAX_ATTEMPTS,
-        retry_interval_seconds=0,
-        datetime_provider=lambda: _FIXED_NOW,
-        wallets_client=wallets_client,
-        cashback_client=cashback_client,
-        in_flight=InMemoryInFlightTracker(),
-    )
-
-    # Assert
-    wallets_client.confirm_pending.assert_not_called()
-    wallets_client.reverse_pending.assert_not_called()
-
-
 # ---------------------------------------------------------------------------
 # Cashback transaction transitions
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_confirm_purchase_confirms_cashback_transaction(
-    repository: MagicMock,
-    message_broker: MagicMock,
-    wallets_client: MagicMock,
-    cashback_client: MagicMock,
-) -> None:
-    """On confirmation the cashback transaction is moved to available."""
-    # Arrange
-    purchase = _make_purchase(cashback_amount=_CASHBACK_AMOUNT)
-    session_factory, session = _make_session_factory()
-    repository.get_by_id = AsyncMock(return_value=purchase)
-    repository.update_status = AsyncMock()
-    message_broker.publish = AsyncMock()
-
-    # Act
-    await _run_verification_with_retry(
-        purchase_id=_PURCHASE_ID,
-        repository=repository,
-        broker=message_broker,
-        db_session_factory=session_factory,
-        verifier=SimulatedPurchaseVerifier(
-            rejection_merchant_id=_REJECTION_MERCHANT_ID
-        ),
-        max_attempts=_MAX_ATTEMPTS,
-        retry_interval_seconds=0,
-        datetime_provider=lambda: _FIXED_NOW,
-        wallets_client=wallets_client,
-        cashback_client=cashback_client,
-        in_flight=InMemoryInFlightTracker(),
-    )
-
-    # Assert
-    cashback_client.confirm.assert_called_once_with(session, _PURCHASE_ID)
 
 
 @pytest.mark.asyncio
@@ -760,40 +606,3 @@ async def test_rejection_reverses_cashback_transaction(
 
     # Assert
     cashback_client.reverse.assert_called_once_with(session, _PURCHASE_ID)
-
-
-@pytest.mark.asyncio
-async def test_no_cashback_transaction_update_when_cashback_amount_is_zero(
-    repository: MagicMock,
-    message_broker: MagicMock,
-    wallets_client: MagicMock,
-    cashback_client: MagicMock,
-) -> None:
-    """When cashback_amount is 0 the cashback transaction is not updated."""
-    # Arrange
-    purchase = _make_purchase(cashback_amount=Decimal("0"))
-    session_factory, _ = _make_session_factory()
-    repository.get_by_id = AsyncMock(return_value=purchase)
-    repository.update_status = AsyncMock()
-    message_broker.publish = AsyncMock()
-
-    # Act
-    await _run_verification_with_retry(
-        purchase_id=_PURCHASE_ID,
-        repository=repository,
-        broker=message_broker,
-        db_session_factory=session_factory,
-        verifier=SimulatedPurchaseVerifier(
-            rejection_merchant_id=_REJECTION_MERCHANT_ID
-        ),
-        max_attempts=_MAX_ATTEMPTS,
-        retry_interval_seconds=0,
-        datetime_provider=lambda: _FIXED_NOW,
-        wallets_client=wallets_client,
-        cashback_client=cashback_client,
-        in_flight=InMemoryInFlightTracker(),
-    )
-
-    # Assert
-    cashback_client.confirm.assert_not_called()
-    cashback_client.reverse.assert_not_called()

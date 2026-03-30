@@ -35,7 +35,62 @@ Do not split preemptively. Premature splitting adds indirection without benefit.
 
 ---
 
-## 2. When to Split
+## 1.1 Helper Functions: The `_helpers.py` File
+
+Every module may contain **internal helper functions** — pure utility functions that support multiple layers (services, repositories, background jobs, or API handlers) but do not belong in any single layer.
+
+Examples:
+
+- State transition helpers (e.g., `apply_purchase_confirmation()`)
+- Complex calculations shared across services
+- Formatting utilities used by multiple handlers
+- Domain logic that does not fit the repository or service pattern
+
+### Pattern
+
+If a module has helper functions, place them in a `_helpers.py` file at the module root:
+
+```text
+app/<module>/
+  _helpers.py         ← Module-internal helper functions
+  models.py
+  schemas.py
+  repositories.py
+  services.py
+  ...
+```
+
+### Rules
+
+1. **Internal only** — Helper functions are private to the module. They are imported within the module but never from outside. Other modules with the same need write their own helpers.
+2. **No business logic ownership** — Helpers support code that owns business logic, but do not own business logic themselves. A helper that calculates reward amounts is acceptable; a helper that determines whether a purchase is permitted is not (that belongs in `policies.py`).
+3. **Type hints required** — All helpers must have full type hints including return types and parameter types.
+4. **Testable** — Helpers may be unit tested directly, or tested indirectly through the code that calls them. Prefer direct testing for complex helpers.
+5. **Named with discipline** — Use clear, verb-based names: `apply_*`, `calculate_*`, `build_*`, `format_*`.
+
+### Wiring
+
+Helpers are injected through `composition.py` factory functions, just like any other dependency:
+
+```python
+# app/<module>/composition.py
+from app.<module>._helpers import apply_state_transition
+
+def get_apply_state_transition() -> Callable[..., Any]:
+    return apply_state_transition
+
+def get_service() -> <Service>:
+    return <Service>(
+        ...,
+        apply_state_transition=get_apply_state_transition(),
+    )
+```
+
+This approach allows tests to mock or swap implementations of helpers without modifying the service.
+
+---
+
+## 9. When to Split
 
 Split a file when it reaches a threshold where human reviewers struggle to navigate it. The practical guide:
 
@@ -50,7 +105,7 @@ These are guidelines, not hard rules. A 250-line file with good sectioning and a
 
 ---
 
-## 3. Splitting the API Layer: Sub-Router Package
+## 9. Splitting the API Layer: Sub-Router Package
 
 When `api.py` grows beyond the threshold or has distinct endpoint groups (e.g., admin vs. public endpoints), replace the single file with a package.
 
@@ -135,7 +190,7 @@ The split is immediately legible: `admin.py` is the admin surface, `public.py` i
 
 ---
 
-## 4. Splitting the Service Layer
+## 9. Splitting the Service Layer
 
 When `services.py` grows beyond the threshold, extract logical sub-concerns into dedicated modules under a `services/` package:
 
@@ -154,7 +209,7 @@ The public interface does not change: `composition.py` still imports and instant
 
 ---
 
-## 5. Splitting Schemas or Repositories
+## 9. Splitting Schemas or Repositories
 
 For `schemas.py` or `repositories.py`, the pattern is the same: replace the file with a package and re-export from `__init__.py` so that all existing imports continue to work unchanged.
 
@@ -184,7 +239,7 @@ This is the key rule: **existing imports must continue to work**. Code in other 
 
 ---
 
-## 6. Test File Naming
+## 9. Test File Naming
 
 Test files mirror the source file they exercise. When a source file is split into a package, the corresponding test files are named after the sub-modules:
 
@@ -202,7 +257,7 @@ Each test file is self-contained: its fixtures, helpers, and test functions cove
 
 ---
 
-## 7. Maintaining Module Decoupling
+## 9. Maintaining Module Decoupling
 
 These organizational changes are internal to a module. The contracts a module exposes to the outside world — imports in `main.py`, dependency factories in `composition.py`, imports in other modules' API files — do not change when you reorganize internals.
 
@@ -222,7 +277,7 @@ External modules import from the module root. The module root re-exports from it
 
 ---
 
-## 8. Cross-Module Dependencies: The `clients/` Package
+## 9. Cross-Module Dependencies: The `clients/` Package
 
 When a module needs to read data from another module, it does not import the foreign module's service or repository directly. Instead, it defines its own **`clients/` package** with abstractions that encapsulate the foreign dependency.
 

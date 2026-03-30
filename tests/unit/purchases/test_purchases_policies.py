@@ -6,6 +6,7 @@ from app.purchases.exceptions import (
     MerchantNotFoundException,
     OfferNotAvailableException,
     PurchaseAlreadyReversedException,
+    PurchaseNotPendingException,
     PurchaseOwnershipViolationException,
     PurchaseViewForbiddenException,
     UnsupportedCurrencyException,
@@ -17,6 +18,7 @@ from app.purchases.policies import (
     enforce_merchant_active,
     enforce_offer_available,
     enforce_purchase_ownership,
+    enforce_purchase_pending,
     enforce_purchase_reversible,
     enforce_purchase_view_ownership,
     enforce_user_active,
@@ -260,3 +262,42 @@ def test_enforce_purchase_reversible_exception_carries_correct_metadata() -> Non
     assert exc.current_status == "reversed"
     assert "pending" in exc.reversible_from_statuses
     assert "confirmed" in exc.reversible_from_statuses
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# enforce_purchase_pending
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_enforce_purchase_pending_raises_nothing_on_pending_status() -> None:
+    # Arrange
+    purchase_id = "aa000001-0000-0000-0000-000000000011"
+
+    # Act & Assert — should not raise
+    enforce_purchase_pending(purchase_id, "pending")
+
+
+def test_enforce_purchase_pending_raises_on_confirmed_status() -> None:
+    # Arrange
+    purchase_id = "aa000001-0000-0000-0000-000000000011"
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotPendingException) as exc_info:
+        enforce_purchase_pending(purchase_id, "confirmed")
+
+    assert exc_info.value.purchase_id == purchase_id
+    assert exc_info.value.current_status == "confirmed"
+    assert exc_info.value.required_status == "pending"
+
+
+def test_enforce_purchase_pending_raises_on_reversed_status() -> None:
+    # Arrange
+    purchase_id = "aa000001-0000-0000-0000-000000000011"
+
+    # Act & Assert
+    with pytest.raises(PurchaseNotPendingException) as exc_info:
+        enforce_purchase_pending(purchase_id, "reversed")
+
+    assert exc_info.value.purchase_id == purchase_id
+    assert exc_info.value.current_status == "reversed"
+    assert exc_info.value.required_status == "pending"

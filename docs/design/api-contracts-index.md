@@ -23,6 +23,7 @@
 
 ## Purchases
 
+- [Admin Confirm Purchase](api-contracts/purchases/confirmation-purchase.md)
 - [Confirm Purchase](api-contracts/purchases/confirm-purchase.md)
 - [Get Purchase Details](api-contracts/purchases/get-purchase-details.md)
 - [Ingest Purchase](api-contracts/purchases/ingest-purchase.md)

@@ -97,7 +97,7 @@ _Status legend:_
 | **Purchase & Cashback** | | |
 | Purchase Ingestion | Purchases | 🟢 done |
 | Purchase Confirmation (job) | Purchases | 🟢 done |
-| Purchase Confirmation (manual) | Purchases | 🟡 ongoing |
+| Purchase Confirmation (manual) | Purchases | 🟢 done |
 | Purchase Details | Purchases | 🟢 done |
 | Purchases Listing | Purchases | 🟢 done |
 | User Purchases Listing | Purchases | 🟢 done |
@@ -107,7 +107,7 @@ _Status legend:_
 | Wallet Summary | Wallets | 🟢 done |
 | Wallet Transactions Listing | Wallets | 🟢 done |
 | **Payouts** | | |
-| Payout Request (Withdrawal) | Payouts | ⚪ backlog |
+| Payout Request (Withdrawal) | Payouts | 🟡 ongoing |
 | Payout Processing | Payouts | ⚪ backlog |
 | Payouts Listing | Payouts | ⚪ backlog |
 | **Feature Flags** | | |
