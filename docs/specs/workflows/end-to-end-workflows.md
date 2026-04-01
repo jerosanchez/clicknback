@@ -46,7 +46,7 @@ A new user registers, logs in, and browses the currently active cashback offers.
 
 ---
 
-## Workflow 3 — Purchase Ingestion and Async Confirmation 🟡
+## Workflow 3 — Purchase Ingestion and Async Confirmation
 
 A user records their own purchase. A background job automatically confirms it (or rejects it if you use the **BankSimFail** test merchant), after which cashback is calculated and credited to the wallet.
 
@@ -68,7 +68,7 @@ A user records their own purchase. A background job automatically confirms it (o
 
 ---
 
-## Workflow 5 — Admin Purchase Confirmation (Manual Approval) ⚪
+## Workflow 5 — Admin Purchase Confirmation (Manual Approval)
 
 An admin manually reviews and confirms or rejects a purchase, as opposed to automatic background verification. Used for dispute resolution, reversals, or merchant partnerships requiring manual oversight.
 
@@ -80,6 +80,44 @@ An admin manually reviews and confirms or rejects a purchase, as opposed to auto
 4. User checks their wallet to see the result.
 
 This workflow is complementary to Workflow 3 — both can coexist. An admin may reverse an auto-confirmed purchase, or manually confirm a `pending` purchase before the background job runs.
+
+→ **[Full details and sequence diagram](05-purchase-confirmation.md)** · HTTP file: [`http/05-purchase-confirmation.http`](http/05-purchase-confirmation.http)
+
+---
+
+## Workflow 5a — Testing Manual Confirmation with Feature Flags
+
+To manually test the entire purchase confirmation flow **without waiting for automatic confirmation**, use the feature flag system to disable auto-confirmation for a specific user. This allows you to walk through scenarios where the background job does not immediately confirm purchases—an essential testing technique for manual confirmation endpoints.
+
+**How to test:**
+
+1. Use the pre-seeded test user: `dave@clicknback.com` / `Str0ng!Pass` (auto-confirmation disabled via feature flag)
+2. Ingest a purchase for dave (e.g., at Shoply `a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d`)
+3. Wait 60 seconds — the background job will **skip** dave's purchases (even though the global flag is enabled)
+4. Check the purchase status — it remains `pending` (not auto-confirmed)
+5. As an admin, manually confirm or reverse the purchase
+6. Check dave's wallet to see the updated balances
+
+**How feature flags work in this scenario:**
+
+- Global flag: `purchase_auto_confirm` = `TRUE` (all users/merchants auto-confirm by default)
+- User-scoped flag: `purchase_auto_confirm` for user `e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e` (dave) = `FALSE` (this user's purchases stay pending)
+- Merchant-scoped flag: `purchase_auto_confirm` for merchant `f0000000-0000-0000-0000-000000000001` (BankSimFail) = `FALSE` (rejection simulation)
+
+**For developers:** See [ADR-018](../../design/adr/018-feature-flag-system.md) for the feature flag architecture. To disable auto-confirmation for other users or merchants, use:
+
+```bash
+curl -X POST https://clicknback.com/api/v1/feature-flags \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "purchase_auto_confirm",
+    "enabled": false,
+    "scope_type": "user",
+    "scope_id": "your-user-id-here",
+    "description": "Disable auto-confirmation for manual testing"
+  }'
+```
 
 → **[Full details and sequence diagram](05-purchase-confirmation.md)** · HTTP file: [`http/05-purchase-confirmation.http`](http/05-purchase-confirmation.http)
 
@@ -107,20 +145,18 @@ A user checks their wallet balances, requests a withdrawal, and an admin approve
 | `GET` | `/api/v1/offers/active` | User / Admin | List currently active public offers |
 | `GET` | `/api/v1/offers/{id}` | User / Admin | Get offer details |
 | `PATCH` | `/api/v1/offers/{id}/status` | Admin | Activate or deactivate an offer |
-| `POST` | `/api/v1/purchases` ⚪ | User | Record a purchase |
-| `POST` | `/api/v1/purchases/{id}/confirm` ⚪ | Admin | Confirm a purchase |
-| `GET` | `/api/v1/purchases/{id}` ⚪ | Admin | Get purchase details |
-| `GET` | `/api/v1/purchases` ⚪ | Admin | List all purchases |
-| `GET` | `/api/v1/users/{id}/purchases` ⚪ | User / Admin | List purchases for a user |
-| `POST` | `/api/v1/purchases/{id}/reverse` ⚪ | Admin | Reverse a purchase |
-| `GET` | `/api/v1/users/{id}/wallet` ⚪ | User / Admin | Get wallet summary |
-| `GET` | `/api/v1/users/{id}/wallet/transactions` ⚪ | User / Admin | List wallet transactions |
-| `POST` | `/api/v1/users/{id}/payouts` ⚪ | User | Request a payout |
-| `GET` | `/api/v1/payouts` ⚪ | Admin | List all payouts |
-| `PATCH` | `/api/v1/payouts/{id}/status` ⚪ | Admin | Process a payout |
-| `GET` | `/api/v1/users/{id}/payouts` ⚪ | User / Admin | List payouts for a user |
-
-_⚪ = backlog: specified but not yet implemented._
+| `POST` | `/api/v1/purchases` | User | Record a purchase |
+| `POST` | `/api/v1/purchases/{id}/confirm` | Admin | Confirm a purchase |
+| `GET` | `/api/v1/purchases/{id}` | Admin | Get purchase details |
+| `GET` | `/api/v1/purchases` | Admin | List all purchases |
+| `GET` | `/api/v1/users/{id}/purchases` | User / Admin | List purchases for a user |
+| `POST` | `/api/v1/purchases/{id}/reverse` | Admin | Reverse a purchase |
+| `GET` | `/api/v1/users/{id}/wallet` | User / Admin | Get wallet summary |
+| `GET` | `/api/v1/users/{id}/wallet/transactions` | User / Admin | List wallet transactions |
+| `POST` | `/api/v1/users/{id}/payouts` | User | Request a payout |
+| `GET` | `/api/v1/payouts` | Admin | List all payouts |
+| `PATCH` | `/api/v1/payouts/{id}/status` | Admin | Process a payout |
+| `GET` | `/api/v1/users/{id}/payouts` | User / Admin | List payouts for a user |
 
 ---
 
