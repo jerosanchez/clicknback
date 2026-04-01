@@ -1,3 +1,5 @@
+from typing import List
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
@@ -87,3 +89,58 @@ class FeatureFlagService:
     ) -> tuple[list[FeatureFlag], int]:
         """List feature flags with optional filters."""
         return await self._repository.list(db, key, scope_type, scope_id)
+
+    async def evaluate_scopes(
+        self,
+        key: str,
+        db: AsyncSession,
+        scopes: List[tuple[str, str | None]],
+    ) -> dict[tuple[str, str | None], bool]:
+        """Evaluate feature flag for multiple scopes in a single batch query.
+
+        Returns a dict mapping each (scope_type, scope_id) → enabled state.
+        Resolution order for each scope: scoped flag > global flag > fail-open True.
+
+        Args:
+            key: Feature flag key
+            db: AsyncSession for database queries
+            scopes: List of (scope_type, scope_id) tuples to evaluate
+
+        Returns:
+            Dict mapping each scope to its resolved enabled state (True if enabled
+            or absent, False if explicitly disabled).
+        """
+        if not scopes:
+            return {}
+
+        # Fetch all relevant flags in one optimized query
+        flags = await self._repository.get_multiple_by_key_and_scopes(db, key, scopes)
+
+        # Separate scoped and global flags
+        global_flag = None
+        scoped_flags = {}
+        for flag in flags:
+            if flag.scope_type == "global":
+                global_flag = flag
+            else:
+                scoped_flags[(flag.scope_type, flag.scope_id)] = flag
+
+        # Resolve each scope: scoped flag > global flag > fail-open True
+        results = {}
+        for scope_type, scope_id in scopes:
+            # Check scoped flag first
+            if (scope_type, scope_id) in scoped_flags:
+                results[(scope_type, scope_id)] = scoped_flags[
+                    (scope_type, scope_id)
+                ].enabled
+                continue
+
+            # Fall back to global flag
+            if global_flag is not None:
+                results[(scope_type, scope_id)] = global_flag.enabled
+                continue
+
+            # No flag found - fail-open (default to True)
+            results[(scope_type, scope_id)] = True
+
+        return results

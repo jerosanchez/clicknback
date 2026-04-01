@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from typing import List
 
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.feature_flags.models import FeatureFlag
@@ -36,6 +37,28 @@ class FeatureFlagRepositoryABC(ABC):
         """List feature flags with optional filters.
 
         Returns: (flags, total_count)
+        """
+        pass
+
+    @abstractmethod
+    async def get_multiple_by_key_and_scopes(
+        self,
+        db: AsyncSession,
+        key: str,
+        scope_specs: List[tuple[str, str | None]],
+    ) -> List[FeatureFlag]:
+        """Fetch flags for multiple scopes in a single optimized query.
+
+        Fetches all flags matching the key and any of the given scope_specs,
+        plus the global flag as fallback. Used for batch evaluation.
+
+        Args:
+            db: AsyncSession for database queries
+            key: Feature flag key (e.g., "purchase_auto_confirm")
+            scope_specs: List of (scope_type, scope_id) tuples to check
+
+        Returns:
+            List of matching FeatureFlag objects (may include the global flag)
         """
         pass
 
@@ -105,3 +128,43 @@ class FeatureFlagRepository(FeatureFlagRepositoryABC):
         flags = list(result.scalars().all())
 
         return flags, total
+
+    async def get_multiple_by_key_and_scopes(
+        self,
+        db: AsyncSession,
+        key: str,
+        scope_specs: List[tuple[str, str | None]],
+    ) -> List[FeatureFlag]:
+        """Fetch flags for multiple scopes in a single optimized query.
+
+        Returns all flags matching the key and any of the scope_specs,
+        plus the global flag as fallback. Optimized to use a single query
+        with OR conditions instead of N+1 queries.
+        """
+        if not scope_specs:
+            return []
+
+        # Build conditions for each (scope_type, scope_id) pair
+        scope_conditions = [
+            and_(
+                FeatureFlag.scope_type == scope_type,
+                FeatureFlag.scope_id == scope_id,
+            )
+            for scope_type, scope_id in scope_specs
+        ]
+
+        # Always include the global flag as fallback
+        scope_conditions.append(
+            and_(
+                FeatureFlag.scope_type == "global",
+                FeatureFlag.scope_id is None,
+            )
+        )
+
+        # Fetch all matching flags in one query
+        stmt = select(FeatureFlag).where(
+            FeatureFlag.key == key,
+            or_(*scope_conditions),
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
