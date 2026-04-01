@@ -362,3 +362,227 @@ async def test_list_flags_returns_empty_when_no_match(
     # Assert
     assert len(flags) == 0
     assert total == 0
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FeatureFlagService.evaluate_scopes — batch scope evaluation
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_evaluate_scopes_returns_empty_dict_for_empty_scopes(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+
+    # Act
+    result = await feature_flag_service.evaluate_scopes("auto_confirm", db, [])
+
+    # Assert
+    assert result == {}
+    # Should not call repository if no scopes provided
+    feature_flag_repository.get_multiple_by_key_and_scopes.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_evaluate_scopes_all_scopes_enabled_with_scoped_flags(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    user_id = "user-123"
+    merchant_id = "merchant-456"
+    scopes = [("user", user_id), ("merchant", merchant_id)]
+
+    scoped_flags = [
+        _make_flag(scope_type="user", scope_id=user_id, enabled=True),
+        _make_flag(scope_type="merchant", scope_id=merchant_id, enabled=True),
+    ]
+    feature_flag_repository.get_multiple_by_key_and_scopes.return_value = scoped_flags
+
+    # Act
+    result = await feature_flag_service.evaluate_scopes("auto_confirm", db, scopes)
+
+    # Assert
+    assert result == {
+        ("user", user_id): True,
+        ("merchant", merchant_id): True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_evaluate_scopes_fail_open_when_no_flags_exist(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    user_id = "user-123"
+    merchant_id = "merchant-456"
+    scopes = [("user", user_id), ("merchant", merchant_id)]
+
+    # No flags found → should fail-open to True
+    feature_flag_repository.get_multiple_by_key_and_scopes.return_value = []
+
+    # Act
+    result = await feature_flag_service.evaluate_scopes("auto_confirm", db, scopes)
+
+    # Assert
+    assert result == {
+        ("user", user_id): True,
+        ("merchant", merchant_id): True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_evaluate_scopes_scoped_flag_disabled_overrides_global_enabled(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    user_id = "user-123"
+    merchant_id = "merchant-456"
+    scopes = [("user", user_id), ("merchant", merchant_id)]
+
+    flags = [
+        _make_flag(scope_type="global", scope_id=None, enabled=True),
+        _make_flag(scope_type="user", scope_id=user_id, enabled=False),  # Disabled
+    ]
+    feature_flag_repository.get_multiple_by_key_and_scopes.return_value = flags
+
+    # Act
+    result = await feature_flag_service.evaluate_scopes("auto_confirm", db, scopes)
+
+    # Assert
+    # user scope disabled (scoped flag wins)
+    # merchant scope falls back to global enabled
+    assert result == {
+        ("user", user_id): False,
+        ("merchant", merchant_id): True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_evaluate_scopes_global_flag_disabled_affects_all_without_scoped_override(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    user_id = "user-123"
+    merchant_id = "merchant-456"
+    scopes = [("user", user_id), ("merchant", merchant_id)]
+
+    flags = [
+        _make_flag(
+            scope_type="global", scope_id=None, enabled=False
+        ),  # Global disabled
+        _make_flag(scope_type="user", scope_id=user_id, enabled=True),  # Scoped enabled
+    ]
+    feature_flag_repository.get_multiple_by_key_and_scopes.return_value = flags
+
+    # Act
+    result = await feature_flag_service.evaluate_scopes("auto_confirm", db, scopes)
+
+    # Assert
+    # user scope enabled (scoped flag takes precedence)
+    # merchant scope disabled (global flag is disabled, no scoped override)
+    assert result == {
+        ("user", user_id): True,
+        ("merchant", merchant_id): False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_evaluate_scopes_scoped_enabled_overrides_global_disabled(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    user_id = "user-123"
+    merchant_id = "merchant-456"
+    scopes = [("user", user_id), ("merchant", merchant_id)]
+
+    flags = [
+        _make_flag(
+            scope_type="global", scope_id=None, enabled=False
+        ),  # Global disabled
+        _make_flag(
+            scope_type="user", scope_id=user_id, enabled=True
+        ),  # Scoped enabled - overrides global
+    ]
+    feature_flag_repository.get_multiple_by_key_and_scopes.return_value = flags
+
+    # Act
+    result = await feature_flag_service.evaluate_scopes("auto_confirm", db, scopes)
+
+    # Assert
+    # user scope enabled (scoped flag overrides disabled global)
+    # merchant scope disabled (global flag value)
+    assert result == {
+        ("user", user_id): True,
+        ("merchant", merchant_id): False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_evaluate_scopes_mixed_state_multiple_scopes(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    scopes = [
+        ("user", "user-123"),
+        ("merchant", "merchant-456"),
+        ("wallet", "wallet-789"),
+    ]
+
+    flags = [
+        _make_flag(scope_type="global", scope_id=None, enabled=False),
+        # user scope: enabled (overrides global disabled)
+        _make_flag(scope_type="user", scope_id="user-123", enabled=True),
+        # merchant scope: disabled (overrides global disabled, explicit disable)
+        _make_flag(scope_type="merchant", scope_id="merchant-456", enabled=False),
+        # wallet scope: no flag → falls back to global (disabled)
+    ]
+    feature_flag_repository.get_multiple_by_key_and_scopes.return_value = flags
+
+    # Act
+    result = await feature_flag_service.evaluate_scopes("auto_confirm", db, scopes)
+
+    # Assert
+    assert result == {
+        ("user", "user-123"): True,
+        ("merchant", "merchant-456"): False,
+        ("wallet", "wallet-789"): False,  # Falls back to global (disabled)
+    }
+
+
+@pytest.mark.asyncio
+async def test_evaluate_scopes_only_global_flag_present(
+    feature_flag_service: FeatureFlagService,
+    feature_flag_repository: Mock,
+) -> None:
+    # Arrange
+    db = AsyncMock()
+    scopes = [("user", "user-123"), ("merchant", "merchant-456")]
+
+    # Only global flag exists
+    flags = [_make_flag(scope_type="global", scope_id=None, enabled=True)]
+    feature_flag_repository.get_multiple_by_key_and_scopes.return_value = flags
+
+    # Act
+    result = await feature_flag_service.evaluate_scopes("auto_confirm", db, scopes)
+
+    # Assert
+    # All scopes use global flag value
+    assert result == {
+        ("user", "user-123"): True,
+        ("merchant", "merchant-456"): True,
+    }

@@ -3,6 +3,10 @@ from app.purchases.clients.cashback import (
     CashbackClientABC,
     CashbackResultDTO,
 )
+from app.purchases.clients.feature_flags import (
+    FeatureFlagClient,
+    FeatureFlagClientABC,
+)
 from app.purchases.clients.merchants import (
     MerchantDTO,
     MerchantsClient,
@@ -16,6 +20,8 @@ __all__ = [
     "CashbackResultDTO",
     "CashbackClientABC",
     "CashbackClient",
+    "FeatureFlagClientABC",
+    "FeatureFlagClient",
     "UserDTO",
     "UsersClientABC",
     "UsersClient",

@@ -17,7 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.broker import MessageBrokerABC
 from app.core.scheduler import ScheduledTask
-from app.purchases.clients import CashbackClientABC, WalletsClientABC
+from app.purchases.clients import (
+    CashbackClientABC,
+    FeatureFlagClientABC,
+    WalletsClientABC,
+)
 from app.purchases.repositories import PurchaseRepositoryABC
 
 from ._dispatcher import (
@@ -35,6 +39,7 @@ def make_verify_purchases_task(
     cashback_client: CashbackClientABC,
     broker: MessageBrokerABC,
     db_session_factory: async_sessionmaker[AsyncSession],
+    feature_flag_client: FeatureFlagClientABC,
     verifier: PurchaseVerifierABC,
     max_attempts: int,
     retry_interval_seconds: float,
@@ -73,6 +78,7 @@ def make_verify_purchases_task(
             repository=repository,
             db_session_factory=db_session_factory,
             in_flight=in_flight,
+            feature_flag_client=feature_flag_client,
             spawn_task=_spawn,
         )
 

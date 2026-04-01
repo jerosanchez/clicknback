@@ -14,7 +14,11 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.broker import MessageBrokerABC
-from app.purchases.clients import CashbackClientABC, WalletsClientABC
+from app.purchases.clients import (
+    CashbackClientABC,
+    FeatureFlagClientABC,
+    WalletsClientABC,
+)
 from app.purchases.jobs.verify_purchases import (
     SimulatedPurchaseVerifier,
     make_verify_purchases_task,
@@ -70,6 +74,11 @@ def cashback_client() -> MagicMock:
     return create_autospec(CashbackClientABC)
 
 
+@pytest.fixture
+def feature_flag_client() -> MagicMock:
+    return create_autospec(FeatureFlagClientABC)
+
+
 # ---------------------------------------------------------------------------
 # Factory smoke test
 # ---------------------------------------------------------------------------
@@ -81,6 +90,7 @@ async def test_factory_returns_callable_and_runs_without_error_on_no_pending_pur
     message_broker: MagicMock,
     wallets_client: MagicMock,
     cashback_client: MagicMock,
+    feature_flag_client: MagicMock,
 ) -> None:
     """The factory returns a zero-arg async callable; invoking it with no pending purchases completes without error."""
     # Arrange
@@ -94,6 +104,7 @@ async def test_factory_returns_callable_and_runs_without_error_on_no_pending_pur
         cashback_client=cashback_client,
         broker=message_broker,
         db_session_factory=session_factory,
+        feature_flag_client=feature_flag_client,
         verifier=SimulatedPurchaseVerifier(
             rejection_merchant_id=_REJECTION_MERCHANT_ID
         ),

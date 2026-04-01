@@ -100,6 +100,7 @@ The database is pre-populated and resets nightly at **03:00 UTC**.
 | `carol@clicknback.com` | `Str0ng!Pass` | admin | Platform admin; use for merchant/offer management |
 | `alice@clicknback.com` | `Str0ng!Pass` | user | Pre-seeded wallet: pending 19.05, available 15.00, paid 50.00 |
 | `bob@clicknback.com` | `Str0ng!Pass` | user | Has purchases including one reversal |
+| `dave@clicknback.com` | `Str0ng!Pass` | user | Manual confirmation test user; auto-confirm disabled via feature flag |
 
 ### Key Merchant and User IDs
 
@@ -108,7 +109,9 @@ These UUIDs appear in request bodies — copy them directly.
 | Entity | ID |
 | --- | --- |
 | alice (user) | `b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d` |
+| bob (user) | `c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a` |
 | carol (admin) | `d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a` |
+| dave (manual confirmation test user) | `e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e` |
 | Shoply (active merchant, 5% cashback) | `a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d` |
 | StyleHub (active merchant, 8% cashback) | `b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e` |
 
@@ -128,6 +131,20 @@ When you ingest a purchase via `POST /purchases`, three things happen atomically
 A background job runs on a fixed interval simulating bank reconciliation. Watch alice's purchases transition from `status=pending` to `status=confirmed` over time. When a purchase confirms, her `pending_balance` decreases and `available_balance` increases by the same cashback amount — the three-bucket model stays consistent across concurrent operations.
 
 Try submitting the same `external_id` twice: the second call returns `409 Conflict`. That is the idempotency guarantee enforced by a `UNIQUE` constraint at the database level, not application logic.
+
+---
+
+## Testing Manual Purchase Confirmation
+
+To test manual purchase confirmation without waiting for the background job, use dave (the test user with auto-confirmation disabled):
+
+1. Log in as dave (`dave@clicknback.com` / `Str0ng!Pass`)
+2. Ingest a purchase: `POST /purchases` with dave's user ID and a merchant like Shoply
+3. Wait 60 seconds — dave's purchase will **not** auto-confirm (feature flag `purchase_auto_confirm` is disabled for this user)
+4. As an admin, fetch the purchase and manually confirm or reverse it: `POST /purchases/{id}/confirm` or `POST /purchases/{id}/reverse`
+5. Check dave's wallet to see the updated balance
+
+This workflow demonstrates the full manual confirmation flow (Workflow 5 in the [end-to-end workflows](docs/specs/workflows/end-to-end-workflows.md#workflow-5a—testing-manual-confirmation-with-feature-flags)) without implementing the manual confirmation endpoints themselves — those are backlog features discussed in the ADRs.
 
 ---
 

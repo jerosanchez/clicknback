@@ -7,8 +7,10 @@ from app.core.broker import broker
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, get_async_db
 from app.core.unit_of_work import SQLAlchemyUnitOfWork, UnitOfWorkABC
+from app.feature_flags.composition import get_feature_flag_service
 from app.purchases.clients import (
     CashbackClient,
+    FeatureFlagClient,
     MerchantsClient,
     OffersClient,
     UsersClient,
@@ -44,6 +46,10 @@ def get_cashback_client() -> CashbackClient:
     return CashbackClient()
 
 
+def get_feature_flag_client() -> FeatureFlagClient:
+    return FeatureFlagClient(feature_flag_service=get_feature_flag_service())
+
+
 def get_unit_of_work(db: AsyncSession = Depends(get_async_db)) -> UnitOfWorkABC:
     return SQLAlchemyUnitOfWork(db)
 
@@ -75,6 +81,7 @@ def get_verify_purchases_task():
         cashback_client=get_cashback_client(),
         broker=broker,
         db_session_factory=AsyncSessionLocal,
+        feature_flag_client=get_feature_flag_client(),
         verifier=SimulatedPurchaseVerifier(
             rejection_merchant_id=settings.rejection_merchant_id,
         ),

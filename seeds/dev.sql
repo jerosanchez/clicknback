@@ -7,7 +7,9 @@ INSERT INTO users (id, email, hashed_password, role, active, created_at) VALUES
     ('b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'alice@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'user', TRUE, NOW()),
     ('c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'bob@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'user', TRUE, NOW()),
     ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 'carol@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'admin', TRUE, NOW()),
-    ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1b', 'jero@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'admin', TRUE, NOW());
+    ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1b', 'jero@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'admin', TRUE, NOW()),
+    -- Test user for manual purchase confirmation flow (auto-confirm disabled via feature flag)
+    ('e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e', 'dave@clicknback.com', '$2b$12$XA7sNuNkVQdhGdbW0bHv.OeNnC4RfBSx74dc6sxIA2ETLtIUtKLxO', 'user', TRUE, NOW());
 
 -- Merchants
 -- Active merchants with a variety of cashback percentages to test sorting and filtering,
@@ -133,7 +135,11 @@ INSERT INTO purchases (id, external_id, user_id, merchant_id, offer_id, amount, 
     -- These are older than purchase_max_verification_attempts * purchase_confirmation_interval_seconds
     -- so the job will reject them on the first run after seeding.
     ('bb000001-0000-0000-0000-000000000001', 'txn_seed_reject_001', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'f0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0001-000000000001', 99.00, 'EUR', 'pending', NOW() - INTERVAL '1 hour'),
-    ('bb000001-0000-0000-0000-000000000002', 'txn_seed_reject_002', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'f0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0001-000000000001', 49.50, 'EUR', 'pending', NOW() - INTERVAL '2 hours');
+    ('bb000001-0000-0000-0000-000000000002', 'txn_seed_reject_002', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'f0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0001-000000000001', 49.50, 'EUR', 'pending', NOW() - INTERVAL '2 hours'),
+    -- Manual confirmation test purchases for dave (auto-confirm disabled via feature flag).
+    -- These remain pending and are used to test the manual purchase confirmation flow.
+    ('cc000001-0000-0000-0000-000000000001', 'txn_seed_manual_001', 'e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'f0e1d2c3-b4a5-4678-9012-3456789abcde', 150.00, 'EUR', 'pending', NOW() - INTERVAL '2 days'),
+    ('cc000001-0000-0000-0000-000000000002', 'txn_seed_manual_002', 'e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e', 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', 'a1b2c3d4-e5f6-4789-0abc-def012345678', 85.00, 'EUR', 'pending', NOW() - INTERVAL '1 day');
 
 -- Wallets
 -- Denormalized balance view per user. Created lazily on first cashback credit.
@@ -146,7 +152,9 @@ INSERT INTO wallets (user_id, pending_balance, available_balance, paid_balance) 
     -- bob: 3 open purchases pending + 1 confirmed (txn_seed_008); no paid withdrawals yet
     ('c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 10.88,  6.00,  0.00),
     -- carol: 1 open purchase pending (txn_seed_004); no confirmed or paid activity yet
-    ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 12.00,  0.00,  0.00);
+    ('d9f4b3c2-6b5c-5d4e-7c3b-6a5e4d3c2b1a', 12.00,  0.00,  0.00),
+    -- dave: 2 open purchases pending (manual confirmation test); no confirmed or paid activity yet
+    ('e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e', 11.25,  0.00,  0.00);
 
 -- Cashback Transactions
 -- One row per purchase. Amounts are derived from each purchase × offer cashback rule.
@@ -177,30 +185,46 @@ INSERT INTO cashback_transactions (id, user_id, purchase_id, amount, status, cre
     -- alice – BankSimFail 5%: 99.00 → 4.95 (pending — rejection-sim, will be reversed by job)
     ('ct000001-0000-0000-0000-000000000012', 'b7e2c1a2-4f3a-4e2b-9c1a-8d2e3f4b5c6d', 'bb000001-0000-0000-0000-000000000001', 4.95,  'pending',   NOW() - INTERVAL '1 hour'),
     -- bob – BankSimFail 5%: 49.50 → 2.48 (pending — rejection-sim, will be reversed by job)
-    ('ct000001-0000-0000-0000-000000000013', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'bb000001-0000-0000-0000-000000000002', 2.48,  'pending',   NOW() - INTERVAL '2 hours');
+    ('ct000001-0000-0000-0000-000000000013', 'c8d3e2b1-5a4b-4c3d-8b2a-7e6f5d4c3b2a', 'bb000001-0000-0000-0000-000000000002', 2.48,  'pending',   NOW() - INTERVAL '2 hours'),
+    -- dave – Shoply 5%: 150.00 → 7.50 (pending — manual confirmation test)
+    ('ct000001-0000-0000-0000-000000000014', 'e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e', 'cc000001-0000-0000-0000-000000000001', 7.50,  'pending',   NOW() - INTERVAL '2 days'),
+    -- dave – QuickCart fixed 3.00: 85.00 → 3.00 (pending — manual confirmation test)
+    ('ct000001-0000-0000-0000-000000000015', 'e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e', 'cc000001-0000-0000-0000-000000000002', 3.00,  'pending',   NOW() - INTERVAL '1 day');
 
 -- Feature Flags
--- Global flag: purchase_confirmation_job enabled (default state for normal operation)
--- Merchant-scoped flag: purchase_confirmation_job disabled for BankSimFail
---   (demonstrates scoped override without affecting the global flag)
+-- Global flag: purchase_auto_confirm enabled (default state for normal operation)
+-- User-scoped flag: purchase_auto_confirm disabled for dave (manual confirmation test user)
+--   (demonstrates user-scoped override without affecting other users)
+-- Merchant-scoped flag: purchase_auto_confirm disabled for BankSimFail
+--   (demonstrates merchant-scoped override without affecting the global flag)
 INSERT INTO feature_flags (id, key, enabled, scope_type, scope_id, description, created_at, updated_at) VALUES
     (
         'ff000001-0000-0000-0000-000000000001',
-        'purchase_confirmation_job',
+        'purchase_auto_confirm',
         TRUE,
         'global',
         NULL,
-        'Controls whether the purchase confirmation background job runs.',
+        'Controls whether purchases are automatically confirmed. Default: enabled for all users/merchants.',
+        NOW(),
+        NOW()
+    ),
+    (
+        'ff000001-0000-0000-0000-000000000003',
+        'purchase_auto_confirm',
+        FALSE,
+        'user',
+        'e0e1e2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e',
+        'Disable auto-confirmation for dave@clicknback.com (manual confirmation test user).',
         NOW(),
         NOW()
     ),
     (
         'ff000001-0000-0000-0000-000000000002',
-        'purchase_confirmation_job',
+        'purchase_auto_confirm',
         FALSE,
         'merchant',
         'f0000000-0000-0000-0000-000000000001',
-        'Disable confirmation job for BankSimFail during manual testing.',
+        'Disable auto-confirmation for BankSimFail (rejection simulation merchant).',
         NOW(),
         NOW()
     );
