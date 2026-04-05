@@ -3,16 +3,19 @@
 ## Quick Reference (TL;DR)
 
 **For Web Apps:**
+
 - Add your origin to `CORS_ALLOWED_ORIGINS` environment variable
 - Browser will automatically send `Origin` header; server will respond with `Access-Control-Allow-Origin`
 - If origin not allowed, you'll see CORS error in browser console
 
 **For Mobile Apps:**
+
 - CORS does not apply (native apps don't enforce it)
 - Just send JWT bearer token in `Authorization` header
 - Use HTTPS only in production
 
 **For New Origins:**
+
 - Create GitHub issue labeled `feature:cors-new-origin`
 - Include origin, business context, expected traffic
 - Follow security review process (see "Requesting New Origins" section below)
@@ -60,7 +63,7 @@ Instead, mobile apps rely on:
 ### Production Environment
 
 | Origin | Type | Use Case |
-|--------|------|----------|
+| --- | --- | --- |
 | `https://clicknback.com` | Primary domain | Official web dashboard |
 | `https://app.clicknback.com` | Subdomain | Customer-facing web app |
 | `https://admin.clicknback.com` | Subdomain | Partner admin portal |
@@ -68,7 +71,7 @@ Instead, mobile apps rely on:
 ### Staging Environment
 
 | Origin | Type | Use Case |
-|--------|------|----------|
+| --- | --- | --- |
 | `https://staging.clicknback.com` | Staging domain | Staging web app |
 | `http://localhost:*` | Wildcard port | Local development on `localhost` |
 | `http://127.0.0.1:*` | Wildcard port | Local development on `127.0.0.1` |

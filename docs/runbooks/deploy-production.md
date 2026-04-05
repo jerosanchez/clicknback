@@ -11,7 +11,7 @@ The app will be fully containerized (new Dockerfile), the compose file will orch
 The values below are specific to this project. When adapting this runbook for a new project, replace all of them before proceeding.
 
 | What | This project | Replace with |
-|---|---|---|
+| --- | --- | --- |
 | App domain | `clicknback.com` | your domain |
 | Container image | `ghcr.io/jerosanchez/clicknback` | `ghcr.io/<owner>/<repo>` |
 | Container service names | `clicknback-app`, `clicknback-db` | your service names |
@@ -49,7 +49,6 @@ Run `make lint && make test && make coverage && make security` — all must pass
 When resuming work after a break, read the **Progress** section first to identify the next incomplete step, then continue from there without re-doing completed ones. Mark a step's checkbox as done (`- [x]`) after completing it.
 
 ---
-
 
 ## Progress
 
@@ -96,54 +95,54 @@ When resuming work after a break, read the **Progress** section first to identif
 
 1. **Decide and apply an API version prefix.** Mount all routers under `/api/v1/` in `app/main.py` (e.g., `/api/v1/users`, `/api/v1/auth`, `/api/v1/merchants`).
 
-Even for a v1-only system, the prefix signals intent and avoids a breaking migration later. Document the decision explicitly in `docs/design/architecture-overview.md`. This is a deliberate design choice that senior engineers are expected to have made — leaving routes at the root silently defers a forward-compatibility problem.
+   Even for a v1-only system, the prefix signals intent and avoids a breaking migration later. Document the decision explicitly in `docs/design/architecture-overview.md`. This is a deliberate design choice that senior engineers are expected to have made — leaving routes at the root silently defers a forward-compatibility problem.
 
 2. **Add CORS middleware** to `app/main.py` via FastAPI's `CORSMiddleware`. For the demo environment allow `https://clicknback.com` (and optionally `http://localhost:*` for local dev) as origins; never use allow-all (`*`) in a configuration that reaches production.
 
-Without CORS headers, any browser-based client — including the hosted Swagger UI at `/docs` — will fail when called from a different origin. This is one of the first things a recruiter will notice if they try to call the API from a script or frontend playground.
+   Without CORS headers, any browser-based client — including the hosted Swagger UI at `/docs` — will fail when called from a different origin. This is one of the first things a recruiter will notice if they try to call the API from a script or frontend playground.
 
 3. **Split the health endpoint into two probes:**
 
 - `GET /health/live` — returns `{"status": "alive"}` immediately, no I/O. Used by Docker to decide whether to restart the container (liveness).
 - `GET /health/ready` — executes `SELECT 1` via the SQLAlchemy engine and returns `{"status": "ready"}` only if the DB responds. Used by Nginx and the CD pipeline to decide whether to route traffic (readiness). Implementation: import `engine` from `app.core.database` and `text` from `sqlalchemy`; inside the route handler call `engine.connect()` as a context manager, execute `text("SELECT 1")`, and return `{"status": "ready"}`; wrap the entire block in `try/except Exception` and return an `HTTP 503` `JSONResponse` with `{"status": "unavailable"}` on any error. Do not use the `get_db()` FastAPI dependency — this probe must work without a request-scoped session.
 
-The distinction matters because a process can be alive (liveness passes) but unable to serve requests due to a lost DB connection (readiness fails). Conflating the two causes silent availability gaps: the container is never restarted, but every request fails internally.
+   The distinction matters because a process can be alive (liveness passes) but unable to serve requests due to a lost DB connection (readiness fails). Conflating the two causes silent availability gaps: the container is never restarted, but every request fails internally.
 
 ---
 
 ## Phase 2 — App Container *(generic)*
 
-4. **Create `Dockerfile`** at repo root using a two-stage build. The `builder` stage uses `python:3.13-slim` and installs only runtime dependencies (`pip install .` without `[dev]`), producing a populated `site-packages`. The `runtime` stage copies only what is needed (`app/`, `alembic/`, `alembic.ini`, `seeds/`, and the installed packages) and drops privileges to a non-root user before setting `CMD` to `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+1. **Create `Dockerfile`** at repo root using a two-stage build. The `builder` stage uses `python:3.13-slim` and installs only runtime dependencies (`pip install .` without `[dev]`), producing a populated `site-packages`. The `runtime` stage copies only what is needed (`app/`, `alembic/`, `alembic.ini`, `seeds/`, and the installed packages) and drops privileges to a non-root user before setting `CMD` to `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
 
-Two-stage builds keep the final image small (no build tools, no test libraries) and running as non-root is a baseline container security requirement — running as root inside a container is mapped to root on the host if the container runtime is misconfigured.
+   Two-stage builds keep the final image small (no build tools, no test libraries) and running as non-root is a baseline container security requirement — running as root inside a container is mapped to root on the host if the container runtime is misconfigured.
 
-**Smoke-test the image before committing.** After creating the Dockerfile, build and run it to confirm the image works end-to-end:
+   **Smoke-test the image before committing.** After creating the Dockerfile, build and run it to confirm the image works end-to-end:
 
-1. Start the database: `docker compose up -d clicknback-db` and wait until healthy.
-2. Build the image: `docker build -t clicknback:smoke-test .` — the build must complete with no errors.
-3. Start a short-lived container on `clicknback-nw`, passing `DATABASE_URL` as a full connection string (the `config.py` `Settings` model expects this single field, not the individual `POSTGRES_*` vars), plus all other required env vars from `.env`.
-4. Confirm startup in the logs: look for `Application startup complete.` and `Uvicorn running on http://0.0.0.0:8000`.
-5. Hit both probes: `curl localhost:<port>/health/live` → `{"status":"alive"}` and `curl localhost:<port>/health/ready` → `{"status":"ready"}` with HTTP 200.
-6. Confirm the non-root user: `docker exec <container> whoami` must return `appuser`, not `root`.
-7. Clean up: `docker rm -f <container>`, `docker rmi clicknback:smoke-test`, `docker compose down`.
+   1. Start the database: `docker compose up -d clicknback-db` and wait until healthy.
+   2. Build the image: `docker build -t clicknback:smoke-test .` — the build must complete with no errors.
+   3. Start a short-lived container on `clicknback-nw`, passing `DATABASE_URL` as a full connection string (the `config.py` `Settings` model expects this single field, not the individual `POSTGRES_*` vars), plus all other required env vars from `.env`.
+   4. Confirm startup in the logs: look for `Application startup complete.` and `Uvicorn running on http://0.0.0.0:8000`.
+   5. Hit both probes: `curl localhost:<port>/health/live` → `{"status":"alive"}` and `curl localhost:<port>/health/ready` → `{"status":"ready"}` with HTTP 200.
+   6. Confirm the non-root user: `docker exec <container> whoami` must return `appuser`, not `root`.
+   7. Clean up: `docker rm -f <container>`, `docker rmi clicknback:smoke-test`, `docker compose down`.
 
-Only after all six checks pass may the step be completed.
+   Only after all six checks pass may the step be completed.
 
-5. **Add `.dockerignore`** at repo root, excluding: `.venv/`, `__pycache__/`, `htmlcov/`, `tests/`, `.github/`, `.env`, `.env.example`, `*.egg-info`, `coverage.*`, `Makefile`, `docs/`, and `CONTRIBUTING.md`.
+2. **Add `.dockerignore`** at repo root, excluding: `.venv/`, `__pycache__/`, `htmlcov/`, `tests/`, `.github/`, `.env`, `.env.example`, `*.egg-info`, `coverage.*`, `Makefile`, `docs/`, and `CONTRIBUTING.md`.
 
-Without this file, Docker's build context includes every file in the repo, which slows builds and risks accidentally baking secrets (`.env`) or test artifacts into the image layer cache.
+   Without this file, Docker's build context includes every file in the repo, which slows builds and risks accidentally baking secrets (`.env`) or test artifacts into the image layer cache.
 
-**Do not exclude `README.md`** (with a wildcard or explicit rule). The builder stage copies it explicitly because setuptools reads it for package metadata during `pip install .` — excluding it would fail the build. Exclude `docs/` and individual `.md` files by name instead of using a `*.md` glob.
+   **Do not exclude `README.md`** (with a wildcard or explicit rule). The builder stage copies it explicitly because setuptools reads it for package metadata during `pip install .` — excluding it would fail the build. Exclude `docs/` and individual `.md` files by name instead of using a `*.md` glob.
 
 ---
 
 ## Phase 3 — Compose Orchestration *(generic)*
 
-6. **Add `APP_PORT` and `APP_IMAGE` variables** to `.env.example`. `APP_PORT` controls the host-side published port (useful to avoid conflicts with other services on the VPS). `APP_IMAGE` allows the CD pipeline to inject the exact `sha`-tagged image pulled from ghcr.io, making each deploy fully traceable to a commit.
+1. **Add `APP_PORT` and `APP_IMAGE` variables** to `.env.example`. `APP_PORT` controls the host-side published port (useful to avoid conflicts with other services on the VPS). `APP_IMAGE` allows the CD pipeline to inject the exact `sha`-tagged image pulled from ghcr.io, making each deploy fully traceable to a commit.
 
    Also add the same variables to your local `.env` before proceeding to Step 7 — they are required to smoke-test the new compose services.
 
-7. **Rewrite `docker-compose.yml`** to add two new services alongside the existing `clicknback-db`:
+2. **Rewrite `docker-compose.yml`** to add two new services alongside the existing `clicknback-db`:
 
    - **`migrate` service**: uses the app image; overrides `command` to `alembic upgrade head`; `depends_on: clicknback-db: condition: service_healthy`; `restart: "no"`. It is a one-shot container that must exit 0. The restart policy must be `"no"` — not `on-failure` — because a migration failure (e.g., conflicting schema, bad SQL) is not a transient error. Retrying it automatically would mask the root cause and could corrupt the schema.
 
@@ -165,17 +164,17 @@ Without this file, Docker's build context includes every file in the repo, which
 
    Only after all checks pass may the step be completed.
 
-8. **Update `Makefile`**: rename the existing `make run` to `make dev` (local uvicorn with `--reload`, dev only). Add a `make logs` target (`docker compose logs -f clicknback-app`) for tailing production-style container logs locally. `make up` already starts compose — after this phase it starts the full stack (DB + migrations + app). Keeping `make dev` distinct from `make up` preserves the fast inner-loop workflow without a container rebuild on every code change.
+3. **Update `Makefile`**: rename the existing `make run` to `make dev` (local uvicorn with `--reload`, dev only). Add a `make logs` target (`docker compose logs -f clicknback-app`) for tailing production-style container logs locally. `make up` already starts compose — after this phase it starts the full stack (DB + migrations + app). Keeping `make dev` distinct from `make up` preserves the fast inner-loop workflow without a container rebuild on every code change.
 
 ---
 
 ## Phase 4 — Production Secrets Management *(generic)*
 
-9. **Establish a static secrets strategy for the VPS.** The `.env` file with production values is placed manually on the VPS at `/home/clicknback/app/.env` once, with `chmod 600` and owned by the deploy user.
+1. **Establish a static secrets strategy for the VPS.** The `.env` file with production values is placed manually on the VPS at `/home/clicknback/app/.env` once, with `chmod 600` and owned by the deploy user.
 
 The CD pipeline never writes or touches this file — it only pulls the new image and restarts compose. This is the correct separation of concerns: secrets are an operational concern, not a deployment artifact. Documenting this explicitly prevents the anti-pattern of injecting secrets through CI environment variables directly into `docker compose up`, which would make secrets visible in CI logs.
 
-10. **Add the following GitHub Secrets** to the repository. These are the pipeline's only credentials — they are not application secrets and never reach the VPS `.env` file.
+1. **Add the following GitHub Secrets** to the repository. These are the pipeline's only credentials — they are not application secrets and never reach the VPS `.env` file.
 
    **Where to add them:** GitHub repository → Settings → Secrets and variables → Actions → New repository secret.
 
@@ -250,9 +249,9 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 ## Phase 5 — Coverage Script & Makefile Target *(generic)*
 
-11. **Add `--cov-report=xml`** to both `make test` and the new `make coverage` target in `Makefile`. The XML report (`coverage.xml`) is the machine-readable format consumed by CI coverage gates. The HTML report (`htmlcov/`) is for human inspection. Generating both from the same run avoids running pytest twice and ensures the reports are always in sync.
+1. **Add `--cov-report=xml`** to both `make test` and the new `make coverage` target in `Makefile`. The XML report (`coverage.xml`) is the machine-readable format consumed by CI coverage gates. The HTML report (`htmlcov/`) is for human inspection. Generating both from the same run avoids running pytest twice and ensures the reports are always in sync.
 
-12. **Create `scripts/coverage-grade.sh`** — a bash script that parses the total line from `coverage.txt` (the captured pytest-cov stdout), extracts the percentage, and prints an emoji-graded result:
+2. **Create `scripts/coverage-grade.sh`** — a bash script that parses the total line from `coverage.txt` (the captured pytest-cov stdout), extracts the percentage, and prints an emoji-graded result:
 
     - `< 50%` → ❌ **Poor** — significant gaps, must improve
     - `50–69%` → ⚠️ **Low** — almost there, keep going
@@ -289,7 +288,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
     Only after all five exit codes match may the step be completed.
 
-13. **Add `make coverage`** target in `Makefile`:
+3. **Add `make coverage`** target in `Makefile`:
 
     ```makefile
     coverage:
@@ -300,7 +299,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 ## Phase 6 — Security Scanning & Pre-commit Hooks *(generic)*
 
-14. **Add Bandit and `make security` target.** Bandit is a static analysis tool that scans Python source code for common security issues (e.g., hardcoded passwords, use of unsafe functions, SQL injection patterns). It runs in seconds and requires no external service.
+1. **Add Bandit and `make security` target.** Bandit is a static analysis tool that scans Python source code for common security issues (e.g., hardcoded passwords, use of unsafe functions, SQL injection patterns). It runs in seconds and requires no external service.
 
     **Add `bandit` to the dev dependencies in `pyproject.toml`** (flag this addition for human review before proceeding — do not modify `pyproject.toml` without explicit approval). Once approved, install it in the local venv:
 
@@ -325,7 +324,7 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
     It must exit 0 on the current codebase. If bandit reports findings, resolve them before committing — do not suppress warnings with `# nosec` without a documented reason.
 
-15. **Create `.pre-commit-config.yaml`** at repo root to wire together all quality checks as local pre-commit hooks. This ensures no developer can push code that fails lint, format, coverage, or security checks — the same gates enforced in CI run automatically on every commit locally.
+2. **Create `.pre-commit-config.yaml`** at repo root to wire together all quality checks as local pre-commit hooks. This ensures no developer can push code that fails lint, format, coverage, or security checks — the same gates enforced in CI run automatically on every commit locally.
 
     ```yaml
     repos:
@@ -394,11 +393,11 @@ The CD pipeline never writes or touches this file — it only pulls the new imag
 
 ## Phase 7 — GitHub Actions CI Update *(generic)*
 
-16. **Update `.github/workflows/ci.yml`** to extend the job chain: add a **`coverage`** job after `test` that runs `make coverage` as the single source of truth for the threshold (same script, same grade output as local); add a **`security`** job after `coverage` that runs `make security` and fails the pipeline if any medium or high severity issue is found. Final job order: `lint` → `test` → `coverage` → `security`.
+1. **Update `.github/workflows/ci.yml`** to extend the job chain: add a **`coverage`** job after `test` that runs `make coverage` as the single source of truth for the threshold (same script, same grade output as local); add a **`security`** job after `coverage` that runs `make security` and fails the pipeline if any medium or high severity issue is found. Final job order: `lint` → `test` → `coverage` → `security`.
 
 Keeping `test`, `coverage`, and `security` as separate jobs makes failure reasons unambiguous in the GitHub Actions UI: a red `coverage` job means the threshold was missed specifically; a red `security` job means a security issue was introduced — neither is conflated with broken tests.
 
-17. **Add `.github/dependabot.yml`** to configure automated dependency update PRs
+1. **Add `.github/dependabot.yml`** to configure automated dependency update PRs
     for both the Python ecosystem (`pip`, weekly) and GitHub Actions
     (`github-actions`, weekly).
 
@@ -439,7 +438,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 ## Phase 8 — GitHub Actions CD Pipeline *(generic — uses project-specific image and domain from the configuration table above)*
 
-18. **Create `.github/workflows/cd.yml`** triggered by `workflow_run` on the CI workflow completing successfully on `main`. The **`build-push`** job logs in to `ghcr.io` with a `GHCR_PAT` secret (a Personal Access Token with `write:packages` scope — `GITHUB_TOKEN` cannot push images from a `workflow_run`-triggered job because GitHub restricts its `write:packages` permission in that context), builds the image, and pushes two tags: `ghcr.io/jerosanchez/clicknback:latest` and `ghcr.io/jerosanchez/clicknback:sha-${{ github.sha }}`. Tagging with the commit SHA makes every image traceable to its exact source — `latest` is a convenience alias for compose to reference, but the SHA tag is what enables precise rollbacks. The **`deploy`** job (needs `build-push`) SSHes into the VPS via `appleboy/ssh-action` and runs:
+1. **Create `.github/workflows/cd.yml`** triggered by `workflow_run` on the CI workflow completing successfully on `main`. The **`build-push`** job logs in to `ghcr.io` with a `GHCR_PAT` secret (a Personal Access Token with `write:packages` scope — `GITHUB_TOKEN` cannot push images from a `workflow_run`-triggered job because GitHub restricts its `write:packages` permission in that context), builds the image, and pushes two tags: `ghcr.io/jerosanchez/clicknback:latest` and `ghcr.io/jerosanchez/clicknback:sha-${{ github.sha }}`. Tagging with the commit SHA makes every image traceable to its exact source — `latest` is a convenience alias for compose to reference, but the SHA tag is what enables precise rollbacks. The **`deploy`** job (needs `build-push`) SSHes into the VPS via `appleboy/ssh-action` and runs:
 
     ```bash
     docker pull ghcr.io/jerosanchez/clicknback:latest
@@ -454,8 +453,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 > **⚙️ Project-specific phase.** This phase reflects the exact setup for this project: DigitalOcean VPS, `/home/clicknback/app/` deploy path, `clicknback.com` domain, Nginx + Certbot TLS, and coexistence with a Hugo blog. Adapt or drop steps that do not apply to a different deployment target.
 
-
-19. **Build and push the initial image to ghcr.io** (run from your local machine — the CD pipeline has not run yet so there is no image in the registry to pull):
+1. **Build and push the initial image to ghcr.io** (run from your local machine — the CD pipeline has not run yet so there is no image in the registry to pull):
 
     1. Authenticate to ghcr.io:
        - `echo <PAT> | docker login ghcr.io -u jerosanchez --password-stdin`
@@ -471,8 +469,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     From this point on, every merge to `main` will rebuild and push via the CD pipeline automatically.
 
-
-20. **Initial VPS provisioning** — all substeps below run on the VPS. SSH in as root first:
+2. **Initial VPS provisioning** — all substeps below run on the VPS. SSH in as root first:
 
     ```bash
     ssh root@<VPS_IP>
@@ -546,14 +543,13 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
         > **Note:** The `clicknback` user was created and added to the `docker` group in Step 10.3. If you skipped that substep, run `usermod -aG docker clicknback` as root now, then log out and back in for the group change to take effect.
 
+3. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database. Run all commands from `/home/clicknback/app/` on the VPS (where `.env` and `seed.sql` live):
 
-21. **First-deploy seeding**: after the initial `docker compose up -d`, seed the database. Run all commands from `/home/clicknback/app/` on the VPS (where `.env` and `seed.sql` live):
-
-        ```bash
-        cd /home/clicknback/app
-        set -a; source .env; set +a
-        docker exec -i app-clicknback-db-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < seed.sql
-        ```
+    ```bash
+    cd /home/clicknback/app
+    set -a; source .env; set +a
+    docker exec -i app-clicknback-db-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < seed.sql
+    ```
 
     Before running this, verify the seed file includes the demo admin user — open `seeds/all.sql` in the repo and confirm that `carol@clicknback.com` is present with role `admin` and password `Str0ng!Pass`. This is the entry point for testers needing admin-only endpoints, and these credentials are documented in the README. The nightly cron (Step 25) re-runs this same `seed.sql` every morning, so the first-deploy seeding and the nightly reset use the same source of truth.
 
@@ -567,7 +563,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     Confirm that the expected rows are returned, including `carol@clicknback.com`. You can adapt the query to check other tables or data as needed.
 
-22. **Nginx virtual host + Certbot TLS** (manual, on VPS)
+4. **Nginx virtual host + Certbot TLS** (manual, on VPS)
 
     Nginx acts as the TLS terminator, reverse proxy, and first-line abuse guard — the app itself never deals with certificates or rate limiting. Complete all substeps in order.
 
@@ -718,7 +714,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     For a demo system, the Nginx rate limits and connection caps are sufficient to prevent abuse while allowing normal use. The manual API kill switch (Step 23) provides an emergency off button if needed.
 
-23. **Manual API kill switch (Nginx, on VPS)**: To allow instant manual shutdown of all API access in case of emergency (e.g., DDoS, abuse, runaway costs), add a file-based kill switch to the Nginx config. When the file `/home/clicknback/app/api_off` exists, Nginx will return a 404 for all API requests, bypassing the app entirely. To activate, SSH into the VPS (as `root`) and run `bash /home/clicknback/app/api-off.sh`; to restore, run `bash /home/clicknback/app/api-on.sh`.
+5. **Manual API kill switch (Nginx, on VPS)**: To allow instant manual shutdown of all API access in case of emergency (e.g., DDoS, abuse, runaway costs), add a file-based kill switch to the Nginx config. When the file `/home/clicknback/app/api_off` exists, Nginx will return a 404 for all API requests, bypassing the app entirely. To activate, SSH into the VPS (as `root`) and run `bash /home/clicknback/app/api-off.sh`; to restore, run `bash /home/clicknback/app/api-on.sh`.
 
     **Nginx config snippet (inside the `server` block for all locations for clicknback.com):**
 
@@ -734,19 +730,27 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
      The `api-off.sh` and `api-on.sh` scripts were already deployed to `/home/clicknback/app/` in Step 20.4. No additional copy needed. These scripts create or remove the `api_off` file and reload Nginx automatically.
 
     **Usage:**
+
     - Before using the scripts, always test the Nginx config:
+
       ```bash
       sudo nginx -t
       ```
+
       If the output is 'syntax is ok' and 'test is successful', you can safely reload or restart Nginx.
+
     - To reload Nginx (apply config changes without dropping connections):
+
       ```bash
       sudo systemctl reload nginx
       ```
+
     - To restart Nginx (fully stop and start the service):
+
       ```bash
       sudo systemctl restart nginx
       ```
+
     - To disable all API access: `bash /home/clicknback/app/api-off.sh`
     - To re-enable: `bash /home/clicknback/app/api-on.sh`
 
@@ -755,22 +759,25 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
     This mechanism is robust even under heavy load, as it operates at the Nginx level and does not require app or Docker changes. Document this in the deployment plan and README for operational clarity.
 
     **Permissions Note:**
+
     - Nginx must be able to traverse and read the kill switch file. Set directory permissions as follows:
-    ```bash
-    chmod o+rx /home /home/clicknback /home/clicknback/app
-    ```
-    - The file itself should be readable by others (e.g., `-rw-r--r--`).
+
+      ```bash
+      chmod o+rx /home /home/clicknback /home/clicknback/app
+      ```
+
+      The file itself should be readable by others (e.g., `-rw-r--r--`).
+
     - After creating/removing the file, always reload Nginx:
-    ```bash
-    sudo nginx -t
-    sudo systemctl reload nginx
-    ```
 
+      ```bash
+      sudo nginx -t
+      sudo systemctl reload nginx
+      ```
 
-24. **Blog coexistence**: the Hugo container already runs on the VPS and is reached via the `jerosanchez.com` `server_name` block in Nginx. The ClickNBack app gets its own block for `clicknback.com` on a different `APP_PORT`. Both blocks are served by the same Nginx process — no port conflicts, no changes to the blog config needed. Both domains share the same TLS infrastructure managed by Certbot.
+6. **Blog coexistence**: the Hugo container already runs on the VPS and is reached via the `jerosanchez.com` `server_name` block in Nginx. The ClickNBack app gets its own block for `clicknback.com` on a different `APP_PORT`. Both blocks are served by the same Nginx process — no port conflicts, no changes to the blog config needed. Both domains share the same TLS infrastructure managed by Certbot.
 
-
-25. **Database backup and nightly reseed cron jobs**: move all logic into version-controlled scripts under `scripts/` in the repo. This allows maintenance and review of backup, cleanup, and reseed logic without editing the crontab directly. Add the following entries to the deploy user's crontab (`crontab -e`):
+7. **Database backup and nightly reseed cron jobs**: move all logic into version-controlled scripts under `scripts/` in the repo. This allows maintenance and review of backup, cleanup, and reseed logic without editing the crontab directly. Add the following entries to the deploy user's crontab (`crontab -e`):
 
     ```bash
     # 03:00 — back up the database before wiping it
@@ -791,7 +798,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     This approach ensures all operational logic is versioned, reviewable, and easily updated. The backup runs first (03:00) so a restorable snapshot always exists before the wipe. The 5-minute gap gives the backup time to complete. The reseed sequence is three operations: drop and recreate the public schema (wipes all data), run migrations to restore the schema structure, then load `seed.sql`. This gives every recruiter or reviewer a clean, consistent demo state each morning without requiring a manual reset. Even for a demo system, losing the database due to an accidental volume deletion or VPS snapshot failure is an avoidable incident — the backup cron is the minimum responsible baseline regardless of the nightly reset.
 
-26. **Rollback procedure** (documented in `docs/design/deployment-plan.md`): every deploy pushes a `sha-<commit>` image to ghcr.io. To roll back to the previous version:
+8. **Rollback procedure** (documented in `docs/design/deployment-plan.md`): every deploy pushes a `sha-<commit>` image to ghcr.io. To roll back to the previous version:
 
     ```bash
     # On the VPS, as the clicknback user
@@ -802,7 +809,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     If the rollback also requires a schema downgrade: `docker compose -f /home/clicknback/app/docker-compose.yml run --rm migrate alembic downgrade -1` before restarting the app. The rollback SHA can be found in the GitHub Actions run history or via `docker images | grep clicknback`. Document this as a runbook section, not left implicit.
 
-27. **Production log access** (documented as a runbook one-liner):
+9. **Production log access** (documented as a runbook one-liner):
 
     ```bash
     ssh clicknback@<VPS_HOST> "docker compose -f /home/clicknback/app/docker-compose.yml logs -f clicknback-app"
@@ -814,18 +821,18 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 ## Phase 10 — Documentation *(generic)*
 
-28. **Update `docs/design/deployment-plan.md`**: reflect the full production architecture — Dockerfile two-stage build, ghcr.io image registry, `clicknback.com` domain, Nginx reverse proxy with Certbot, CD on merge to main, migration container pattern, secrets strategy, backup cron, nightly reseed schedule, rollback runbook, and log access one-liner.
+1. **Update `docs/design/deployment-plan.md`**: reflect the full production architecture — Dockerfile two-stage build, ghcr.io image registry, `clicknback.com` domain, Nginx reverse proxy with Certbot, CD on merge to main, migration container pattern, secrets strategy, backup cron, nightly reseed schedule, rollback runbook, and log access one-liner.
 
-29. **Update `docs/guidelines/quality-gates.md`**: add `make coverage`, `make security`, and `pre-commit run --all-files` to the mandatory gate sequence, document the coverage grading scale, note the one-time `pre-commit install` setup required for local development, and explain the CI job order (`lint` → `test` → `coverage` → `security`).
+2. **Update `docs/guidelines/quality-gates.md`**: add `make coverage`, `make security`, and `pre-commit run --all-files` to the mandatory gate sequence, document the coverage grading scale, note the one-time `pre-commit install` setup required for local development, and explain the CI job order (`lint` → `test` → `coverage` → `security`).
 
-30. **Update `README.md`**: add the following sections:
+3. **Update `README.md`**: add the following sections:
 
     - **"Try the Live API"** — place this near the top, before any local setup instructions. Include: the base URL (`https://clicknback.com`), a direct link to the interactive Swagger UI (`https://clicknback.com/docs`), demo credentials for the admin user (`carol@clicknback.com` / `Str0ng!Pass`) to access admin-only endpoints, a note that anyone can also self-register via `POST /api/v1/users` for a personal account, a note that the database resets nightly at 03:00 UTC so any data created will not persist, and a short etiquette line — "This is a shared demo environment; please be considerate." Keep this section to ~8 lines — Swagger covers endpoint details.
     - **"Running with Docker"** — `make up` starts the full stack (DB + migrations + app).
     - **"Development"** — `make dev` for local hot-reload without Docker.
     - **"Production"** — pointer to `docs/design/deployment-plan.md` for the full runbook.
 
-31. **Update `.env.example`**: add `APP_PORT` (e.g., `8001`), `APP_IMAGE` (e.g., `ghcr.io/jerosanchez/clicknback:latest`), and a comment explaining the static secrets strategy.
+4. **Update `.env.example`**: add `APP_PORT` (e.g., `8001`), `APP_IMAGE` (e.g., `ghcr.io/jerosanchez/clicknback:latest`), and a comment explaining the static secrets strategy.
 
 ---
 
@@ -833,7 +840,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
 > **Background — why this phase exists:** In March 2026, this droplet was compromised via a PGMiner-family cryptominer attack. The attacker exploited three simultaneous misconfigurations: PostgreSQL port 5432 exposed to the internet, a trivially guessable database password (`password`), and the database user holding `SUPERUSER` — which exposes PostgreSQL's `COPY TO PROGRAM` RCE primitive. Automated bots found the open port within hours of initial provisioning. The miner ran under the `do-agent` (postgres container) user, consumed ~92% CPU and ~280 MB RAM, and survived reboots by being re-deployed on every successful new connection. Steps 32–36 are the permanent mitigations. They must be applied to any new droplet before DNS is pointed at it.
 
-32. **Set up UFW firewall** (manual, on VPS as root).
+1. **Set up UFW firewall** (manual, on VPS as root).
 
     **Why:** Docker bypasses `iptables` rules by default — any port Docker publishes with `0.0.0.0:<port>` is accessible from the internet even if `ufw deny <port>` is in place. The fix has two layers: restrict UFW to only the ports Nginx needs, **and** stop publishing sensitive ports to `0.0.0.0` in `docker-compose.yml` (Steps 33–34). UFW's job is to be the outer firewall for ports that genuinely need to be internet-accessible.
 
@@ -852,7 +859,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     **Do this before exposing the droplet's IP in any DNS record.** Bots scan the entire IPv4 space continuously; an unprotected port will be probed within minutes of first connection.
 
-33. **Remove the database port from `docker-compose.yml`** (edit on VPS). The `clicknback-db` service must have no `ports:` section at all. The app, migrate, and cron scripts all connect via `docker exec` or the Docker internal network (`clicknback-db:5432`) — they do not need the port published to the host.
+2. **Remove the database port from `docker-compose.yml`** (edit on VPS). The `clicknback-db` service must have no `ports:` section at all. The app, migrate, and cron scripts all connect via `docker exec` or the Docker internal network (`clicknback-db:5432`) — they do not need the port published to the host.
 
     Remove these lines from the `clicknback-db` service:
 
@@ -866,7 +873,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     **Verify:** after `docker compose up -d`, run `docker compose ps` — the `clicknback-db` container's PORTS column must show only `5432/tcp` (internal), not `0.0.0.0:5432->5432/tcp`. Also run `ss -tlnp | grep 5432` — it must return nothing.
 
-34. **Bind the app port to `127.0.0.1` in `docker-compose.yml`** (edit on VPS). Change the `clicknback-app` ports binding from `"${APP_PORT}:8000"` to `"127.0.0.1:${APP_PORT}:8000"`.
+3. **Bind the app port to `127.0.0.1` in `docker-compose.yml`** (edit on VPS). Change the `clicknback-app` ports binding from `"${APP_PORT}:8000"` to `"127.0.0.1:${APP_PORT}:8000"`.
 
     ```yaml
     # BEFORE (bypasses UFW — port is publicly accessible)
@@ -882,7 +889,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     **Verify:** `docker compose ps` must show `127.0.0.1:<APP_PORT>->8000/tcp`. Running `curl http://<VPS_PUBLIC_IP>:<APP_PORT>/health/live` from outside the VPS must time out or be refused.
 
-35. **Rotate database password and OAUTH_HASH_KEY** (manual, on VPS as root or clicknback user).
+4. **Rotate database password and OAUTH_HASH_KEY** (manual, on VPS as root or clicknback user).
 
     **Generate strong credentials:**
 
@@ -920,7 +927,7 @@ Keeping `test`, `coverage`, and `security` as separate jobs makes failure reason
 
     **Never reuse the development values (`user` / `password`) in production.** The `.env.example` comment warns this explicitly, but the advice is easy to overlook. Treat it as a hard constraint: if `.env` on the VPS contains `POSTGRES_PASSWORD=password`, the deployment is insecure and must be remediated immediately.
 
-36. **Revoke SUPERUSER from the database user** (manual, on VPS).
+5. **Revoke SUPERUSER from the database user** (manual, on VPS).
 
     The `user` account is created as `SUPERUSER` by the `postgres:15` Docker image when `POSTGRES_USER` is set via environment variable. `SUPERUSER` grants the `COPY TO PROGRAM` privilege, which is a direct OS shell execution primitive — any SQL client with superuser access can run arbitrary shell commands on the host.
 

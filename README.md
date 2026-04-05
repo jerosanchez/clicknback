@@ -145,6 +145,7 @@ See [QUICKSTART.md](QUICKSTART.md) for a complete guided tour: demo credentials,
 **Current Status**: The API currently enforces a **restrictive CORS policy** allowing only `https://clicknback.com`.
 
 **Why restrictive?**
+
 - Primary security comes from **JWT authentication** (must have valid token) + **Nginx rate limiting** (abuse protection)
 - CORS blocks only browser clients; server-to-server tools (`curl`, Insomnia, desktop clients) are unaffected
 - Prevents unauthorized scripts from arbitrary websites
