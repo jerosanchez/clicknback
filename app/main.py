@@ -44,9 +44,8 @@ register_error_handlers(app)
 
 # ------ Middleware
 
-# CORS: allow explicit origins via environment configuration; localhost variants
-# are permitted during local development via regex pattern. Wildcard origins are
-# never used. See docs/design/api-cors-policy.md for complete CORS documentation.
+# CORS: Production-safe restrictive policy.
+# See docs/design/api-cors-policy.md for complete CORS documentation.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allowed_origins,

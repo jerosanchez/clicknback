@@ -142,11 +142,30 @@ See [QUICKSTART.md](QUICKSTART.md) for a complete guided tour: demo credentials,
 
 ### For Web Applications
 
-The API enforces a **CORS (Cross-Origin Resource Sharing) policy** to protect against unauthorized browser-based requests. If you are building a web app that calls the API from JavaScript, you must:
+**Current Status**: The API currently enforces a **restrictive CORS policy** allowing only `https://clicknback.com`.
 
-1. **Verify your origin is in the allowed list**: The API only accepts requests from whitelisted origins (e.g., `https://app.clicknback.com`).
-2. **Request new origin access if needed**: Submit a GitHub issue labeled `feature:cors-new-origin` with your origin URL and business context.
-3. **Include authentication headers**: All requests must include a valid JWT bearer token in the `Authorization` header.
+**Why restrictive?**
+- Primary security comes from **JWT authentication** (must have valid token) + **Nginx rate limiting** (abuse protection)
+- CORS blocks only browser clients; server-to-server tools (`curl`, Insomnia, desktop clients) are unaffected
+- Prevents unauthorized scripts from arbitrary websites
+
+**How to test:**
+
+1. **Using Desktop Tools** (Recommended — CORS does not apply):
+   - [Insomnia](https://insomnia.rest/) or [Postman](https://www.postman.com/) — works perfectly
+   - `curl` command line — works perfectly
+   - Any server-to-server request — works perfectly
+
+2. **Using Browser Console** (Limited by CORS):
+   - Currently only `https://clicknback.com` origin allowed
+   - Test by running JavaScript in the [Swagger UI](https://clicknback.com/docs) on the API domain
+
+3. **Request Partner Origin** (Future):
+   - Once your web app is built, submit a GitHub issue labeled `feature:cors-new-origin`
+   - Include origin (e.g., `https://myapp.example.com`), business context, and expected traffic
+   - We will add your origin to the production allowlist
+
+For complete CORS documentation including how to add your origin, see [CORS Policy Documentation](docs/design/api-cors-policy.md).
 
 For complete CORS documentation, including preflight request handling, allowed methods/headers, testing procedures, and security considerations, see [CORS Policy Documentation](docs/design/api-cors-policy.md).
 
