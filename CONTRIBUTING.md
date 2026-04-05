@@ -55,7 +55,56 @@ This will:
 - Install production dependencies
 - Install development dependencies (pytest, linting tools, etc.)
 
-#### 4. Start the Database
+#### 4. Configure Environment Variables
+
+The project uses a `.env` file for local development configuration. A default `.env` is created by `make install`, but you may need to customize it for your setup:
+
+```shell
+# Copy the template (if `.env` doesn't already exist)
+cp .env.example .env  # (if provided; otherwise, create manually)
+
+# Edit CORS and database settings (optional for local dev)
+nano .env
+```
+
+**Key environment variables for local development:**
+
+```bash
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/clicknback
+
+# CORS Configuration (default for dev)
+CORS_ALLOWED_ORIGINS=https://clicknback.com
+CORS_ALLOW_ORIGIN_REGEX=http://localhost(:\d+)?
+
+# Auth
+OAUTH_HASH_KEY=your-secret-key-here
+OAUTH_ALGORITHM=HS256
+OAUTH_TOKEN_TTL=15
+
+# Logging
+LOG_LEVEL=INFO
+
+# Cashback Policy
+MAX_CASHBACK_PERCENTAGE=20
+DEFAULT_PAGE_SIZE=20
+MAX_PAGE_SIZE=100
+PURCHASE_CONFIRMATION_INTERVAL_SECONDS=3600
+PURCHASE_MAX_VERIFICATION_ATTEMPTS=3
+REJECTION_MERCHANT_ID=
+```
+
+**CORS Configuration for Development:**
+
+By default, local development allows `http://localhost:*` (any port) to make requests. To test with a specific origin (e.g., `https://my-local-app:3000`), add it to `CORS_ALLOWED_ORIGINS`:
+
+```bash
+CORS_ALLOWED_ORIGINS=https://clicknback.com,https://my-local-app:3000
+```
+
+For complete CORS documentation including production setup, allowed origins by environment, and how CORS works with mobile apps, see [docs/design/api-cors-policy.md](docs/design/api-cors-policy.md).
+
+#### 5. Start the Database
 
 This project uses PostgreSQL in Docker. Start it with:
 
@@ -69,7 +118,7 @@ This will:
 - Start PostgreSQL container with the database initialized
 - Run pending migrations automatically
 
-#### 5. Install Pre-commit Hooks
+#### 6. Install Pre-commit Hooks
 
 This project uses pre-commit to enforce quality gates locally before every commit. Run this once after cloning:
 
@@ -84,7 +133,7 @@ After this, Git will automatically run all hooks before every `git commit`. To r
 pre-commit run --all-files
 ```
 
-#### 6. Verify Your Setup
+#### 7. Verify Your Setup
 
 ```shell
 # Run the unit test suite

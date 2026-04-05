@@ -107,7 +107,7 @@ _Status legend:_
 | Wallet Summary | Wallets | 🟢 done |
 | Wallet Transactions Listing | Wallets | 🟢 done |
 | **Payouts** | | |
-| Payout Request (Withdrawal) | Payouts | 🟡 ongoing |
+| Payout Request (Withdrawal) | Payouts | ⚪ backlog |
 | Payout Processing | Payouts | ⚪ backlog |
 | Payouts Listing | Payouts | ⚪ backlog |
 | **Feature Flags** | | |
@@ -123,8 +123,8 @@ _Status legend:_
 | **AI & Augmented Features** | | |
 | Fraud Scoring | AI | ⚫ planned |
 | Smart Offer Recommendations | AI | ⚫ planned |
-| Automated FAQ/Support Chatbot | AI | ⚪ backlog |
-| Fraud Pattern Detection | AI | ⚪ backlog |
+| Automated FAQ/Support Chatbot | AI | ⚫ planned |
+| Fraud Pattern Detection | AI | ⚫ planned |
 | Personalized Cashback Insights | AI | ⚫ planned |
 | Natural Language Query for Admins | AI | ⚫ planned |
 
@@ -135,6 +135,50 @@ _Status legend:_
 The API is continuously deployed at **[clicknback.com/docs](https://clicknback.com/docs)** — no setup required.
 
 See [QUICKSTART.md](QUICKSTART.md) for a complete guided tour: demo credentials, a step-by-step REST client walkthrough ([http/quickstart.http](http/quickstart.http)), and a curl reference — the full cashback lifecycle from login to wallet balance in under five minutes.
+
+---
+
+## Web & Mobile App Integration
+
+### For Web Applications
+
+**Current Status**: The API currently enforces a **restrictive CORS policy** allowing only `https://clicknback.com`.
+
+**Why restrictive?**
+
+- Primary security comes from **JWT authentication** (must have valid token) + **Nginx rate limiting** (abuse protection)
+- CORS blocks only browser clients; server-to-server tools (`curl`, Insomnia, desktop clients) are unaffected
+- Prevents unauthorized scripts from arbitrary websites
+
+**How to test:**
+
+1. **Using Desktop Tools** (Recommended — CORS does not apply):
+   - [Insomnia](https://insomnia.rest/) or [Postman](https://www.postman.com/) — works perfectly
+   - `curl` command line — works perfectly
+   - Any server-to-server request — works perfectly
+
+2. **Using Browser Console** (Limited by CORS):
+   - Currently only `https://clicknback.com` origin allowed
+   - Test by running JavaScript in the [Swagger UI](https://clicknback.com/docs) on the API domain
+
+3. **Request Partner Origin** (Future):
+   - Once your web app is built, submit a GitHub issue labeled `feature:cors-new-origin`
+   - Include origin (e.g., `https://myapp.example.com`), business context, and expected traffic
+   - We will add your origin to the production allowlist
+
+For complete CORS documentation including how to add your origin, see [CORS Policy Documentation](docs/design/api-cors-policy.md).
+
+For complete CORS documentation, including preflight request handling, allowed methods/headers, testing procedures, and security considerations, see [CORS Policy Documentation](docs/design/api-cors-policy.md).
+
+### For Native Mobile Apps (iOS, Android)
+
+Native mobile apps do **not** enforce CORS — they are considered equivalent to server-to-server requests from a browser security perspective. However, you still need to:
+
+1. **Authenticate all requests**: Include a valid JWT bearer token in the `Authorization` header.
+2. **Use HTTPS**: All requests must use TLS encryption (no `http://` in production).
+3. **Handle errors gracefully**: Implement proper error handling for rate limiting, authentication failures, and business rule violations.
+
+See [CORS Policy Documentation](docs/design/api-cors-policy.md#for-mobile-apps-ios-android) for a complete explanation of how CORS works with mobile apps and example code for iOS (Swift) and Android (Kotlin).
 
 ---
 

@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     # --- logging
     log_level: str = "INFO"
 
+    # --- CORS
+    # cors_allowed_origins: Comma-separated list from environment variable.
+    # Pydantic automatically splits by comma: "https://app1.com,https://app2.com" → ["https://app1.com", "https://app2.com"]
+    # Production: only explicit HTTPS origins (e.g., clicknback.com, partner origins).
+    cors_allowed_origins: list[str] = ["https://clicknback.com"]
+    # cors_allow_origin_regex: Optional regex pattern for local development only.
+    # Example for dev: r"http://localhost(:\d+)?" to allow any localhost port.
+    # This should remain None in production. Override in your local .env to enable.
+    # See docs/design/api-cors-policy.md for complete CORS documentation.
+    cors_allow_origin_regex: str | None = None
+
     # --- cashback policy
     max_cashback_percentage: float  # for example, 20%
 

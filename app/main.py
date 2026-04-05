@@ -44,12 +44,12 @@ register_error_handlers(app)
 
 # ------ Middleware
 
-# CORS: allow the production origin explicitly; localhost variants are permitted
-# during local development via regex. Wildcard origins are never used.
+# CORS: Production-safe restrictive policy.
+# See docs/design/api-cors-policy.md for complete CORS documentation.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://clicknback.com"],
-    allow_origin_regex=r"http://localhost(:\d+)?",
+    allow_origins=settings.cors_allowed_origins,
+    allow_origin_regex=settings.cors_allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
