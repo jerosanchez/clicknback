@@ -168,6 +168,7 @@
    - Example payloads matching the API contract
 
 **After creating all three:**
+
 - Update `docs/design/api-contracts-index.md` (if new contract)
 - Update `docs/design/adr-index.md` (if new ADR)
 - Review and update `docs/specs/product-overview.md` and `README.md` if this is a user-facing feature
