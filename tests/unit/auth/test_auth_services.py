@@ -206,7 +206,7 @@ async def test_refresh_raises_on_invalid_token_signature(
 
 
 @pytest.mark.asyncio
-async def test_refresh_calls_enforce_refresh_token_exists_policy(
+async def test_refresh_enforces_refresh_token_exists_policy(
     auth_service: AuthService,
     uow: Mock,
     token_provider: Mock,
@@ -227,7 +227,7 @@ async def test_refresh_calls_enforce_refresh_token_exists_policy(
 
 
 @pytest.mark.asyncio
-async def test_refresh_calls_enforce_refresh_token_not_expired_policy(
+async def test_refresh_enforces_refresh_token_not_expired_policy(
     auth_service: AuthService,
     uow: Mock,
     token_provider: Mock,
@@ -255,7 +255,7 @@ async def test_refresh_calls_enforce_refresh_token_not_expired_policy(
 
 
 @pytest.mark.asyncio
-async def test_refresh_calls_enforce_refresh_token_not_used_policy(
+async def test_refresh_enforces_refresh_token_not_used_policy(
     auth_service: AuthService,
     uow: Mock,
     token_provider: Mock,
@@ -283,7 +283,7 @@ async def test_refresh_calls_enforce_refresh_token_not_used_policy(
 
 
 @pytest.mark.asyncio
-async def test_refresh_calls_enforce_user_exists_for_refresh_policy(
+async def test_refresh_enforces_user_exists_for_refresh_policy(
     auth_service: AuthService,
     uow: Mock,
     token_provider: Mock,
