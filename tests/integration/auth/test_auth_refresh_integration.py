@@ -149,8 +149,8 @@ async def test_refresh_returns_401_on_reused_token(
     # Assert - second use should be rejected
     assert response2.status_code == status.HTTP_401_UNAUTHORIZED
     body = response2.json()
-    assert body["error"]["code"] == "INVALID_REFRESH_TOKEN"
-    assert "Invalid or expired refresh token" in body["error"]["message"]
+    assert body["error"]["code"] == "TOKEN_REVOKED"
+    assert "revoked" in body["error"]["message"].lower()
 
 
 async def test_refresh_missing_refresh_token_field(
