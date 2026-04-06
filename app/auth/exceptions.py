@@ -14,6 +14,28 @@ class InvalidTokenException(Exception):
         super().__init__("Invalid token.")
 
 
+class ExpiredTokenException(Exception):
+    """Raised when an access token has expired."""
+
+    def __init__(self):
+        super().__init__("Access token has expired.")
+
+
+class ExpiredRefreshTokenException(Exception):
+    """Raised when a refresh token has expired."""
+
+    def __init__(self):
+        super().__init__("Refresh token has expired.")
+
+
+class UserInactiveException(Exception):
+    """Raised when a user is inactive (e.g., account disabled)."""
+
+    def __init__(self, user_id: str):
+        super().__init__(f"User {user_id} is inactive.")
+        self.user_id = user_id
+
+
 class InternalJwtErrorException(Exception):
     def __init__(self):
         super().__init__("An internal error occurred while processing the token.")

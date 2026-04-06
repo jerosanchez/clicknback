@@ -29,6 +29,54 @@ def authentication_error(
     )
 
 
+def expired_token_error(
+    message: str = "Access token has expired. Please refresh your token.",
+    details: Optional[dict[str, Any]] = None,
+) -> HTTPException:
+    """Build a 401 Expired Token error."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=error_response(ErrorCode.EXPIRED_TOKEN, message, details),
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def invalid_token_error(
+    message: str = "Invalid token.",
+    details: Optional[dict[str, Any]] = None,
+) -> HTTPException:
+    """Build a 401 Invalid Token error."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=error_response(ErrorCode.INVALID_TOKEN, message, details),
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def token_revoked_error(
+    message: str = "Token has been revoked. Please log in again.",
+    details: Optional[dict[str, Any]] = None,
+) -> HTTPException:
+    """Build a 401 Token Revoked error."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=error_response(ErrorCode.TOKEN_REVOKED, message, details),
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def user_inactive_error(
+    message: str = "User account is inactive.",
+    details: Optional[dict[str, Any]] = None,
+) -> HTTPException:
+    """Build a 401 User Inactive error."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=error_response(ErrorCode.USER_INACTIVE, message, details),
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 def forbidden_error(
     message: str, details: Optional[dict[str, Any]] = None
 ) -> HTTPException:

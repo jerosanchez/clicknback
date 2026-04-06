@@ -24,16 +24,45 @@
 
 ## Failure Responses
 
-### 401 Unauthorized – Missing or Invalid Token
+### 401 Unauthorized – Expired Access Token
+
+**When:** Access token has expired
 
 ```json
 {
   "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Authentication token is missing or invalid.",
+    "code": "EXPIRED_TOKEN",
+    "message": "Access token has expired. Please refresh your token.",
+    "details": {}
+  }
+}
+```
+
+### 401 Unauthorized – Invalid Token
+
+**When:** Token is malformed, tampered, or has invalid signature
+
+```json
+{
+  "error": {
+    "code": "INVALID_TOKEN",
+    "message": "Invalid or malformed authentication token.",
+    "details": {}
+  }
+}
+```
+
+### 401 Unauthorized – User Inactive
+
+**When:** Token is valid but the user account is inactive (disabled/suspended)
+
+```json
+{
+  "error": {
+    "code": "USER_INACTIVE",
+    "message": "User account is inactive.",
     "details": {
-      "issue": "Token expired or malformed",
-      "action": "Re-authenticate to obtain a fresh token."
+      "user_id": "b7e6c2e2-8c2a-4e2a-9b1a-2e6c2e2a8c2a"
     }
   }
 }

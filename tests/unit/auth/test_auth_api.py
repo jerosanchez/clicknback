@@ -166,7 +166,7 @@ def test_refresh_returns_200_with_new_tokens_on_success(
         (
             RefreshTokenAlreadyUsedException("token-id"),
             status.HTTP_401_UNAUTHORIZED,
-            ErrorCode.INVALID_REFRESH_TOKEN,
+            ErrorCode.TOKEN_REVOKED,
         ),
         (
             Exception("Unexpected error"),

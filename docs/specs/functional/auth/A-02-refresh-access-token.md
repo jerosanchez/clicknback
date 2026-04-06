@@ -58,7 +58,7 @@ _As an authenticated user with an expired or expiring access token, I want to re
 
 ### Failure Mode 3: Invalid Refresh Token
 
-**Given:** A user attempts refresh with a token that is not a valid JWT  
+**Given:** A user attempts refresh with a token that is not a valid JWT or wrong token type  
 **When:** POST `/api/v1/auth/refresh` with invalid token string  
 **Then:** HTTP 401 INVALID_REFRESH_TOKEN
 
@@ -66,13 +66,13 @@ _As an authenticated user with an expired or expiring access token, I want to re
 
 **Given:** A refresh token has passed its expiration time (30 days)  
 **When:** POST `/api/v1/auth/refresh` with the expired token  
-**Then:** HTTP 401 INVALID_REFRESH_TOKEN
+**Then:** HTTP 401 EXPIRED_REFRESH_TOKEN
 
 ### Failure Mode 5: Previously Used Refresh Token (Single-Use Enforcement)
 
 **Given:** A refresh token was already successfully used in a previous refresh operation  
 **When:** POST `/api/v1/auth/refresh` with the old (used) refresh token  
-**Then:** HTTP 401 INVALID_REFRESH_TOKEN
+**Then:** HTTP 401 TOKEN_REVOKED
 
 ---
 

@@ -2,7 +2,7 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.exceptions import InvalidTokenException
+from app.auth.exceptions import InvalidTokenException, UserInactiveException
 from app.auth.token_provider import JwtOAuth2TokenProvider, OAuth2TokenProviderABC
 from app.core.database import get_async_db
 from app.core.logging import logger
@@ -42,7 +42,7 @@ async def get_current_user(
             "Token valid but user is inactive.",
             extra={"user_id": payload.user_id},
         )
-        raise InvalidTokenException()
+        raise UserInactiveException(payload.user_id)
 
     return user
 

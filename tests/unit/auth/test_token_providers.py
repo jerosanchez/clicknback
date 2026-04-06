@@ -1,6 +1,11 @@
 import pytest
 
-from app.auth.exceptions import InternalJwtErrorException, InvalidTokenException
+from app.auth.exceptions import (
+    ExpiredRefreshTokenException,
+    ExpiredTokenException,
+    InternalJwtErrorException,
+    InvalidTokenException,
+)
 from app.auth.models import TokenPayload
 from app.auth.token_provider import JwtOAuth2TokenProvider
 
@@ -47,7 +52,7 @@ def test_token_provider_raises_on_expired_token(
     token = token_provider.create_access_token(token_payload)
 
     # Act & Assert
-    with pytest.raises(InvalidTokenException):
+    with pytest.raises(ExpiredTokenException):
         token_provider.verify_access_token(token)
 
 
@@ -107,7 +112,7 @@ def test_token_provider_raises_on_expired_refresh_token(
     token = token_provider.create_refresh_token(user_id)
 
     # Act & Assert
-    with pytest.raises(InvalidTokenException):
+    with pytest.raises(ExpiredRefreshTokenException):
         token_provider.verify_refresh_token(token)
 
 

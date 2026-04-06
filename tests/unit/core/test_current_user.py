@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, Mock, create_autospec
 
 import pytest
 
-from app.auth.exceptions import InvalidTokenException
+from app.auth.exceptions import InvalidTokenException, UserInactiveException
 from app.auth.models import TokenPayload
 from app.auth.token_provider import OAuth2TokenProviderABC
 from app.core.current_user import get_current_admin_user, get_current_user
@@ -94,7 +94,7 @@ async def test_get_current_user_raises_on_inactive_user(
     user_repository.get_user_by_id.return_value = inactive_user
 
     # Act & Assert
-    with pytest.raises(InvalidTokenException):
+    with pytest.raises(UserInactiveException):
         await get_current_user(
             token="token",
             db=db,

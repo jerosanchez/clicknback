@@ -7,7 +7,12 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
 
-from app.auth.exceptions import InternalJwtErrorException, InvalidTokenException
+from app.auth.exceptions import (
+    ExpiredRefreshTokenException,
+    ExpiredTokenException,
+    InternalJwtErrorException,
+    InvalidTokenException,
+)
 from app.auth.models import TokenPayload
 from app.core.config import settings
 from app.core.logging import logger
@@ -83,7 +88,7 @@ class JwtOAuth2TokenProvider(OAuth2TokenProviderABC):
             return TokenPayload(user_id=user_id, user_role=user_role)
 
         except ExpiredSignatureError:
-            raise InvalidTokenException()
+            raise ExpiredTokenException()
 
         except JWTError as e:
             logger.error("JWT processing error occurred.", extra={"error": str(e)})
@@ -127,7 +132,7 @@ class JwtOAuth2TokenProvider(OAuth2TokenProviderABC):
             return user_id
 
         except ExpiredSignatureError:
-            raise InvalidTokenException()
+            raise ExpiredRefreshTokenException()
         except JWTError as e:
             logger.error("JWT processing error occurred.", extra={"error": str(e)})
             raise InternalJwtErrorException()
