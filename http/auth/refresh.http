@@ -1,0 +1,83 @@
+# Auth – Refresh Token
+# Tests for POST /auth/refresh.
+#
+# First, run the login request in login.http to obtain a refresh token.
+# Then paste the returned refresh_token into the @refreshToken variable below.
+
+@baseUrl = http://localhost:8001/api/v1
+@refreshToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwiZXhwIjoxNzc4MDU5MzEyLCJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImp0aSI6IlA4Mk1MZndIaXdmUEUtbk9XT2Z6SnJGczk5ZjRUTHROVEU2UUV0d0ZxTkEifQ.SONaz-FAFAXAm-czkF03zWaRX86x49DmTr5eewIMV2s
+
+### 200 – Happy path: valid credentials → returns JWT access token
+# Expected: {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
+# Copy the returned access_token and paste it as "Bearer <token>" into token
+# variables in other .http files before running their authenticated requests.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@clicknback.com",
+  "password": "Str0ng!Pass"
+}
+
+### 200 – Happy path: valid refresh token → returns new access and refresh tokens
+# Use the refresh_token returned from a previous login or refresh call.
+# Expected: {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
+# Note: The old refresh_token becomes invalid (single-use enforcement).
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+### 401 – Sad path: invalid/malformed JWT token
+# Token is not a valid JWT structure.
+# Expects: 401 with INVALID_REFRESH_TOKEN error code.
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "not.a.valid.jwt.token"
+}
+
+### 401 – Sad path: expired refresh token
+# Token was valid but has expired.
+# Expects: 401 with INVALID_REFRESH_TOKEN error code.
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZXhwaXJlZCIsImV4cCI6MTExMTExMTExMX0.invalid_signature"
+}
+
+### 401 – Sad path: already used/reused token (single-use enforcement)
+# Token was used once to refresh; attempting to reuse it is rejected.
+# Expects: 401 with INVALID_REFRESH_TOKEN error code.
+# Steps to reproduce:
+#   1. POST /auth/refresh with a valid token (gets 200)
+#   2. POST /auth/refresh with the SAME token (gets 401)
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+### 422 – Sad path: missing refresh_token field
+# Request body lacks the required refresh_token field.
+# Expects: 422 Unprocessable Entity with validation error.
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+}
+
+### 422 – Sad path: empty/null refresh_token
+# refresh_token field is present but is empty or null.
+# Expects: 422 Unprocessable Entity with validation error.
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": ""
+}

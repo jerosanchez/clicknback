@@ -61,6 +61,7 @@ These rules load automatically in every session. They define:
 - **[CONVENTIONS.md](.claude/rules/CONVENTIONS.md)** — Code naming, error handling, async patterns
 - **[QUALITY-GATES.md](.claude/rules/QUALITY-GATES.md)** — Testing, coverage, lint/security gates
 - **[AUTONOMOUS-EXECUTION.md](.claude/rules/AUTONOMOUS-EXECUTION.md)** — When Claude runs commands autonomously
+- **[AVOID-UNUSED-CODE.md](.claude/rules/AVOID-UNUSED-CODE.md)** — Don't implement unused code; report improvements instead
 - **[FINANCIAL-CORRECTNESS.md](.claude/rules/FINANCIAL-CORRECTNESS.md)** — Decimal, idempotency, concurrency
 - **[CODE-ORGANIZATION.md](.claude/rules/CODE-ORGANIZATION.md)** — File splitting rules, module anatomy
 - **[DOCS-ORGANIZATION.md](.claude/rules/DOCS-ORGANIZATION.md)** — Folder structure, file naming

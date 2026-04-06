@@ -10,6 +10,55 @@ description: Decision framework for when Claude runs commands autonomously vs. r
 
 Claude in this project is configured to autonomously execute non-destructive commands and require explicit approval for destructive or high-risk operations.
 
+## Makefile-First Principle
+
+**Prefer Makefile targets over raw commands.** This project ships a `Makefile`; use it.
+
+When a Makefile target does what you need, run `make <target>` — never invoke the underlying tool directly. This keeps behaviour consistent with how a human developer works and ensures shared environment configuration (flags, URLs, container names) is always applied correctly.
+
+| Action | ✅ Use this | ❌ Not this |
+|--------|------------|------------|
+| Start dev environment | `make up` | `docker compose -f docker-compose.dev.yml up ...` |
+| Stop dev environment | `make down` | `docker compose -f docker-compose.dev.yml down` |
+| Reset database (drop + migrate + seed) | `make db-reset` | `alembic downgrade base && alembic upgrade head && psql ...` |
+| Apply migrations only | `make migrate` | `alembic upgrade head` |
+| Run app locally (hot-reload) | `make dev` | `uvicorn app.main:app --reload` |
+| Tail container logs | `make logs` | `docker compose logs -f` |
+| Run unit tests | `make test` | `pytest tests/unit/ ...` |
+| Run integration tests | `make test-integration` | `pytest tests/integration/ ...` |
+| Run E2E tests | `make test-e2e` | `pytest tests/e2e/ ...` |
+| Check coverage grade | `make coverage` | `pytest ... && scripts/coverage-grade.sh` |
+| Run linters | `make lint` | `flake8 ... && isort ... && black ...` |
+| Security scan | `make security` | `bandit -r app/ ...` |
+| Run ALL quality gates | `make all-qa-gates` | individual commands chained manually |
+
+**Only use raw commands when no Makefile target exists** for the desired action.
+
+## Quality Gate Workflow
+
+Use a two-speed approach during development:
+
+- **During development** (fast feedback loop): `make lint && make test && make coverage && make security`
+- **Before finishing any task** (full gate): `make all-qa-gates`
+
+`make all-qa-gates` runs lint → unit tests + coverage → security → integration tests → E2E tests in sequence.
+Run it as the final check before declaring a task done. This mirrors what CI/CD pipelines execute and
+catches failures that unit tests alone cannot catch (e.g. missing `uow.commit()`, broken HTTP routes).
+
+## Test-Running Rules
+
+When **adding, changing, or removing tests**:
+
+| Action | Make target to run |
+|--------|--------------------|
+| Add/change/remove unit tests | `make test` |
+| Add/change/remove integration tests | `make test-integration` |
+| Add/change/remove E2E tests | `make test-e2e` |
+| After completing any task | `make all-qa-gates` |
+
+Never run `pytest` directly — always use the corresponding Makefile target so that the test database
+lifecycle (spin up / tear down), environment variables, and coverage reporting are handled correctly.
+
 ## How Claude Uses This Rule
 
 When a command is proposed:

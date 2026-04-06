@@ -1,6 +1,6 @@
 # Authenticate user, return JWT
 
-**Endpoint:** `POST /auth/login`
+**Endpoint:** `POST /api/v1/auth/login`
 
 **Roles:** Anonymous
 
@@ -20,10 +20,18 @@
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
-  "token_type": "Bearer",
-  "expires_in": 3600
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
+  "token_type": "bearer"
 }
 ```
+
+**Field Descriptions:**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `access_token` | string | Short-lived JWT access token (15 min default) |
+| `refresh_token` | string | Long-lived refresh token (30 days default) for obtaining new access tokens |
+| `token_type` | string | Always "bearer" |
 
 ## Failure Responses
 
@@ -55,7 +63,7 @@
 ```json
 {
   "error": {
-    "code": "UNAUTHORIZED",
+    "code": "INVALID_CREDENTIALS",
     "message": "Email or password is incorrect. Please check your credentials and try again.",
     "details": {}
   }
@@ -71,7 +79,7 @@
     "message": "An unexpected error occurred. Our team has been notified. Please retry later.",
     "details": {
       "request_id": "not available",
-      "timestamp": "2026-02-17T14:33:22Z"
+      "timestamp": "2026-04-05T13:00:00Z"
     }
   }
 }

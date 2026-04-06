@@ -10,6 +10,8 @@ Implement a single feature (one endpoint) inside an existing module. If the modu
 
 ## Before You Start
 
+**All three documentation artifacts must exist before implementation:**
+
 1. **Confirm functional spec exists** — Read `docs/specs/functional/<domain>/<spec-file>.md`
    - Verify: Title, User Story, Constraints, BDD Acceptance Criteria, Use Cases, API Contract link
    - Fix any incomplete sections
@@ -19,7 +21,11 @@ Implement a single feature (one endpoint) inside an existing module. If the modu
    - Verify: 401, 403 (if applicable), 500 responses exist
    - Fix any inconsistencies with the spec
 
-3. **Review relevant ADRs** — Check `docs/design/adr-index.md` for decisions affecting this feature
+3. **Confirm HTTP request file exists** — `http/<domain>/<verb-resource>.http`
+   - Verify: Comment header, base URL variable, example requests ready to execute
+   - Fix any missing or incomplete requests
+
+4. **Review relevant ADRs** — Check `docs/design/adr-index.md` for decisions affecting this feature
    - Example: ADR-010 (async database), ADR-021 (Unit of Work), ADR-023 (event-driven audit logging)
 
 ## Implementation Workflow
@@ -88,6 +94,12 @@ Add to `services.py`:
 - Read methods: accept `db: AsyncSession` directly
 - Publish domain event after critical state-changing operations
 
+> ⚠️ **Anti-pattern: never `db: AsyncSession` in write service methods.** A raw session never
+> commits — repositories call `flush()` which queues writes, but without `commit()` the
+> transaction is rolled back and data is silently lost. Unit tests with `AsyncMock()` sessions
+> will not catch this; only an integration test against a real DB reveals it.
+> Always use `uow: UnitOfWorkABC` for write methods and call `await uow.commit()` exactly once.
+
 **See:** `template.md` and `examples.md` for service patterns
 
 ### Step 6: API Routes
@@ -136,6 +148,5 @@ Before submitting for review:
 - [ ] All repository methods are `async def` using `select()`
 - [ ] All domain events published for critical operations
 - [ ] HTTP file created for manual testing
-- [ ] `make lint && make test && make coverage && make security` all pass
-
----
+  - [ ] `make lint && make test && make coverage && make security` all pass (fast feedback)
+  - [ ] `make all-qa-gates` passes as the final check (full pipeline: lint → unit → coverage → security → integration → e2e)

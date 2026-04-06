@@ -8,7 +8,7 @@
 @baseUrl = http://localhost:8001/api/v1
 
 ### 200 – Happy path: valid credentials → returns JWT access token
-# Expected: {"access_token": "...", "token_type": "bearer"}
+# Expected: {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
 # Copy the returned access_token and paste it as "Bearer <token>" into token
 # variables in other .http files before running their authenticated requests.
 POST {{baseUrl}}/auth/login

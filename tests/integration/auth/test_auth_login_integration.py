@@ -30,7 +30,9 @@ async def test_login_returns_200_with_token_on_success(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     access_token = body["access_token"]
+    refresh_token = body["refresh_token"]
     assert access_token
+    assert refresh_token
     assert body["token_type"] == "bearer"
     assert len(access_token) > 10
 
