@@ -96,20 +96,37 @@ from app.purchases.models import Purchase
 
 - ❌ **Never**: `@pytest.mark.skip`, `@pytest.mark.xfail`, or stub implementations to make tests pass
 - ❌ **Never**: `# noqa` suppressions without a documented inline reason
-- ✅ **Always**: Run all four gates after every change
+- ✅ **Always**: Run individual suite targets when adding/changing/removing tests
+- ✅ **Always**: Run `make all-qa-gates` as the **final** check before declaring any task done
 
 ## Running Quality Gates
 
 ```bash
-# All four gates
+# Final check — run before declaring any task done
+make all-qa-gates
+
+# Fast feedback loop during development
 make lint && make test && make coverage && make security
 
 # Individual gates
 make lint          # Markdown, flake8, isort, black
 make test          # Unit tests with coverage
 make security      # Bandit security analysis
-make test-integration  # Integration tests (requires TEST_DATABASE_URL)
-make test-e2e      # E2E tests (requires Docker Compose)
+make coverage      # Unit tests + coverage grade (exits non-zero below 85%)
+make test-integration  # Integration tests (manages test DB lifecycle)
+make test-e2e      # E2E tests (manages full Docker Compose stack)
 ```
+
+## Test-Running Rules
+
+When adding, changing, or removing tests, always run the matching Makefile target — never
+run `pytest` directly (the Makefile handles DB lifecycle, env vars, and coverage correctly):
+
+| Action | Make target to run |
+|--------|-----------------|
+| Add/change/remove unit tests | `make test` |
+| Add/change/remove integration tests | `make test-integration` |
+| Add/change/remove E2E tests | `make test-e2e` |
+| After completing any task | `make all-qa-gates` |
 
 ---

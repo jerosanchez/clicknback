@@ -12,6 +12,10 @@ Write integration tests for endpoints. Integration tests use a real PostgreSQL d
 
 - After unit tests are complete and passing
 - For critical endpoints (create, update, delete, complex queries)
+- **For auth/security endpoints (login, refresh, logout, password change)** — unit test
+  mocks cannot verify DB persistence; a missing `await uow.commit()` is invisible to
+  `AsyncMock()`. An integration test that calls login then refresh immediately exposes
+  any missing commit. These MUST have integration tests.
 - For happy path + most important failure modes
 - NOT for every edge case (covered by unit tests)
 
@@ -86,7 +90,7 @@ See `tests/integration/conftest.py` for setup. Tests run within an outer transac
 - [ ] Critical failure modes tested (auth, validation, not found)
 - [ ] Response includes all expected fields
 - [ ] Database changes verified (queries within test transaction)
-- [ ] Tests run with `make test-integration`
-- [ ] `TEST_DATABASE_URL` set correctly
+- [ ] Run `make test-integration` after adding/changing/removing integration tests (not `pytest`)
+- [ ] Run `make all-qa-gates` as the final check after completing a task
 
 ---

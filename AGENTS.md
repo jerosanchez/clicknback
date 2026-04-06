@@ -147,6 +147,33 @@
 - Write docs before implementing; they are the contract the implementation must satisfy.
 - Full feature documentation checklist: `docs/guidelines/feature-documentation.md`.
 
+### Endpoint Documentation Requirements
+
+**When requesting a new API endpoint, all three documentation artifacts MUST be created together before implementation. Never implement an endpoint with incomplete documentation.**
+
+**The three required artifacts:**
+
+1. **Functional Specification** — `docs/specs/functional/<domain>/<XX-NN-endpoint-name>.md`
+   - Defines business requirements, constraints, acceptance criteria, and use cases
+   - Implementation-agnostic; no JSON/HTTP details
+
+2. **API Contract** — `docs/design/api-contracts/<domain>/<verb-resource>.md`
+   - Specifies exact HTTP interface: method, path, request/response bodies, error codes
+   - Must map to every failure mode in the functional spec
+   - Always include 401, 403 (if applicable), and 500 responses
+
+3. **HTTP Request File** — `http/<domain>/<verb-resource>.http`
+   - Interactive requests ready to execute for manual testing
+   - Variables for tokens, base URLs, and resource IDs
+   - Example payloads matching the API contract
+
+**After creating all three:**
+- Update `docs/design/api-contracts-index.md` (if new contract)
+- Update `docs/design/adr-index.md` (if new ADR)
+- Review and update `docs/specs/product-overview.md` and `README.md` if this is a user-facing feature
+
+---
+
 ### Functional Specifications (`docs/specs/functional/<domain>/`)
 
 - One spec per feature (one user-facing action, not a domain area).

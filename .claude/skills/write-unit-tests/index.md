@@ -62,6 +62,12 @@ Create `tests/unit/<module>/test_<module>_services.py`:
 - **Mock ABCs with `create_autospec(TheABC)`**; mock callables with `Mock()`
 - **Verify collaborators**: Assert dependencies called with correct arguments
 
+> ⚠️ **Service contract check:** Before writing tests for a write service method, verify
+> that its parameter is `uow: UnitOfWorkABC`, not `db: AsyncSession`. A write method that
+> accepts a raw session is a bug — `flush()` runs but `commit()` never does, and an
+> `AsyncMock()` session will not expose the missing commit. Fix the service signature first,
+> then write tests that assert `uow.commit.assert_called_once()` on success.
+
 ```python
 async def test_create_merchant_returns_created_merchant_on_success():
     # Arrange
@@ -134,5 +140,7 @@ async def test_update_merchant_status_raises_on_merchant_not_found():
 - [ ] Service write tests assert `uow.commit.assert_called_once()` on success
 - [ ] Service write tests assert `uow.commit.assert_not_called()` on failure
 - [ ] API tests assert every response field
+- [ ] Run `make test` after adding/changing/removing unit tests (never `pytest` directly)
+- [ ] Run `make all-qa-gates` as the final check after completing a task
 
 ---

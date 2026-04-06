@@ -32,6 +32,7 @@ Structured code review checklist. Use this to audit code for architecture, corre
 - [ ] All repository methods are `async def` using `select()` style
 - [ ] No blocking I/O in request handlers
 - [ ] Session usage correct (read methods: `AsyncSession`, write methods: `uow.session`)
+- [ ] No write service method accepts `db: AsyncSession` — write methods must use `uow: UnitOfWorkABC` (raw sessions flush but never commit; data is silently discarded)
 - [ ] No mixing of sync/async patterns
 
 ### Error Handling
@@ -57,6 +58,8 @@ Structured code review checklist. Use this to audit code for architecture, corre
 - [ ] Service write tests assert `uow.commit.assert_called_once()`
 - [ ] Service write tests assert `uow.commit.assert_not_called()` on failure
 - [ ] API tests assert every response field (not just status)
+- [ ] Integration tests exist for all write endpoints (esp. auth/security endpoints)
+- [ ] `make all-qa-gates` passes (lint → unit → coverage → security → integration → e2e)
 
 ### Dependencies
 
