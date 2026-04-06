@@ -77,7 +77,11 @@ ClickNBack uses a focused set of HTTP status codes corresponding to error catego
 | -------- | ------ | ---------- | ------------- |
 | **400** | `BAD_REQUEST` | Malformed input (invalid JSON, missing fields) | Fix request and retry |
 | **400** | `VALIDATION_ERROR` | Input validation failed (weak password, invalid email) | Correct input per error details and retry |
-| **401** | `UNAUTHORIZED` | Missing or invalid authentication token | Include valid token or re-authenticate |
+| **401** | `INVALID_TOKEN` | Token is malformed, tampered, or has invalid signature | Obtain new token (login or refresh) |
+| **401** | `EXPIRED_TOKEN` | Access token has expired | Refresh the access token |
+| **401** | `EXPIRED_REFRESH_TOKEN` | Refresh token has expired | Log in again to obtain new tokens |
+| **401** | `TOKEN_REVOKED` | Refresh token was revoked (already used for single-use enforcement) | Log in again; may indicate security issue |
+| **401** | `USER_INACTIVE` | Token valid but user account is inactive/disabled | Contact support; account may be suspended |
 | **403** | `FORBIDDEN` | Authenticated but insufficient permissions (non-admin accessing admin endpoint) | Use authorized account |
 | **404** | `NOT_FOUND` | Resource not found (user, offer, merchant, etc. does not exist) | Check resource identifier or existence; may need to refresh or contact support |
 | **409** | `CONFLICT` | Business rule violation (email already exists, duplicate purchase) | Resolve conflict (use different email) or contact support |

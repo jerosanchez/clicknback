@@ -77,15 +77,43 @@ curl -X POST http://localhost:8001/api/v1/auth/refresh \
 }
 ```
 
-### 401 Unauthorized – Invalid or Expired Refresh Token
+### 401 Unauthorized – Invalid Refresh Token
 
-**When:** Refresh token is invalid, expired, or already used (single-use enforcement)
+**When:** Refresh token is invalid (tampered, malformed, or wrong token type)
 
 ```json
 {
   "error": {
     "code": "INVALID_REFRESH_TOKEN",
-    "message": "Invalid or expired refresh token.",
+    "message": "Invalid or malformed refresh token.",
+    "details": {}
+  }
+}
+```
+
+### 401 Unauthorized – Expired Refresh Token
+
+**When:** Refresh token has passed its expiration time (30 days)
+
+```json
+{
+  "error": {
+    "code": "EXPIRED_REFRESH_TOKEN",
+    "message": "Refresh token has expired. Please log in again.",
+    "details": {}
+  }
+}
+```
+
+### 401 Unauthorized – Token Revoked
+
+**When:** Refresh token was already used in a previous refresh (single-use enforcement) and has been revoked
+
+```json
+{
+  "error": {
+    "code": "TOKEN_REVOKED",
+    "message": "Refresh token has been revoked. Please log in again.",
     "details": {}
   }
 }
