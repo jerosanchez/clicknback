@@ -59,10 +59,18 @@ async def refresh(
     try:
         return await auth_service.refresh(request.refresh_token, uow)
 
-    except (
-        InvalidRefreshTokenException,
-        RefreshTokenAlreadyUsedException,
-    ):
+    except RefreshTokenAlreadyUsedException:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=error_response(
+                ErrorCode.TOKEN_REVOKED,
+                "Refresh token has been revoked. Please log in again.",
+                {},
+            ),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    except InvalidRefreshTokenException:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=error_response(
