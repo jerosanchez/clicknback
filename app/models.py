@@ -1,5 +1,6 @@
 # Import all model classes here so Alembic can discover them
 # See alembic/env.py for reference.
+from app.auth.models import RefreshToken
 from app.cashback.models import CashbackTransaction
 from app.core.audit import AuditLog
 from app.feature_flags.models import FeatureFlag
@@ -18,4 +19,5 @@ __all__ = [
     "Offer",
     "Purchase",
     "Wallet",
+    "RefreshToken",
 ]

@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     # --- auth
     oauth_hash_key: str
     oauth_algorithm: str
-    oauth_token_ttl: int  # in minutes, for example, 15 minutes; no refresh tokens in this implementation
+    oauth_access_token_ttl: int = 15  # in minutes, default 15 minutes
+    oauth_refresh_token_ttl: int = 43200  # in minutes; default 30 days (43200 min)
 
     # --- logging
     log_level: str = "INFO"
