@@ -52,10 +52,45 @@ async def test_user_register_and_login_flow(http_client: AsyncClient) -> None:
     assert login_response.status_code == status.HTTP_200_OK
     login_body = login_response.json()
     assert "access_token" in login_body
+    assert "refresh_token" in login_body
     assert login_body["token_type"] == "bearer"
-    token = login_body["access_token"]
-    assert isinstance(token, str)
-    assert len(token) > 10  # JWT should be non-trivial length
+    access_token = login_body["access_token"]
+    refresh_token = login_body["refresh_token"]
+    assert isinstance(access_token, str)
+    assert len(access_token) > 10  # JWT should be non-trivial length
+
+    # Act 3: Refresh the token
+    refresh_response = await http_client.post(
+        "/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+
+    # Assert refresh issued new tokens
+    assert refresh_response.status_code == status.HTTP_200_OK
+    refresh_body = refresh_response.json()
+    new_access_token = refresh_body["access_token"]
+    new_refresh_token = refresh_body["refresh_token"]
+    assert new_access_token
+    assert new_refresh_token
+    assert refresh_body["token_type"] == "bearer"
+    # Refresh tokens are rotated — new UUID each time
+    assert new_refresh_token != refresh_token
+
+    # Act 4: Use the new access token on a protected endpoint
+    authenticated_response = await http_client.get(
+        "/offers/active",
+        headers={"Authorization": f"Bearer {new_access_token}"},
+    )
+
+    # Assert new token is accepted (not 401)
+    assert authenticated_response.status_code == status.HTTP_200_OK
+
+    # Act 5: Original refresh token must be rejected (single-use)
+    reuse_response = await http_client.post(
+        "/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert reuse_response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 async def test_user_register_fails_on_duplicate_email(http_client: AsyncClient) -> None:
