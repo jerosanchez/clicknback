@@ -47,6 +47,19 @@ coverage: ## Run tests & generate coverage reports (exits non-zero below 85%)
 security: ## Run Bandit security scan on app/ (exclude low severity)
 	@bash -c "$(VENV_ACTIVATE) bandit -r app/ -ll"
 
+all-qa-gates: ## Run all quality gates: lint, unit tests + coverage, security, integration tests, e2e tests
+	@echo "==> [1/5] Lint"
+	@$(MAKE) --no-print-directory lint
+	@echo "==> [2/5] Unit tests + coverage"
+	@$(MAKE) --no-print-directory coverage
+	@echo "==> [3/5] Security scan"
+	@$(MAKE) --no-print-directory security
+	@echo "==> [4/5] Integration tests"
+	@$(MAKE) --no-print-directory test-integration
+	@echo "==> [5/5] E2E tests"
+	@$(MAKE) --no-print-directory test-e2e
+	@echo "==> All QA gates passed."
+
 migrate: ## Apply all pending Alembic migrations
 	@bash -c "$(VENV_ACTIVATE) alembic upgrade head"
 
@@ -87,4 +100,4 @@ dev: ## Run the application locally with hot-reload (no Docker)
 logs: ## Tail container logs for clicknback-app
 	docker compose logs -f clicknback-app
 
-.PHONY: install lint test test-integration test-db-up test-db-down test-e2e e2e-stack-up e2e-stack-down coverage security migrate clean up down db-reset dev logs
+.PHONY: install lint test test-integration test-db-up test-db-down test-e2e e2e-stack-up e2e-stack-down coverage security all-qa-gates migrate clean up down db-reset dev logs
