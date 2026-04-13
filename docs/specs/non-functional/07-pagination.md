@@ -27,7 +27,7 @@ As data grows, returning all records in a single response is infeasible. Paginat
 
 - Implement pagination at the repository layer using `LIMIT` and `OFFSET` SQL clauses.
 - Create a reusable `PaginationParams` schema and `paginate()` utility function.
-- Return `PaginatedResponse[T]` schema with `items`, `total_count`, `limit`, `offset`.
+- Return `PaginatedResponse[T]` schema with `data`, and `pagination` object containing `offset`, `limit`, and `total`.
 - Add database indexes on commonly sorted columns (e.g., created_at, status).
 - Use cursor-based pagination for extremely large datasets or real-time feeds.
 - Load tests verify no N+1 queries or missing indexes degrade performance.

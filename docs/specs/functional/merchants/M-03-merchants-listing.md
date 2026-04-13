@@ -1,10 +1,19 @@
-# M-03: Merchants Listing (Admin)
+# M-03: Merchants Listing
 
 IMPORTANT: This is a living document, specs are subject to change.
 
 ## User Story
 
-_As an admin, I want to view a list of all merchants so that I can monitor and manage merchant records._
+_As an admin, I want to list all merchants with optional filters so that I can monitor and manage merchant records._
+
+---
+
+## Domain Concepts
+
+| Term | Description |
+| --- | --- |
+| **Merchant record** | A single merchant entity with `id`, `name`, `active` status, and metadata. |
+| **Filter** | Optional query parameters that narrow the result set. |
 
 ---
 
@@ -12,97 +21,72 @@ _As an admin, I want to view a list of all merchants so that I can monitor and m
 
 ### Authorization Constraints
 
-- Only authenticated admin users can list merchants
-- Admin role must be verified before allowing access
+- Only authenticated admin users can list merchants.
 
-### Listing Constraints
+### Filter Constraints
 
-- Results must be paginated
-- Default page size should be appropriate (e.g., 20 items)
-- Page size must not exceed 100 items per page
-- Support filtering by active status
+- Supported filter parameters: `active` (boolean).
+- Filters are applied with `AND` semantics; providing no filters returns all records.
+
+### Response Constraints
+
+- An empty result set is valid and returns `{ "data": [], "pagination": { "offset": 0, "limit": 10, "total": 0 } }`.
+- Results are paginated; `offset` (default: 0) and `limit` (default: 10, max: 100) control the page window.
 
 ---
 
 ## BDD Acceptance Criteria
 
-**Scenario:** Admin successfully retrieves merchant list
-**Given** I am an authenticated admin user
-**And** merchants exist in the system
-**When** the authorization is verified
-**Then** a paginated list of merchants is returned
+**Scenario:** Admin lists all merchants
+**Given** several merchants exist in the system
+**When** an authenticated admin sends a list request with no filters
+**Then** all merchant records are returned with their full details
 
-**Scenario:** Non-admin user attempts to list merchants
-**Given** I am an authenticated non-admin user
-**When** the system checks authorization
-**Then** access is denied
+**Scenario:** Admin filters by active status
+**Given** merchants exist with both active and inactive statuses
+**When** an authenticated admin sends a list request with `active=true`
+**Then** only active merchant records are returned
 
-**Scenario:** Unauthenticated user attempts to list merchants
-**Given** I am not authenticated
-**When** the system checks authentication
-**Then** the request is rejected as unauthorized
+**Scenario:** No merchants match the filter
+**Given** no merchants match the provided filters
+**When** an authenticated admin sends a filtered list request
+**Then** the response is `200 OK` with `{ "data": [], "pagination": { "offset": 0, "limit": 10, "total": 0 } }`
 
-**Scenario:** Admin retrieves empty merchant list
-**Given** I am an authenticated admin user
-**And** no merchants exist in the system
-**When** the system processes the request
-**Then** an empty paginated list is returned
+**Scenario:** Non-admin attempts to list merchants
+**Given** I am authenticated as a regular user
+**When** I send a list-merchants request
+**Then** the response is `403 Forbidden`
 
-**Scenario:** Admin requests a page number below the minimum
-**Given** I am an authenticated admin user
-**When** the request specifies a page zero or lower
-**Then** a validation error is returned
-
-**Scenario:** Admin requests a page size beyond the maximum
-**Given** I am an authenticated admin user
-**When** the request specifies a page_size greater than 100
-**Then** a validation error is returned
+**Scenario:** Unauthenticated request
+**Given** no JWT token is provided
+**When** I send a list-merchants request
+**Then** the response is `401 Unauthorized`
 
 ---
 
 ## Use Cases
 
-### Happy Path
+### Happy Path — List all merchants
 
-An authenticated admin successfully retrieves merchant list
+1. Admin sends a `GET` request with no query parameters.
+2. System verifies admin role.
+3. System queries all merchant records.
+4. System returns `{ "data": [...], "pagination": { "offset": 0, "limit": 10, "total": N } }`.
 
-1. Admin requests merchant list.
-2. System verifies admin authentication and role.
-3. System retrieves paginated merchant records.
-4. System returns merchant list.
+### Happy Path — Filtered list
+
+1. Admin sends a `GET` request with one or more query filters.
+2. System verifies admin role.
+3. System applies filters with `AND` semantics.
+4. System returns only the matching records.
 
 ### Sad Paths
 
-#### Unauthorized - Non-Admin User
+#### Non-admin or unauthenticated
 
-1. Non-admin user requests merchant list.
-2. System verifies authentication.
-3. System checks admin role.
-4. System finds user does not have admin role.
-5. System returns a forbidden error.
-
-#### Unauthenticated Request
-
-1. Anonymous user requests merchant list.
-2. System verifies authentication.
-3. System finds no valid credentials.
-4. System rejects the request as unauthorized.
-
-#### Empty Results
-
-1. Admin requests merchant list.
-2. System verifies admin role.
-3. System retrieves merchant records from database.
-4. System finds no merchants exist.
-5. System returns empty paginated list.
-
-#### Invalid Pagination Parameters
-
-1. Admin requests merchant list with invalid pagination values.
-2. System verifies admin role.
-3. System validates pagination parameters.
-4. System detects invalid values (e.g., page number below minimum or page size exceeding maximum).
-5. System rejects the request with validation error.
+1. Requester lacks admin role or a valid token.
+2. System enforces authorization.
+3. System returns `403 Forbidden` or `401 Unauthorized`.
 
 ## API Contract
 
