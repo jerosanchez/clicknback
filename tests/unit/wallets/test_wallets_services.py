@@ -133,9 +133,9 @@ async def test_list_wallet_transactions_returns_paginated_result_on_success(
 
     # Assert
     assert isinstance(result, PaginatedWalletTransactionOut)
-    assert result.total == 1
-    assert len(result.transactions) == 1
-    item = result.transactions[0]
+    assert result.pagination.total == 1
+    assert len(result.data) == 1
+    item = result.data[0]
     assert item.id == _TXN_ID
     assert item.type == WalletTransactionType.CASHBACK_CREDIT
     assert item.amount == Decimal("5.00")
@@ -177,8 +177,8 @@ async def test_list_wallet_transactions_returns_empty_list_when_no_transactions(
     result = await wallet_service.list_wallet_transactions(_USER_ID, 10, 0, db)
 
     # Assert
-    assert result.total == 0
-    assert result.transactions == []
+    assert result.pagination.total == 0
+    assert result.data == []
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ async def test_list_wallet_transactions_type_is_always_cashback_credit(
     result = await wallet_service.list_wallet_transactions(_USER_ID, 10, 0, db)
 
     # Assert — type is source-of-truth for the transaction kind, not the lifecycle state
-    assert result.transactions[0].type == WalletTransactionType.CASHBACK_CREDIT
+    assert result.data[0].type == WalletTransactionType.CASHBACK_CREDIT
 
 
 @pytest.mark.asyncio
@@ -235,4 +235,4 @@ async def test_list_wallet_transactions_passes_status_through(
     result = await wallet_service.list_wallet_transactions(_USER_ID, 10, 0, db)
 
     # Assert — status is passed through unchanged so callers can read lifecycle state
-    assert result.transactions[0].status == cashback_status
+    assert result.data[0].status == cashback_status
