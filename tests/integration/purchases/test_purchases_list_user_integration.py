@@ -67,9 +67,9 @@ async def test_list_user_purchases_returns_200_with_seeded_purchase(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] >= 1
-    assert len(body["items"]) >= 1
-    item = body["items"][0]
+    assert body["pagination"]["total"] >= 1
+    assert len(body["data"]) >= 1
+    item = body["data"][0]
     assert item["merchant_name"]
     assert Decimal(str(item["amount"])) == Decimal("50.00")
 
@@ -83,8 +83,8 @@ async def test_list_user_purchases_returns_empty_for_new_user(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 0
-    assert body["items"] == []
+    assert body["pagination"]["total"] == 0
+    assert body["data"] == []
 
 
 async def test_list_user_purchases_returns_401_on_unauthenticated(

@@ -21,15 +21,15 @@ async def test_list_merchants_returns_200_with_pagination(
     )
 
     # Act
-    response = await admin_http_client.get("/api/v1/merchants/?page=1&page_size=10")
+    response = await admin_http_client.get("/api/v1/merchants/?offset=0&limit=10")
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["items"]
-    assert body["total"] >= 2
-    assert body["page"] == 1
-    assert body["page_size"] == 10
+    assert body["data"]
+    assert body["pagination"]["total"] >= 2
+    assert body["pagination"]["offset"] == 0
+    assert body["pagination"]["limit"] == 10
 
 
 async def test_list_merchants_filters_by_active_status(
@@ -56,8 +56,8 @@ async def test_list_merchants_filters_by_active_status(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert len(body["items"]) > 0
-    assert all(item["active"] for item in body["items"])
+    assert len(body["data"]) > 0
+    assert all(item["active"] for item in body["data"])
 
 
 async def test_list_merchants_returns_401_on_unauthenticated(

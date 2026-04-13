@@ -16,8 +16,8 @@ async def test_list_wallet_transactions_returns_200_empty_for_new_user(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 0
-    assert body["transactions"] == []
+    assert body["pagination"]["total"] == 0
+    assert body["data"] == []
 
 
 async def test_list_wallet_transactions_respects_pagination_params(
@@ -29,7 +29,7 @@ async def test_list_wallet_transactions_respects_pagination_params(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 0
+    assert body["pagination"]["total"] == 0
 
 
 async def test_list_wallet_transactions_returns_401_on_unauthenticated(
