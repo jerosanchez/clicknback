@@ -11,6 +11,7 @@ from app.core.errors.builders import (
     unprocessable_entity_error,
 )
 from app.core.logging import logging
+from app.core.schemas import PaginationOut
 from app.core.unit_of_work import UnitOfWorkABC
 from app.purchases.composition import get_purchase_service, get_unit_of_work
 from app.purchases.errors import ErrorCode
@@ -173,9 +174,9 @@ async def ingest_purchase(
     description="List the authenticated user's own purchases, enriched with merchant names.",
 )
 async def list_user_purchases(
-    page: int = Query(1, ge=1, description="Page number (1-based)."),
-    page_size: int = Query(
-        10, ge=1, le=100, description="Number of results per page (max 100)."
+    offset: int = Query(0, ge=0, description="Number of results to skip."),
+    limit: int = Query(
+        10, ge=1, le=100, description="Number of results to return (max 100)."
     ),
     status: str | None = Query(
         None, description="Filter by status: pending, confirmed, or reversed."
@@ -189,8 +190,8 @@ async def list_user_purchases(
             db,
             str(current_user.id),
             status=status,
-            page=page,
-            page_size=page_size,
+            offset=offset,
+            limit=limit,
         )
     except InvalidPurchaseStatusException as e:
         raise unprocessable_entity_error(
@@ -204,7 +205,7 @@ async def list_user_purchases(
         raise internal_server_error() from None
 
     return PaginatedUserPurchaseOut(
-        items=[
+        data=[
             UserPurchaseOut(
                 id=purchase.id,
                 merchant_name=merchant_name,
@@ -216,9 +217,7 @@ async def list_user_purchases(
             )
             for purchase, merchant_name in purchases_with_merchants
         ],
-        total=total,
-        page=page,
-        page_size=page_size,
+        pagination=PaginationOut(offset=offset, limit=limit, total=total),
     )
 
 

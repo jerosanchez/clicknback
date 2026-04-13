@@ -12,6 +12,7 @@ from app.core.errors.builders import (
     validation_error,
 )
 from app.core.logging import logging
+from app.core.schemas import PaginationOut
 from app.core.unit_of_work import UnitOfWorkABC
 from app.purchases.composition import get_purchase_service, get_unit_of_work
 from app.purchases.errors import ErrorCode
@@ -46,9 +47,9 @@ async def list_all_purchases(
         None,
         description="Inclusive upper bound on created_at (ISO 8601 date: YYYY-MM-DD).",
     ),
-    page: int = Query(1, ge=1, description="Page number (1-based)."),
-    page_size: int = Query(
-        10, ge=1, le=100, description="Number of results per page (max 100)."
+    offset: int = Query(0, ge=0, description="Number of results to skip."),
+    limit: int = Query(
+        10, ge=1, le=100, description="Number of results to return (max 100)."
     ),
     service: PurchaseService = Depends(get_purchase_service),
     db: AsyncSession = Depends(get_async_db),
@@ -62,8 +63,8 @@ async def list_all_purchases(
             merchant_id=merchant_id,
             start_date=start_date,
             end_date=end_date,
-            page=page,
-            page_size=page_size,
+            offset=offset,
+            limit=limit,
         )
     except InvalidPurchaseStatusException as e:
         raise unprocessable_entity_error(ErrorCode.INVALID_PURCHASE_STATUS, str(e))
@@ -76,10 +77,8 @@ async def list_all_purchases(
         raise internal_server_error()
 
     return PaginatedPurchaseOut(
-        items=[PurchaseAdminOut.model_validate(item) for item in items],
-        total=total,
-        page=page,
-        page_size=page_size,
+        data=[PurchaseAdminOut.model_validate(item) for item in items],
+        pagination=PaginationOut(offset=offset, limit=limit, total=total),
     )
 
 

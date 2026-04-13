@@ -44,8 +44,8 @@ class PurchaseRepositoryABC(ABC):
         merchant_id: str | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
-        page: int = 1,
-        page_size: int = settings.default_page_size,
+        offset: int = 0,
+        limit: int = settings.default_page_size,
     ) -> tuple[list[Purchase], int]:
         pass
 
@@ -124,8 +124,8 @@ class PurchaseRepository(PurchaseRepositoryABC):
         merchant_id: str | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
-        page: int = 1,
-        page_size: int = settings.default_page_size,
+        offset: int = 0,
+        limit: int = settings.default_page_size,
     ) -> tuple[list[Purchase], int]:
         conditions = self._build_conditions(
             status=status,
@@ -143,9 +143,7 @@ class PurchaseRepository(PurchaseRepositoryABC):
         total: int = (await db.execute(count_stmt)).scalar_one()
 
         items_stmt = (
-            items_stmt.order_by(Purchase.created_at.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+            items_stmt.order_by(Purchase.created_at.desc()).offset(offset).limit(limit)
         )
         result = await db.execute(items_stmt)
         return list(result.scalars().all()), total

@@ -147,8 +147,8 @@ class PurchaseService:
         merchant_id: str | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
-        page: int = 1,
-        page_size: int = 10,
+        offset: int = 0,
+        limit: int = 10,
     ) -> tuple[list[Purchase], int]:
         if status is not None:
             try:
@@ -162,8 +162,8 @@ class PurchaseService:
             merchant_id=merchant_id,
             start_date=start_date,
             end_date=end_date,
-            page=page,
-            page_size=page_size,
+            offset=offset,
+            limit=limit,
         )
 
     async def list_user_purchases(
@@ -172,8 +172,8 @@ class PurchaseService:
         current_user_id: str,
         *,
         status: str | None = None,
-        page: int = 1,
-        page_size: int = 10,
+        offset: int = 0,
+        limit: int = 10,
     ) -> tuple[list[tuple[Purchase, str]], int]:
         if status is not None:
             try:
@@ -185,8 +185,8 @@ class PurchaseService:
             db,
             user_id=current_user_id,
             status=status,
-            page=page,
-            page_size=page_size,
+            offset=offset,
+            limit=limit,
         )
 
         # Batch-load all merchant names in a single query to avoid N+1 (ADR-019)

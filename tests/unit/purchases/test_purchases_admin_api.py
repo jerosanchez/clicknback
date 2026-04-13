@@ -100,14 +100,14 @@ def unauthenticated_client(
 def _assert_paginated_response(
     data: dict[str, Any],
     expected_total: int,
-    expected_page: int,
-    expected_page_size: int,
+    expected_offset: int,
+    expected_limit: int,
 ) -> None:
-    assert data["total"] == expected_total
-    assert data["page"] == expected_page
-    assert data["page_size"] == expected_page_size
-    assert "items" in data
-    assert isinstance(data["items"], list)
+    assert data["pagination"]["total"] == expected_total
+    assert data["pagination"]["offset"] == expected_offset
+    assert data["pagination"]["limit"] == expected_limit
+    assert "data" in data
+    assert isinstance(data["data"], list)
 
 
 def _assert_error_payload(data: dict[str, Any], expected_code: str) -> None:
@@ -147,10 +147,10 @@ def test_list_all_purchases_returns_200_on_success(
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     _assert_paginated_response(
-        data, expected_total=1, expected_page=1, expected_page_size=10
+        data, expected_total=1, expected_offset=0, expected_limit=10
     )
-    assert len(data["items"]) == 1
-    assert data["items"][0]["id"] == purchase.id
+    assert len(data["data"]) == 1
+    assert data["data"][0]["id"] == purchase.id
 
 
 def test_list_all_purchases_returns_empty_list_when_no_results(
@@ -167,9 +167,9 @@ def test_list_all_purchases_returns_empty_list_when_no_results(
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     _assert_paginated_response(
-        data, expected_total=0, expected_page=1, expected_page_size=10
+        data, expected_total=0, expected_offset=0, expected_limit=10
     )
-    assert data["items"] == []
+    assert data["data"] == []
 
 
 def test_list_all_purchases_returns_correct_item_fields(
@@ -186,7 +186,7 @@ def test_list_all_purchases_returns_correct_item_fields(
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
-    item = response.json()["items"][0]
+    item = response.json()["data"][0]
     _assert_purchase_item_response(item, purchase)
 
 
@@ -196,19 +196,19 @@ def test_list_all_purchases_reflects_pagination_params(
 ) -> None:
     # Arrange
     purchase_service_mock.list_purchases.return_value = ([], 0)
-    requested_page = 3
-    requested_page_size = 5
+    requested_offset = 10
+    requested_limit = 5
 
     # Act
     response = client.get(
-        f"/api/v1/purchases?page={requested_page}&page_size={requested_page_size}"
+        f"/api/v1/purchases?offset={requested_offset}&limit={requested_limit}"
     )
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["page"] == requested_page
-    assert data["page_size"] == requested_page_size
+    assert data["pagination"]["offset"] == requested_offset
+    assert data["pagination"]["limit"] == requested_limit
 
 
 def test_list_all_purchases_passes_filters_to_service(
@@ -308,9 +308,9 @@ def test_list_all_purchases_returns_401_on_non_admin(
 @pytest.mark.parametrize(
     "query_string,description",
     [
-        ("page=0", "page below minimum"),
-        ("page_size=0", "page_size below minimum"),
-        ("page_size=101", "page_size above maximum"),
+        ("offset=-1", "offset below minimum"),
+        ("limit=0", "limit below minimum"),
+        ("limit=101", "limit above maximum"),
     ],
 )
 def test_list_all_purchases_returns_422_on_invalid_pagination_params(
