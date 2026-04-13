@@ -124,7 +124,7 @@ Authorization: {{adminToken}}
 # Users only see offers where BOTH the offer AND the parent merchant are active.
 # This endpoint enforces the business rule at the query level: an inactive
 # merchant removes all its offers from user visibility automatically.
-# Response is paginated; page and page_size query params are supported.
+# Response is paginated; offset and limit query params are supported.
 
 ### List active offers (user-facing, both merchant and offer must be active)
 GET {{baseUrl}}/offers/active

@@ -13,7 +13,7 @@
 
 # Paste fresh tokens here (use helper login requests below).
 # These placeholder values are expired local-dev tokens from seed data — never real credentials.
-@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzQ3NTgyOTh9.dbtVRzCslHuxw47smsiwoQYOkcYC43GK_NOalApXZo0
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzYxMTcwOTMsInRva2VuX3R5cGUiOiJhY2Nlc3MifQ.y5SC6P7KvvnNJQeZEHkp42zNTqp7YtX3j38B2FMPGWI
 @userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3NDc1ODM1MH0.Qy3rMnxP4FozHHRAtCA6T9b-SnGI_Q8j8rBIo6gTJFQ
 
 # Seed UUIDs
@@ -40,37 +40,37 @@ Content-Type: application/json
 }
 
 ### 200 – Happy path: list all flags (no filters)
-# Expected: 200 with {"items": [...], "total": >= 2}
+# Expected: 200 with {"data": [...], "pagination": {"offset": 0, "limit": 10, "total": >= 2}}
 GET {{baseUrl}}/feature-flags
 Authorization: {{adminToken}}
 
 
 ### 200 – Filter by key
-# Expected: 200 with items matching key="purchase_confirmation_job"
+# Expected: 200 with data items matching key="purchase_confirmation_job"
 GET {{baseUrl}}/feature-flags?key=purchase_confirmation_job
 Authorization: {{adminToken}}
 
 
 ### 200 – Filter by scope_type
-# Expected: 200 with items where scope_type="merchant"
+# Expected: 200 with data items where scope_type="merchant"
 GET {{baseUrl}}/feature-flags?scope_type=merchant
 Authorization: {{adminToken}}
 
 
 ### 200 – Filter by scope_id
-# Expected: 200 with items matching scope_id={{bankSimFailMerchantId}}
+# Expected: 200 with data items matching scope_id={{bankSimFailMerchantId}}
 GET {{baseUrl}}/feature-flags?scope_id={{bankSimFailMerchantId}}
 Authorization: {{adminToken}}
 
 
 ### 200 – Combined filters (key + scope_type)
-# Expected: 200 with items matching key="purchase_confirmation_job" AND scope_type="merchant"
+# Expected: 200 with data items matching key="purchase_confirmation_job" AND scope_type="merchant"
 GET {{baseUrl}}/feature-flags?key=purchase_confirmation_job&scope_type=merchant
 Authorization: {{adminToken}}
 
 
 ### 200 – Empty result (no matching flags)
-# Expected: 200 with {"items": [], "total": 0}
+# Expected: 200 with {"data": [], "pagination": {"offset": 0, "limit": 10, "total": 0}}
 GET {{baseUrl}}/feature-flags?key=nonexistent_flag_xyz
 Authorization: {{adminToken}}
 

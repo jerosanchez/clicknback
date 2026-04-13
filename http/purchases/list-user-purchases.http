@@ -53,20 +53,20 @@ Authorization: {{userToken}}
 GET {{baseUrl}}/users/me/purchases?status=reversed
 Authorization: {{userToken}}
 
-### 200 – Happy path: pagination – page 1, page_size 3
+### 200 – Happy path: pagination – offset=0, limit=3
 # Verifies that items are limited to 3 and total reflects the full count.
-GET {{baseUrl}}/users/me/purchases?page=1&page_size=3
+GET {{baseUrl}}/users/me/purchases?offset=0&limit=3
 Authorization: {{userToken}}
 
-### 200 – Happy path: pagination – page 2, page_size 3
-# Verifies offset is applied; returns rows 4-6 of alice's purchases.
-GET {{baseUrl}}/users/me/purchases?page=2&page_size=3
+### 200 – Happy path: pagination – offset=3, limit=3
+# Verifies offset is applied; returns purchases 4-6 of alice's purchases.
+GET {{baseUrl}}/users/me/purchases?offset=3&limit=3
 Authorization: {{userToken}}
 
-### 200 – Happy path: page beyond total (empty items)
-# Page 99 with default page_size guarantees no results.
-# Expects: {"items": [], "total": <actual_total>, "page": 99, "page_size": 10}
-GET {{baseUrl}}/users/me/purchases?page=99
+### 200 – Happy path: offset beyond total (empty data)
+# Large offset with default limit guarantees no results.
+# Expects: {"data": [], "pagination": {"offset": 990, "limit": 10, "total": <actual_total>}}
+GET {{baseUrl}}/users/me/purchases?offset=990
 Authorization: {{userToken}}
 
 ### 401 – Sad path: unauthenticated request
@@ -80,20 +80,20 @@ GET {{baseUrl}}/users/me/purchases
 GET {{baseUrl}}/users/me/purchases?status=badvalue
 Authorization: {{userToken}}
 
-### 422 – Sad path: page number below minimum (page=0)
-# Schema constraint: page must be >= 1.
-# Expects: 422 VALIDATION_ERROR with field=page.
-GET {{baseUrl}}/users/me/purchases?page=0
+### 422 – Sad path: offset below minimum (offset=-1)
+# Schema constraint: offset must be >= 0.
+# Expects: 422 VALIDATION_ERROR with field=offset.
+GET {{baseUrl}}/users/me/purchases?offset=-1
 Authorization: {{userToken}}
 
-### 422 – Sad path: page_size below minimum (page_size=0)
-# Schema constraint: page_size must be >= 1.
-# Expects: 422 VALIDATION_ERROR with field=page_size.
-GET {{baseUrl}}/users/me/purchases?page_size=0
+### 422 – Sad path: limit below minimum (limit=0)
+# Schema constraint: limit must be >= 1.
+# Expects: 422 VALIDATION_ERROR with field=limit.
+GET {{baseUrl}}/users/me/purchases?limit=0
 Authorization: {{userToken}}
 
-### 422 – Sad path: page_size above maximum (page_size=101)
-# Schema constraint: page_size must be <= 100.
-# Expects: 422 VALIDATION_ERROR with field=page_size.
-GET {{baseUrl}}/users/me/purchases?page_size=101
+### 422 – Sad path: limit above maximum (limit=101)
+# Schema constraint: limit must be <= 100.
+# Expects: 422 VALIDATION_ERROR with field=limit.
+GET {{baseUrl}}/users/me/purchases?limit=101
 Authorization: {{userToken}}
