@@ -67,18 +67,19 @@ async def test_admin_setup_platform_and_user_discovers_offer(
 
     # Act 5 & 6: User logs in and lists active offers
     # (user_http_client is already authenticated)
-    offers_response = await user_http_client.get("/offers/active?page=1&page_size=10")
+    offers_response = await user_http_client.get("/offers/active?offset=0&limit=10")
 
     # Assert offers list
     assert offers_response.status_code == 200
     offers_body = offers_response.json()
-    assert "offers" in offers_body
-    assert "total" in offers_body
-    assert "page" in offers_body
-    assert "page_size" in offers_body
+    assert "data" in offers_body
+    assert "pagination" in offers_body
+    assert "total" in offers_body["pagination"]
+    assert "offset" in offers_body["pagination"]
+    assert "limit" in offers_body["pagination"]
 
     # Verify the newly created offer is in the list
-    offer_ids = [o["id"] for o in offers_body["offers"]]
+    offer_ids = [o["id"] for o in offers_body["data"]]
     assert offer_id in offer_ids, (
         "Newly activated offer should appear in active offers list"
     )
@@ -123,12 +124,12 @@ async def test_inactive_offer_not_visible_to_users(
     assert deactivated["status"] == "inactive"
 
     # Act 2: User lists active offers
-    offers_response = await user_http_client.get("/offers/active?page=1&page_size=100")
+    offers_response = await user_http_client.get("/offers/active?offset=0&limit=100")
 
     # Assert
     assert offers_response.status_code == 200
     offers_body = offers_response.json()
-    offer_ids = [o["id"] for o in offers_body["offers"]]
+    offer_ids = [o["id"] for o in offers_body["data"]]
     assert offer_id not in offer_ids, (
         "Inactive offer should NOT appear in active offers"
     )
@@ -164,12 +165,12 @@ async def test_inactive_merchant_prevents_offer_visibility(
     assert deactivated_merchant["status"] == "inactive"
 
     # Act 2: User lists active offers
-    offers_response = await user_http_client.get("/offers/active?page=1&page_size=100")
+    offers_response = await user_http_client.get("/offers/active?offset=0&limit=100")
 
     # Assert
     assert offers_response.status_code == 200
     offers_body = offers_response.json()
-    offer_ids = [o["id"] for o in offers_body["offers"]]
+    offer_ids = [o["id"] for o in offers_body["data"]]
     assert offer_id not in offer_ids, (
         "Offer from inactive merchant should NOT appear in active offers"
     )
@@ -260,12 +261,12 @@ async def test_future_offer_not_visible_to_users(
     await activate_offer_via_api(admin_http_client, future_offer_id)
 
     # Act 3: User lists active offers
-    offers_response = await user_http_client.get("/offers/active?page=1&page_size=100")
+    offers_response = await user_http_client.get("/offers/active?offset=0&limit=100")
 
     # Assert
     assert offers_response.status_code == 200
     offers_body = offers_response.json()
-    offer_ids = [o["id"] for o in offers_body["offers"]]
+    offer_ids = [o["id"] for o in offers_body["data"]]
     assert future_offer_id not in offer_ids, (
         "Future offer should NOT appear in active offers"
     )

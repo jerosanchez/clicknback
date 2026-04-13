@@ -225,5 +225,5 @@ async def test_authenticated_request_with_valid_token(
     # Assert: should get a 200 (even if empty list), not 401/403
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert "offers" in body
-    assert isinstance(body["offers"], list)
+    assert "data" in body
+    assert isinstance(body["data"], list)
