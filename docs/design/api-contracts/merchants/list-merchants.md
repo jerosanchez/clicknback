@@ -18,14 +18,18 @@
 
 ```json
 {
-  "merchants": [
+  "data": [
     {
       "id": "e3b0c442-98fc-1c14-9afb-4c4e6c2e2a8c",
       "name": "CoolShop",
       "status": "active"
     }
   ],
-  "total": 1
+  "pagination": {
+    "offset": 0,
+    "limit": 10,
+    "total": 1
+  }
 }
 ```
 

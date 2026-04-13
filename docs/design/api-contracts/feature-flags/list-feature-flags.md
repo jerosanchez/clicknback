@@ -14,6 +14,8 @@
 | `key` | string | ❌ | Filter by exact flag key |
 | `scope_type` | string | ❌ | Filter by `global`, `merchant`, or `user` |
 | `scope_id` | UUID | ❌ | Filter by scope entity UUID |
+| `offset` | integer | ❌ | Pagination offset (default: 0, min: 0) |
+| `limit` | integer | ❌ | Number of items per page (default: 10, min: 1, max: 100) |
 
 All filters are optional. When multiple filters are provided they are combined with `AND` semantics.
 
@@ -43,7 +45,7 @@ GET /api/v1/feature-flags?scope_type=merchant&scope_id=a1b2c3d4-e5f6-7890-abcd-e
 
 ```json
 {
-  "items": [
+  "data": [
     {
       "id": "7f3a1234-bc56-7890-def0-1234567890ab",
       "key": "purchase_confirmation_job",
@@ -65,7 +67,11 @@ GET /api/v1/feature-flags?scope_type=merchant&scope_id=a1b2c3d4-e5f6-7890-abcd-e
       "updated_at": "2025-01-12T09:00:00Z"
     }
   ],
-  "total": 2
+  "pagination": {
+    "offset": 0,
+    "limit": 10,
+    "total": 2
+  }
 }
 ```
 
@@ -73,8 +79,12 @@ GET /api/v1/feature-flags?scope_type=merchant&scope_id=a1b2c3d4-e5f6-7890-abcd-e
 
 ```json
 {
-  "items": [],
-  "total": 0
+  "data": [],
+  "pagination": {
+    "offset": 0,
+    "limit": 10,
+    "total": 0
+  }
 }
 ```
 
