@@ -344,10 +344,10 @@ def test_list_feature_flags_returns_200_with_all_flags(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["total"] == 2
-    assert len(data["items"]) == 2
-    _assert_flag_out_response(data["items"][0], flag1)
-    _assert_flag_out_response(data["items"][1], flag2)
+    assert data["pagination"]["total"] == 2
+    assert len(data["data"]) == 2
+    _assert_flag_out_response(data["data"][0], flag1)
+    _assert_flag_out_response(data["data"][1], flag2)
 
 
 @pytest.mark.parametrize(

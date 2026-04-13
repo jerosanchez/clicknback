@@ -33,6 +33,8 @@ class FeatureFlagRepositoryABC(ABC):
         key: str | None = None,
         scope_type: str | None = None,
         scope_id: str | None = None,
+        offset: int = 0,
+        limit: int = 100,
     ) -> tuple[list[FeatureFlag], int]:
         """List feature flags with optional filters.
 
@@ -95,6 +97,8 @@ class FeatureFlagRepository(FeatureFlagRepositoryABC):
         key: str | None = None,
         scope_type: str | None = None,
         scope_id: str | None = None,
+        offset: int = 0,
+        limit: int = 100,
     ) -> tuple[list[FeatureFlag], int]:
         """List feature flags with optional filters.
 
@@ -122,7 +126,11 @@ class FeatureFlagRepository(FeatureFlagRepositoryABC):
         select_stmt = select(FeatureFlag)
         if filters:
             select_stmt = select_stmt.where(*filters)
-        select_stmt = select_stmt.order_by(FeatureFlag.created_at.desc())
+        select_stmt = (
+            select_stmt.order_by(FeatureFlag.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
 
         result = await db.execute(select_stmt)
         flags = list(result.scalars().all())

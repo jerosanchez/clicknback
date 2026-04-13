@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.schemas import PaginationOut
+
 
 class FeatureFlagSet(BaseModel):
     enabled: bool
@@ -47,5 +49,5 @@ class EvaluateFeatureFlagOut(BaseModel):
 
 
 class ListFeatureFlagsOut(BaseModel):
-    items: list[FeatureFlagOut]
-    total: int
+    data: list[FeatureFlagOut]
+    pagination: PaginationOut
