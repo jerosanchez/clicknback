@@ -25,10 +25,10 @@ _As an authenticated user, I want to discover available cashback offers so that 
 
 ### Pagination Constraints
 
-- Page number must be ≥ 1
-- Page size must be ≥ 1 and ≤ `max_page_size` (system setting)
-- Default page size is `default_page_size` (system setting)
-- Out-of-range page returns an empty result set with correct pagination metadata
+- Offset must be ≥ 0 (default: 0)
+- Limit must be ≥ 1 and ≤ `max_page_size` (system setting)
+- Default limit is `default_page_size` (system setting)
+- Out-of-range offset returns an empty result set with correct pagination metadata
 
 ---
 
@@ -49,11 +49,11 @@ _As an authenticated user, I want to discover available cashback offers so that 
 **Given** I am an authenticated user
 **And** no active offers exist, or all matching offers are outside the valid time window
 **When** the system processes the request
-**Then** an empty paginated list is returned (200 with empty `offers` array)
+**Then** an empty paginated list is returned (200 with empty `data` array)
 
 **Scenario:** Invalid pagination parameters
 **Given** I am an authenticated user
-**And** I send a request with pagination parameters outside allowed bounds (e.g. `page=0`, `page_size=0`, or `page_size` exceeding `max_page_size`)
+**And** I send a request with pagination parameters outside allowed bounds (e.g. `offset=-1`, `limit=0`, or `limit` exceeding `max_page_size`)
 **When** the API validates the input
 **Then** the request is rejected with a 422 Unprocessable Entity error
 
@@ -132,7 +132,7 @@ An authenticated user successfully discovers active offers
 
 #### Invalid Pagination Parameters
 
-1. Authenticated user requests the active offers list with `page=0` or `page_size` out of range.
+1. Authenticated user requests the active offers list with `offset=-1` or `limit` out of range.
 2. System validates pagination parameters at the API boundary.
 3. System rejects the request with 422 Unprocessable Entity.
 

@@ -17,8 +17,8 @@ _As an authenticated user, I want to view my purchase history so that I can audi
 
 ### Input Constraints
 
-- `page` must be a positive integer (≥ 1); defaults to 1 if omitted.
-- `page_size` must be between 1 and 100 (inclusive); defaults to 10 if omitted.
+- `offset` must be a non-negative integer (≥ 0); defaults to 0 if omitted.
+- `limit` must be between 1 and 100 (inclusive); defaults to 10 if omitted.
 - `status` filter, if provided, must be one of: `pending`, `confirmed`, `reversed`.
 
 ### Data Constraints
@@ -28,7 +28,7 @@ _As an authenticated user, I want to view my purchase history so that I can audi
 
 ### Behavior Constraints
 
-- Results must be paginated using a page/page_size envelope.
+- Results must be paginated using an offset/limit envelope.
 - Purchases are returned in reverse chronological order (newest first).
 
 ---
@@ -54,7 +54,7 @@ _As an authenticated user, I want to view my purchase history so that I can audi
 
 **Scenario:** User requests purchases with invalid pagination parameters
 **Given** I am an authenticated user
-**And** I send a request with a `page` value below the minimum (e.g., `page=0`)
+**And** I send a request with a `offset` value below the minimum (e.g., `offset=-1`)
 **When** the API validates the input
 **Then** the request is rejected with a validation error
 
@@ -98,7 +98,7 @@ Authenticated user successfully retrieves purchase history
 
 #### Invalid Pagination Parameters
 
-1. User requests purchases with an out-of-range page number or page size (e.g., `page=0`).
+1. User requests purchases with an out-of-range offset or limit (e.g., `offset=-1` or `limit=0`).
 2. System verifies user authentication.
 3. System validates the pagination parameters.
 4. System detects that the parameters fall outside the allowed range.

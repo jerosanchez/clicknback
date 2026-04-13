@@ -617,11 +617,11 @@ def test_list_user_purchases_returns_200_with_paginated_items(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 1
-    assert body["page"] == 1
-    assert body["page_size"] == 10
-    assert len(body["items"]) == 1
-    item = body["items"][0]
+    assert body["pagination"]["total"] == 1
+    assert body["pagination"]["offset"] == 0
+    assert body["pagination"]["limit"] == 10
+    assert len(body["data"]) == 1
+    item = body["data"][0]
     assert item["id"] == purchase.id
     assert item["merchant_name"] == _MERCHANT_NAME_LIST
     assert item["status"] == purchase.status
@@ -640,8 +640,8 @@ def test_list_user_purchases_returns_empty_list(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 0
-    assert body["items"] == []
+    assert body["pagination"]["total"] == 0
+    assert body["data"] == []
 
 
 def test_list_user_purchases_passes_pagination_params_to_service(
@@ -652,16 +652,16 @@ def test_list_user_purchases_passes_pagination_params_to_service(
     purchase_service_mock.list_user_purchases.return_value = ([], 0)
 
     # Act
-    response = client.get("/api/v1/users/me/purchases?page=2&page_size=5")
+    response = client.get("/api/v1/users/me/purchases?offset=5&limit=5")
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["page"] == 2
-    assert body["page_size"] == 5
+    assert body["pagination"]["offset"] == 5
+    assert body["pagination"]["limit"] == 5
     call_kwargs = purchase_service_mock.list_user_purchases.call_args[1]
-    assert call_kwargs["page"] == 2
-    assert call_kwargs["page_size"] == 5
+    assert call_kwargs["offset"] == 5
+    assert call_kwargs["limit"] == 5
 
 
 def test_list_user_purchases_passes_status_filter_to_service(
@@ -731,10 +731,10 @@ def test_list_user_purchases_returns_422_on_invalid_status(
     assert response.json()["error"]["code"] == "INVALID_PURCHASE_STATUS"
 
 
-def test_list_user_purchases_returns_422_on_invalid_page_param(
+def test_list_user_purchases_returns_422_on_invalid_offset_param(
     client: TestClient,
     purchase_service_mock: Mock,
 ) -> None:
-    # FastAPI validates Query params before the handler runs; page must be >= 1
-    response = client.get("/api/v1/users/me/purchases?page=0")
+    # FastAPI validates Query params before the handler runs; offset must be >= 0
+    response = client.get("/api/v1/users/me/purchases?offset=-1")
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

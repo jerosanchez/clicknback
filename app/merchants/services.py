@@ -44,14 +44,12 @@ class MerchantService:
 
     async def list_merchants(
         self,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         active: bool | None,
         db: AsyncSession,
     ) -> tuple[list[Merchant], int]:
-        return await self.merchant_repository.list_merchants(
-            db, page, page_size, active
-        )
+        return await self.merchant_repository.list_merchants(db, offset, limit, active)
 
     async def set_merchant_status(
         self, merchant_id: str, active: bool, uow: UnitOfWorkABC

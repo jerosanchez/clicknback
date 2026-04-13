@@ -33,18 +33,18 @@ Content-Type: application/json
 }
 
 ### 200 – Happy path: list all offers (first page, default page size)
-# Expected: paginated envelope with items[], total, page=1, page_size=20.
+# Expected: paginated envelope with data[], pagination.total, pagination.offset=0, pagination.limit=20.
 GET {{baseUrl}}/offers
 Authorization: {{adminToken}}
 
-### 200 – Happy path: explicit pagination (page=1, page_size=5)
-# Verifies the envelope shape with a non-default page_size.
-GET {{baseUrl}}/offers?page=1&page_size=5
+### 200 – Happy path: explicit pagination (offset=0, limit=5)
+# Verifies the envelope shape with a non-default limit.
+GET {{baseUrl}}/offers?offset=0&limit=5
 Authorization: {{adminToken}}
 
 ### 200 – Happy path: second page (verifies pagination slicing)
-# Verifies offset = (2-1)*5 = 5 is applied correctly.
-GET {{baseUrl}}/offers?page=2&page_size=5
+# Verifies offset=5 skips the first 5 results.
+GET {{baseUrl}}/offers?offset=5&limit=5
 Authorization: {{adminToken}}
 
 ### 200 – Happy path: filter by status=active
@@ -57,9 +57,9 @@ Authorization: {{adminToken}}
 GET {{baseUrl}}/offers?status=inactive
 Authorization: {{adminToken}}
 
-### 200 – Happy path: filter yields empty result set (page beyond total)
-# Expected: {"items": [], "total": <N>, "page": 99, "page_size": 20}
-GET {{baseUrl}}/offers?status=inactive&page=99
+### 200 – Happy path: filter yields empty result set (offset beyond total)
+# Expected: {"data": [], "pagination": {"offset": 990, "limit": 20, "total": <N>}}
+GET {{baseUrl}}/offers?status=inactive&offset=990
 Authorization: {{adminToken}}
 
 ### 200 – Happy path: filter by merchant_id
@@ -104,9 +104,9 @@ Authorization: {{adminToken}}
 GET {{baseUrl}}/offers?merchant_id=not-a-uuid
 Authorization: {{adminToken}}
 
-### 422 – Sad path: page number below minimum (page=0)
-# Schema validator enforces page >= 1.
-GET {{baseUrl}}/offers?page=0
+### 422 – Sad path: offset below minimum (offset=-1)
+# Schema validator enforces offset >= 0.
+GET {{baseUrl}}/offers?offset=-1
 Authorization: {{adminToken}}
 
 ### 401 – Sad path: missing authentication

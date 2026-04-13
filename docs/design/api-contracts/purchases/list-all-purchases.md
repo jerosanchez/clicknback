@@ -13,10 +13,10 @@
 | `merchant_id` | string (UUID) | No | — | Valid UUID; unrecognised IDs return an empty list |
 | `start_date` | string (date) | No | — | ISO 8601 format (`YYYY-MM-DD`); inclusive lower bound on `created_at` |
 | `end_date` | string (date) | No | — | ISO 8601 format (`YYYY-MM-DD`); inclusive upper bound on `created_at` |
-| `page` | integer | No | `1` | Must be ≥ 1 |
-| `page_size` | integer | No | `10` | Must be between 1 and 100 (inclusive) |
+| `offset` | integer | No | `0` | Must be ≥ 0 |
+| `limit` | integer | No | `10` | Must be between 1 and 100 (inclusive) |
 
-**Example:** `?status=confirmed&start_date=2026-01-01&end_date=2026-03-31&page=1&page_size=10`
+**Example:** `?status=confirmed&start_date=2026-01-01&end_date=2026-03-31&offset=0&limit=10`
 
 Results are ordered by `created_at` descending (newest first).
 
@@ -26,7 +26,7 @@ Results are ordered by `created_at` descending (newest first).
 
 ```json
 {
-  "items": [
+  "data": [
     {
       "id": "aa000001-0000-0000-0000-000000000005",
       "external_id": "txn_seed_005",
@@ -39,17 +39,19 @@ Results are ordered by `created_at` descending (newest first).
       "created_at": "2026-02-27T10:00:00"
     }
   ],
-  "total": 1,
-  "page": 1,
-  "page_size": 10
+  "pagination": {
+    "offset": 0,
+    "limit": 10,
+    "total": 1
+  }
 }
 ```
 
 **Notes:**
 
 - `offer_id` may be `null` if no active offer was matched at ingestion time.
-- `total` reflects the total number of purchases matching the applied filters, not just the current page.
-- `items` is an empty array when no purchases match the filters; this is not an error.
+- `pagination.total` reflects the total number of purchases matching the applied filters, not just the current page.
+- `data` is an empty array when no purchases match the filters; this is not an error.
 
 ## Failure Responses
 
@@ -70,16 +72,16 @@ not an admin.
 
 ### 422 Unprocessable Entity – Invalid Pagination Parameters
 
-Returned when `page` or `page_size` violate their numeric constraints.
+Returned when `offset` or `limit` violate their numeric constraints.
 
 ```json
 {
   "detail": [
     {
       "type": "greater_than_equal",
-      "loc": ["query", "page"],
-      "msg": "Input should be greater than or equal to 1",
-      "input": "0"
+      "loc": ["query", "offset"],
+      "msg": "Input should be greater than or equal to 0",
+      "input": "-1"
     }
   ]
 }

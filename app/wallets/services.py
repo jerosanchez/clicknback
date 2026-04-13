@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.schemas import PaginationOut
 from app.wallets.clients.cashback import CashbackClientABC
 from app.wallets.repositories import WalletRepositoryABC
 from app.wallets.schemas import (
@@ -53,4 +54,7 @@ class WalletService:
             )
             for txn in txns
         ]
-        return PaginatedWalletTransactionOut(transactions=transactions, total=total)
+        return PaginatedWalletTransactionOut(
+            data=transactions,
+            pagination=PaginationOut(offset=offset, limit=limit, total=total),
+        )

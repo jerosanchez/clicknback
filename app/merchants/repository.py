@@ -27,8 +27,8 @@ class MerchantRepositoryABC(ABC):
     async def list_merchants(
         self,
         db: AsyncSession,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         active: bool | None = None,
     ) -> tuple[list[Merchant], int]:
         pass
@@ -62,8 +62,8 @@ class MerchantRepository(MerchantRepositoryABC):
     async def list_merchants(
         self,
         db: AsyncSession,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         active: bool | None = None,
     ) -> tuple[list[Merchant], int]:
         stmt = select(Merchant)
@@ -73,7 +73,7 @@ class MerchantRepository(MerchantRepositoryABC):
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
 
-        items_stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+        items_stmt = stmt.offset(offset).limit(limit)
         result = await db.execute(items_stmt)
         items = list(result.scalars().all())
         return items, total

@@ -65,14 +65,14 @@ Authorization: {{adminToken}}
 GET {{baseUrl}}/purchases?start_date=2026-03-02&end_date=2026-03-09
 Authorization: {{adminToken}}
 
-### 200 – Happy path: pagination — page 2, page_size 2
-# Verifies offset = (2-1)*2 = 2 is applied correctly.
-GET {{baseUrl}}/purchases?page=2&page_size=2
+### 200 – Happy path: pagination — offset=2, limit=2
+# Verifies offset is applied correctly (skips first 2 results).
+GET {{baseUrl}}/purchases?offset=2&limit=2
 Authorization: {{adminToken}}
 
 ### 200 – Happy path: filter yields empty results
 # Unknown user_id guarantees no matching rows.
-# Expected: {"items": [], "total": 0, "page": 1, "page_size": 20}
+# Expected: {"data": [], "pagination": {"offset": 0, "limit": 20, "total": 0}}
 GET {{baseUrl}}/purchases?user_id=00000000-0000-0000-0000-000000000000
 Authorization: {{adminToken}}
 
@@ -85,12 +85,12 @@ GET {{baseUrl}}/purchases
 GET {{baseUrl}}/purchases
 Authorization: {{userToken}}
 
-### 422 – Sad path: page number below minimum (page=0)
-# Schema validator enforces page >= 1.
-GET {{baseUrl}}/purchases?page=0
+### 422 – Sad path: offset below minimum (offset=-1)
+# Schema validator enforces offset >= 0.
+GET {{baseUrl}}/purchases?offset=-1
 Authorization: {{adminToken}}
 
-### 422 – Sad path: page_size exceeds maximum
-# Schema validator enforces page_size <= 100 (or the configured max).
-GET {{baseUrl}}/purchases?page_size=200
+### 422 – Sad path: limit exceeds maximum
+# Schema validator enforces limit <= 100 (or the configured max).
+GET {{baseUrl}}/purchases?limit=200
 Authorization: {{adminToken}}

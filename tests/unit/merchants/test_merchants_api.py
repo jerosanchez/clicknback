@@ -204,12 +204,12 @@ def test_list_merchants_returns_200_on_success(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["total"] == 3
-    assert data["page"] == 1
-    assert data["page_size"] == settings.default_page_size
-    assert len(data["items"]) == 3
+    assert data["pagination"]["total"] == 3
+    assert data["pagination"]["offset"] == 0
+    assert data["pagination"]["limit"] == settings.default_page_size
+    assert len(data["data"]) == 3
     for i, merchant in enumerate(merchants):
-        _assert_merchant_out_response(data["items"][i], merchant)
+        _assert_merchant_out_response(data["data"][i], merchant)
 
 
 def test_list_merchants_returns_200_on_empty_results(
@@ -225,8 +225,8 @@ def test_list_merchants_returns_200_on_empty_results(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["total"] == 0
-    assert data["items"] == []
+    assert data["pagination"]["total"] == 0
+    assert data["data"] == []
 
 
 @pytest.mark.parametrize(
@@ -270,9 +270,9 @@ def test_list_merchants_enforces_admin_user(
 @pytest.mark.parametrize(
     "query_string",
     [
-        "page=0",  # below minimum page
-        "page_size=0",  # below minimum page_size
-        f"page_size={settings.max_page_size + 1}",  # above maximum page_size
+        "offset=-1",  # below minimum offset
+        "limit=0",  # below minimum limit
+        f"limit={settings.max_page_size + 1}",  # above maximum limit
     ],
 )
 def test_list_merchants_returns_422_on_invalid_pagination_params(
@@ -289,10 +289,10 @@ def test_list_merchants_returns_422_on_invalid_pagination_params(
 @pytest.mark.parametrize(
     "query_string",
     [
-        "page=1",  # minimum page
-        "page_size=1",  # minimum page_size
-        f"page_size={settings.default_page_size}",  # default page_size
-        f"page_size={settings.max_page_size}",  # maximum page_size
+        "offset=0",  # minimum offset
+        "limit=1",  # minimum limit
+        f"limit={settings.default_page_size}",  # default limit
+        f"limit={settings.max_page_size}",  # maximum limit
     ],
 )
 def test_list_merchants_returns_200_on_valid_pagination_params(

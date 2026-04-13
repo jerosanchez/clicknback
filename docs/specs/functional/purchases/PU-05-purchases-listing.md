@@ -23,7 +23,7 @@ _As an admin, I want to monitor purchase activity across all users so that I can
 - All purchases from all users should be visible to admin
 - Results are ordered by `created_at` descending (newest first)
 - Default page size is 10; maximum page size is 100
-- Page number is 1-based; must be ≥ 1
+- Offset is 0-based; must be ≥ 0
 
 ### Filter Constraints
 
@@ -35,7 +35,7 @@ _As an admin, I want to monitor purchase activity across all users so that I can
 ### Response Constraints
 
 - Each item in the response includes: `id`, `external_id`, `user_id`, `merchant_id`, `offer_id`, `amount`, `currency`, `status`, `created_at`
-- The envelope includes: `items`, `total` (total matching count), `page`, `page_size`
+- The envelope includes: `data`, `pagination` (with `offset`, `limit`, `total`)
 
 ---
 
@@ -79,7 +79,7 @@ _As an admin, I want to monitor purchase activity across all users so that I can
 
 **Scenario:** Admin requests purchase list with invalid pagination parameters
 **Given** I am an authenticated admin user
-**When** the request contains invalid pagination parameters (e.g., `page=0` or `page_size=0`)
+**When** the request contains invalid pagination parameters (e.g., `offset=-1` or `limit=0`)
 **Then** a `422 Unprocessable Entity` validation error is returned
 
 **Scenario:** Admin requests purchase list and no results match
@@ -125,11 +125,11 @@ Admin successfully retrieves purchase activity
 2. System verifies admin role.
 3. System applies filters.
 4. System finds no purchases match criteria.
-5. System returns `{ "items": [], "total": 0, "page": 1, "page_size": 10 }`.
+5. System returns `{ "data": [], "pagination": { "offset": 0, "limit": 10, "total": 0 } }`.
 
 #### Invalid Pagination Parameters
 
-1. Admin sends request with `page=0` or `page_size=0` or `page_size=200`.
+1. Admin sends request with `offset=-1` or `limit=0` or `limit=200`.
 2. System verifies admin role.
 3. System validates pagination query parameters.
 4. System detects out-of-range values.

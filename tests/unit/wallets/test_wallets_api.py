@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.core.current_user import get_current_user
 from app.core.database import get_async_db
+from app.core.schemas import PaginationOut
 from app.main import app
 from app.wallets.composition import get_wallet_service
 from app.wallets.schemas import (
@@ -176,7 +177,10 @@ def test_list_wallet_transactions_returns_200_on_success(
     # Arrange
     txn = _make_transaction_out()
     wallet_service_mock.list_wallet_transactions = AsyncMock(
-        return_value=PaginatedWalletTransactionOut(transactions=[txn], total=1)
+        return_value=PaginatedWalletTransactionOut(
+            data=[txn],
+            pagination=PaginationOut(offset=0, limit=10, total=1),
+        )
     )
 
     # Act
@@ -185,9 +189,9 @@ def test_list_wallet_transactions_returns_200_on_success(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["total"] == 1
-    assert len(data["transactions"]) == 1
-    _assert_transaction_response(data["transactions"][0], txn)
+    assert data["pagination"]["total"] == 1
+    assert len(data["data"]) == 1
+    _assert_transaction_response(data["data"][0], txn)
 
 
 def test_list_wallet_transactions_returns_200_on_empty_list(
@@ -196,7 +200,10 @@ def test_list_wallet_transactions_returns_200_on_empty_list(
 ) -> None:
     # Arrange
     wallet_service_mock.list_wallet_transactions = AsyncMock(
-        return_value=PaginatedWalletTransactionOut(transactions=[], total=0)
+        return_value=PaginatedWalletTransactionOut(
+            data=[],
+            pagination=PaginationOut(offset=0, limit=10, total=0),
+        )
     )
 
     # Act
@@ -205,8 +212,8 @@ def test_list_wallet_transactions_returns_200_on_empty_list(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["total"] == 0
-    assert data["transactions"] == []
+    assert data["pagination"]["total"] == 0
+    assert data["data"] == []
 
 
 def test_list_wallet_transactions_forwards_limit_and_offset_to_service(
@@ -215,7 +222,10 @@ def test_list_wallet_transactions_forwards_limit_and_offset_to_service(
 ) -> None:
     # Arrange
     wallet_service_mock.list_wallet_transactions = AsyncMock(
-        return_value=PaginatedWalletTransactionOut(transactions=[], total=0)
+        return_value=PaginatedWalletTransactionOut(
+            data=[],
+            pagination=PaginationOut(offset=40, limit=20, total=0),
+        )
     )
 
     # Act
@@ -236,7 +246,10 @@ def test_list_wallet_transactions_returns_cashback_credit_type_on_reversed_statu
         txn_type=WalletTransactionType.CASHBACK_CREDIT, txn_status="reversed"
     )
     wallet_service_mock.list_wallet_transactions = AsyncMock(
-        return_value=PaginatedWalletTransactionOut(transactions=[txn], total=1)
+        return_value=PaginatedWalletTransactionOut(
+            data=[txn],
+            pagination=PaginationOut(offset=0, limit=10, total=1),
+        )
     )
 
     # Act
@@ -244,8 +257,8 @@ def test_list_wallet_transactions_returns_cashback_credit_type_on_reversed_statu
 
     # Assert
     data = response.json()
-    assert data["transactions"][0]["type"] == "cashback_credit"
-    assert data["transactions"][0]["status"] == "reversed"
+    assert data["data"][0]["type"] == "cashback_credit"
+    assert data["data"][0]["status"] == "reversed"
 
 
 # ──────────────────────────────────────────────────────────────────────────────

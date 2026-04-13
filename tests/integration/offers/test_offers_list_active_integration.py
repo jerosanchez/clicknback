@@ -45,8 +45,8 @@ async def test_list_active_offers_returns_200_with_results(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    offers = body["offers"]
-    assert body["total"] >= 1
+    offers = body["data"]
+    assert body["pagination"]["total"] >= 1
     assert len(offers) >= 1
     offer = next(o for o in offers if o["merchant_name"] == "Active Offer Merchant")
     assert offer["cashback_type"] == "percent"

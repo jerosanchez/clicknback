@@ -6,11 +6,11 @@
 
 ## Query Parameters
 
-- `page` (optional): Page number, 1-based (default: 1, min: 1)
-- `page_size` (optional): Number of items per page (default: 10, min: 1, max: 100)
+- `offset` (optional): Pagination offset, 0-based (default: 0, min: 0)
+- `limit` (optional): Number of items per page (default: 10, min: 1, max: 100)
 - `status` (optional): Filter by status: `pending`, `confirmed`, or `reversed`
 
-**Example:** `?page=1&page_size=10&status=confirmed`
+**Example:** `?offset=0&limit=10&status=confirmed`
 
 ## Success Response
 
@@ -18,7 +18,7 @@
 
 ```json
 {
-  "items": [
+  "data": [
     {
       "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
       "merchant_name": "CoolShop",
@@ -29,9 +29,11 @@
       "created_at": "2026-03-01T10:00:00"
     }
   ],
-  "total": 1,
-  "page": 1,
-  "page_size": 10
+  "pagination": {
+    "offset": 0,
+    "limit": 10,
+    "total": 1
+  }
 }
 ```
 
@@ -74,8 +76,8 @@
     "details": {
       "violations": [
         {
-          "field": "page",
-          "reason": "Input should be greater than or equal to 1"
+          "field": "offset",
+          "reason": "Input should be greater than or equal to 0"
         }
       ]
     }

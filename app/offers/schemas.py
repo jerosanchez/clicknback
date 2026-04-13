@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, model_validator
 
+from app.core.schemas import PaginationOut
+
 # --- ENUMS ---
 
 
@@ -75,10 +77,8 @@ class OfferOut(BaseModel):
 
 
 class PaginatedOffersOut(BaseModel):
-    items: list[OfferOut]
-    total: int
-    page: int
-    page_size: int
+    data: list[OfferOut]
+    pagination: PaginationOut
 
 
 # --- GET /offers/active
@@ -95,10 +95,8 @@ class ActiveOfferOut(BaseModel):
 
 
 class PaginatedActiveOffersOut(BaseModel):
-    offers: list[ActiveOfferOut]
-    total: int
-    page: int
-    page_size: int
+    data: list[ActiveOfferOut]
+    pagination: PaginationOut
 
 
 # --- GET /offers/{id}

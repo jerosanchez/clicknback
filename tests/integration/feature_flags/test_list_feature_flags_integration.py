@@ -60,11 +60,11 @@ async def test_list_feature_flags_returns_all_flags(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] >= 2
-    assert len(body["items"]) >= 2
-    assert isinstance(body["items"], list)
+    assert body["pagination"]["total"] >= 2
+    assert len(body["data"]) >= 2
+    assert isinstance(body["data"], list)
     # Verify structure of each item
-    for item in body["items"]:
+    for item in body["data"]:
         assert "id" in item
         assert "key" in item
         assert "enabled" in item
@@ -91,9 +91,9 @@ async def test_list_feature_flags_filters_by_key(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 1
-    assert len(body["items"]) == 1
-    assert body["items"][0]["key"] == key_to_find
+    assert body["pagination"]["total"] == 1
+    assert len(body["data"]) == 1
+    assert body["data"][0]["key"] == key_to_find
 
 
 async def test_list_feature_flags_filters_by_scope_type(
@@ -115,9 +115,9 @@ async def test_list_feature_flags_filters_by_scope_type(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] >= 1
+    assert body["pagination"]["total"] >= 1
     # All items should have scope_type "merchant"
-    for item in body["items"]:
+    for item in body["data"]:
         assert item["scope_type"] == "merchant"
 
 
@@ -146,8 +146,8 @@ async def test_list_feature_flags_filters_by_scope_id(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 1
-    assert body["items"][0]["scope_id"] == merchant_id
+    assert body["pagination"]["total"] == 1
+    assert body["data"][0]["scope_id"] == merchant_id
 
 
 async def test_list_feature_flags_filters_by_combined_key_and_scope_type(
@@ -176,9 +176,9 @@ async def test_list_feature_flags_filters_by_combined_key_and_scope_type(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 1
-    assert body["items"][0]["key"] == key_to_find
-    assert body["items"][0]["scope_type"] == "merchant"
+    assert body["pagination"]["total"] == 1
+    assert body["data"][0]["key"] == key_to_find
+    assert body["data"][0]["scope_type"] == "merchant"
 
 
 async def test_list_feature_flags_returns_empty_for_nonexistent_key(
@@ -192,8 +192,8 @@ async def test_list_feature_flags_returns_empty_for_nonexistent_key(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 0
-    assert body["items"] == []
+    assert body["pagination"]["total"] == 0
+    assert body["data"] == []
 
 
 async def test_list_feature_flags_response_structure_includes_timestamps(
@@ -210,8 +210,8 @@ async def test_list_feature_flags_response_structure_includes_timestamps(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert len(body["items"]) >= 1
-    item = body["items"][0]
+    assert len(body["data"]) >= 1
+    item = body["data"][0]
     assert item["created_at"] is not None
     assert item["updated_at"] is not None
 

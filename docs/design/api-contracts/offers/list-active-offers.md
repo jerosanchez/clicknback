@@ -6,8 +6,8 @@
 
 ## Query Parameters
 
-- `page` (optional, integer, default `1`, min `1`): Page number, 1-indexed.
-- `page_size` (optional, integer, default `default_page_size`, min `1`, max `max_page_size`): Number of results per page.
+- `offset` (optional, integer, default `0`, min `0`): Zero-based pagination offset.
+- `limit` (optional, integer, default `default_page_size`, min `1`, max `max_page_size`): Number of results per page.
 
 ## Success Response
 
@@ -15,7 +15,7 @@
 
 ```json
 {
-  "offers": [
+  "data": [
     {
       "id": "f4b0c442-98fc-1c14-9afb-4c4e6c2e2a8c",
       "merchant_name": "CoolShop",
@@ -26,9 +26,11 @@
       "end_date": "2026-12-31"
     }
   ],
-  "total": 1,
-  "page": 1,
-  "page_size": 20
+  "pagination": {
+    "offset": 0,
+    "limit": 20,
+    "total": 1
+  }
 }
 ```
 

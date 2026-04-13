@@ -62,25 +62,25 @@ async def test_list_all_purchases_returns_200_with_pagination_as_admin(
     )
 
     # Act
-    response = await admin_http_client.get("/api/v1/purchases/?page=1&page_size=10")
+    response = await admin_http_client.get("/api/v1/purchases/?offset=0&limit=10")
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["items"]
-    assert body["total"] >= 1
+    assert body["data"]
+    assert body["pagination"]["total"] >= 1
 
 
 async def test_list_all_purchases_returns_empty_list_when_no_purchases(
     admin_http_client: AsyncClient,
 ) -> None:
     # Act: no purchases exist in this test's isolated transaction
-    response = await admin_http_client.get("/api/v1/purchases/?page=1&page_size=10")
+    response = await admin_http_client.get("/api/v1/purchases/?offset=0&limit=10")
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["total"] == 0
+    assert body["pagination"]["total"] == 0
 
 
 async def test_list_all_purchases_returns_401_for_non_admin(

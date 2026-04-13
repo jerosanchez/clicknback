@@ -3,6 +3,8 @@ from enum import Enum
 
 from pydantic import BaseModel
 
+from app.core.schemas import PaginationOut
+
 
 class WalletSummaryOut(BaseModel):
     pending_balance: Decimal
@@ -27,5 +29,5 @@ class WalletTransactionOut(BaseModel):
 
 
 class PaginatedWalletTransactionOut(BaseModel):
-    transactions: list[WalletTransactionOut]
-    total: int
+    data: list[WalletTransactionOut]
+    pagination: PaginationOut

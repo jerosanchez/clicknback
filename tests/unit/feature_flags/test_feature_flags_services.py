@@ -282,7 +282,7 @@ async def test_list_flags_returns_all_flags_without_filters(
     assert total == 2
     assert flags[0] == flag1
     assert flags[1] == flag2
-    feature_flag_repository.list.assert_called_once_with(db, None, None, None)
+    feature_flag_repository.list.assert_called_once_with(db, None, None, None, 0, 100)
 
 
 @pytest.mark.asyncio
@@ -304,7 +304,7 @@ async def test_list_flags_filters_by_key(
     assert len(flags) == 1
     assert total == 1
     feature_flag_repository.list.assert_called_once_with(
-        db, "purchase_confirmation_job", None, None
+        db, "purchase_confirmation_job", None, None, 0, 100
     )
 
 
@@ -324,7 +324,7 @@ async def test_list_flags_filters_by_scope_type(
     # Assert
     assert len(flags) == 1
     assert total == 1
-    feature_flag_repository.list.assert_called_once_with(db, None, "merchant", None)
+    feature_flag_repository.list.assert_called_once_with(db, None, "merchant", None, 0, 100)
 
 
 @pytest.mark.asyncio
@@ -344,7 +344,7 @@ async def test_list_flags_filters_by_scope_id(
     # Assert
     assert len(flags) == 1
     assert total == 1
-    feature_flag_repository.list.assert_called_once_with(db, None, None, scope_id)
+    feature_flag_repository.list.assert_called_once_with(db, None, None, scope_id, 0, 100)
 
 
 @pytest.mark.asyncio

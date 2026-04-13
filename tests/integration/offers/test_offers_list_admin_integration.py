@@ -42,13 +42,13 @@ async def test_list_offers_admin_returns_200_with_pagination(
     )
 
     # Act
-    response = await admin_http_client.get("/api/v1/offers/?page=1&page_size=10")
+    response = await admin_http_client.get("/api/v1/offers/?offset=0&limit=10")
 
     # Assert
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert body["items"]
-    assert body["total"] >= 1
+    assert body["data"]
+    assert body["pagination"]["total"] >= 1
 
 
 async def test_list_offers_admin_returns_401_on_non_admin(

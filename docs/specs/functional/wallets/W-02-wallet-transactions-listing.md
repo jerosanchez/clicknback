@@ -4,51 +4,59 @@ IMPORTANT: This is a living document, specs are subject to change.
 
 ## User Story
 
-_As an authenticated user, I want to audit my wallet transaction history so that I can track all cashback credits, reversals, and payouts._
+_As an authenticated user, I want to list my wallet transactions so that I can audit and track all cashback credits and reversals._
+
+---
+
+## Domain Concepts
+
+| Term | Description |
+| --- | --- |
+| **Wallet transaction** | A record of a cashback credit or reversal; includes amount, type, status, and related purchase ID. |
+| **Transaction status** | Lifecycle state: `pending` (awaiting purchase confirmation), `available` (confirmed, spendable), or `reversed` (clawed back). |
+| **User isolation** | Users can only view their own transaction history; the system enforces per-user scoping. |
 
 ---
 
 ## Constraints
 
-### User Constraints
+### Authorization Constraints
 
-- User must be authenticated
-- User can only view their own transactions
+- User must be authenticated.
+- User can only view their own transactions; the system enforces per-user isolation.
 
-### Listing Constraints
+### Filter Constraints
 
-- Results must be paginated
-- Only transactions belonging to the user should be returned
-- Transaction types include: cashback credits, reversals. Payout deductions are deferred to a future release.
+- No optional filters; all transactions for the user are returned by default.
+- Transaction types currently include: `cashback_credit` and reversals. (Payout deductions are deferred to a future release.)
 
-### Input Constraints
+### Response Constraints
 
-- `limit` must be a positive integer between 1 and 100 (default: 10)
-- `offset` must be a non-negative integer (default: 0)
+- Results are paginated; `offset` (default: 0) and `limit` (default: 10, max: 100) control the page window.
+- An empty result set is valid and returns `{ "data": [], "pagination": { "offset": 0, "limit": 10, "total": 0 } }`.
 
 ---
 
 ## BDD Acceptance Criteria
 
-**Scenario:** User successfully retrieves wallet transaction history
-**Given** I am an authenticated user
-**And** I have wallet transactions in the system
-**When** the authorization is verified
-**Then** a paginated list of my wallet transactions including cashback credits, reversals, and payout deductions is returned
+**Scenario:** User lists all transactions
+**Given** I am an authenticated user with wallet transactions
+**When** I send a list request with no filters
+**Then** all my transaction records are returned with their full details
 
-**Scenario:** Unauthenticated user attempts to view transactions
-**Given** I am not authenticated
-**When** the system checks authentication
-**Then** the request is rejected as unauthorized
-
-**Scenario:** User with no transactions retrieves empty list
+**Scenario:** User receives empty transaction list
 **Given** I am an authenticated user with no wallet transactions
-**When** the system retrieves transactions
-**Then** an empty paginated list is returned
+**When** I send a list request
+**Then** the response is `200 OK` with `{ "data": [], "pagination": { "offset": 0, "limit": 10, "total": 0 } }`
+
+**Scenario:** Unauthenticated user attempts to list transactions
+**Given** no JWT token is provided
+**When** I send a list-transactions request
+**Then** the response is `401 Unauthorized`
 
 **Scenario:** User requests transactions with invalid pagination
 **Given** I am an authenticated user
-**And** I send a request with invalid parameters (e.g. `limit=0` or `offset=-1`)
+**And** I send a request with invalid parameters (e.g., `limit=0` or `offset=-1`)
 **When** the API validates the input
 **Then** the request is rejected with a `VALIDATION_ERROR`
 
@@ -56,40 +64,27 @@ _As an authenticated user, I want to audit my wallet transaction history so that
 
 ## Use Cases
 
-### Happy Path
+### Happy Path — List all transactions
 
-Authenticated user successfully retrieves transaction history
-
-1. User requests wallet transaction history.
+1. User sends a `GET` request with optional pagination parameters.
 2. System verifies user authentication.
-3. System retrieves paginated transactions for the user.
-4. System includes transaction type, amount, and timestamp.
-5. System returns transaction list.
+3. System retrieves transactions belonging to the user.
+4. System applies pagination and returns the page.
+5. System returns `{ "data": [...], "pagination": { "offset": ..., "limit": ..., "total": N } }`.
 
 ### Sad Paths
 
-#### Unauthenticated Request
+#### Unauthenticated request
 
-1. Anonymous user requests transaction history.
-2. System verifies authentication.
-3. System finds no valid credentials.
-4. System rejects the request as unauthorized.
+1. Requester lacks a valid authentication token.
+2. System enforces authentication.
+3. System returns `401 Unauthorized`.
 
-#### Empty Results
+#### Invalid pagination parameters
 
-1. User requests transaction history.
-2. System verifies user authentication.
-3. System retrieves transactions for the user.
-4. System finds user has no transactions.
-5. System returns empty paginated list.
-
-#### Invalid Pagination Parameters
-
-1. User requests transactions with invalid page number or size.
-2. System verifies user authentication.
-3. System validates pagination parameters.
-4. System detects invalid parameters (e.g. `limit < 1`, `limit > 100`, `offset < 0`).
-5. System rejects the request with `VALIDATION_ERROR`.
+1. User sends a list request with invalid pagination values (e.g., `limit=0`, `limit > 100`, `offset < 0`).
+2. System validates pagination parameters.
+3. System rejects the request with `VALIDATION_ERROR` and details on the violation.
 
 ## API Contract
 

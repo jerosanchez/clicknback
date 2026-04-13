@@ -32,8 +32,8 @@ _As an admin, I want to list all feature flags with optional filters so that I c
 
 ### Response Constraints
 
-- An empty result set is valid and returns `{ "items": [], "total": 0 }`.
-- Results are not paginated in version 1; all matching records are returned.
+- An empty result set is valid and returns `{ "data": [], "pagination": { "offset": 0, "limit": 10, "total": 0 } }`.
+- Results are paginated; `offset` (default: 0) and `limit` (default: 10, max: 100) control the page window.
 
 ---
 
@@ -57,7 +57,7 @@ _As an admin, I want to list all feature flags with optional filters so that I c
 **Scenario:** No flags match the filter
 **Given** no flags match the provided filters
 **When** an authenticated admin sends a filtered list request
-**Then** the response is `200 OK` with `{ "items": [], "total": 0 }`
+**Then** the response is `200 OK` with `{ "data": [], "pagination": { "offset": 0, "limit": 10, "total": 0 } }`
 
 **Scenario:** Non-admin attempts to list flags
 **Given** I am authenticated as a regular user
@@ -78,7 +78,7 @@ _As an admin, I want to list all feature flags with optional filters so that I c
 1. Admin sends a `GET` request with no query parameters.
 2. System verifies admin role.
 3. System queries all flag records.
-4. System returns `{ "items": [...], "total": N }`.
+4. System returns `{ "data": [...], "pagination": { "offset": 0, "limit": 10, "total": N } }`.
 
 ### Happy Path — Filtered list
 

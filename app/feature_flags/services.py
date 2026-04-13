@@ -86,9 +86,11 @@ class FeatureFlagService:
         key: str | None = None,
         scope_type: str | None = None,
         scope_id: str | None = None,
+        offset: int = 0,
+        limit: int = 100,
     ) -> tuple[list[FeatureFlag], int]:
         """List feature flags with optional filters."""
-        return await self._repository.list(db, key, scope_type, scope_id)
+        return await self._repository.list(db, key, scope_type, scope_id, offset, limit)
 
     async def evaluate_scopes(
         self,

@@ -9,7 +9,7 @@
 
 # Paste fresh tokens here (use helper login requests below).
 # These placeholder values are expired local-dev tokens from seed data — never real credentials.
-@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzIyMDg2NjV9.DdUrwTmu8PGRIVN8G4r_rlxaqaFLaGbakuHGBdxECTA
+@adminToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZDlmNGIzYzItNmI1Yy01ZDRlLTdjM2ItNmE1ZTRkM2MyYjFhIiwidXNlcl9yb2xlIjoiYWRtaW4iLCJleHAiOjE3NzYxMTcwOTMsInRva2VuX3R5cGUiOiJhY2Nlc3MifQ.y5SC6P7KvvnNJQeZEHkp42zNTqp7YtX3j38B2FMPGWI
 @userToken  = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjdlMmMxYTItNGYzYS00ZTJiLTljMWEtOGQyZTNmNGI1YzZkIiwidXNlcl9yb2xlIjoidXNlciIsImV4cCI6MTc3MjIwOTM1Nn0.HqSauCiqFMA8ASZbaG877AH7dAiEpovfwZHC3Pi7TfU
 
 ### Helper – obtain a fresh admin token (carol)
@@ -33,13 +33,13 @@ Content-Type: application/json
 }
 
 ### 200 – Happy path: first page of merchants (default page size)
-# Expected: paginated envelope with items[], total, page=1, page_size=20.
+# Expected: paginated envelope with data[], pagination.total, pagination.offset=0, pagination.limit=20.
 GET {{baseUrl}}/merchants
 Authorization: {{adminToken}}
 
-### 200 – Happy path: explicit pagination — page 2, page_size 5
-# Verifies that the response slice matches offset = (2-1)*5 = 5.
-GET {{baseUrl}}/merchants?page=2&page_size=5
+### 200 – Happy path: explicit pagination — offset=5, limit=5
+# Verifies that offset=5 skips the first 5 results.
+GET {{baseUrl}}/merchants?offset=5&limit=5
 Authorization: {{adminToken}}
 
 ### 200 – Happy path: filter — active merchants only
@@ -52,9 +52,9 @@ Authorization: {{adminToken}}
 GET {{baseUrl}}/merchants?active=false
 Authorization: {{adminToken}}
 
-### 200 – Happy path: filter yields empty list (page beyond total)
-# Expected: {"items": [], "total": <N>, "page": 999, "page_size": 20}
-GET {{baseUrl}}/merchants?page=999&active=false
+### 200 – Happy path: filter yields empty list (offset beyond total)
+# Expected: {"data": [], "pagination": {"offset": 990, "limit": 20, "total": <N>}}
+GET {{baseUrl}}/merchants?offset=990&active=false
 Authorization: {{adminToken}}
 
 ### 401 – Sad path: unauthenticated request
@@ -66,12 +66,12 @@ GET {{baseUrl}}/merchants
 GET {{baseUrl}}/merchants
 Authorization: {{userToken}}
 
-### 422 – Sad path: page number below minimum (page=0)
-# Schema validator enforces page >= 1.
-GET {{baseUrl}}/merchants?page=0
+### 422 – Sad path: offset below minimum (offset=-1)
+# Schema validator enforces offset >= 0.
+GET {{baseUrl}}/merchants?offset=-1
 Authorization: {{adminToken}}
 
-### 422 – Sad path: page_size exceeds maximum (> 100)
-# Schema validator enforces page_size <= 100.
-GET {{baseUrl}}/merchants?page_size=999
+### 422 – Sad path: limit exceeds maximum (> 100)
+# Schema validator enforces limit <= 100.
+GET {{baseUrl}}/merchants?limit=999
 Authorization: {{adminToken}}

@@ -148,13 +148,13 @@ async def test_list_merchants_returns_repository_result_on_call(
 
     # Act
     items, total = await merchant_service.list_merchants(
-        page=1, page_size=20, active=active_filter, db=db
+        offset=0, limit=20, active=active_filter, db=db
     )
 
     # Assert
     assert items == merchants
     assert total == expected_total
-    merchant_repository.list_merchants.assert_called_once_with(db, 1, 20, active_filter)
+    merchant_repository.list_merchants.assert_called_once_with(db, 0, 20, active_filter)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

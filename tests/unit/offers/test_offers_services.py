@@ -353,8 +353,8 @@ async def test_list_offers_returns_repository_result_on_call(
 
     # Act
     items, total = await offer_service.list_offers(
-        page=1,
-        page_size=20,
+        offset=0,
+        limit=20,
         active=active_filter,
         merchant_id=None,
         date_from=None,
@@ -366,7 +366,7 @@ async def test_list_offers_returns_repository_result_on_call(
     assert items == offers
     assert total == expected_total
     offer_repository_mock.list_offers.assert_called_once_with(
-        db, 1, 20, active=active_filter, merchant_id=None, date_from=None, date_to=None
+        db, 0, 20, active=active_filter, merchant_id=None, date_from=None, date_to=None
     )
 
 

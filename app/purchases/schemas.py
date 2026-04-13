@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.schemas import PaginationOut
+
 
 class PurchaseStatus(str, Enum):
     PENDING = "pending"
@@ -67,10 +69,8 @@ class PurchaseAdminOut(BaseModel):
 
 
 class PaginatedPurchaseOut(BaseModel):
-    items: list[PurchaseAdminOut]
-    total: int
-    page: int
-    page_size: int
+    data: list[PurchaseAdminOut]
+    pagination: PaginationOut
 
 
 class PurchaseDetailsOut(BaseModel):
@@ -98,7 +98,5 @@ class UserPurchaseOut(BaseModel):
 
 
 class PaginatedUserPurchaseOut(BaseModel):
-    items: list[UserPurchaseOut]
-    total: int
-    page: int
-    page_size: int
+    data: list[UserPurchaseOut]
+    pagination: PaginationOut

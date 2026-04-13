@@ -3,10 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.current_user import get_current_admin_user
 from app.core.database import get_async_db
 from app.core.errors.builders import internal_server_error, unprocessable_entity_error
 from app.core.logging import logging
+from app.core.schemas import PaginationOut
 from app.core.unit_of_work import SQLAlchemyUnitOfWork, UnitOfWorkABC
 from app.feature_flags.composition import get_feature_flag_service
 from app.feature_flags.errors import ErrorCode
@@ -122,6 +124,13 @@ async def list_feature_flags(
     key: str | None = Query(None),
     scope_type: str | None = Query(None),
     scope_id: UUID | None = Query(None),
+    offset: int = Query(default=0, ge=0, description="Number of results to skip."),
+    limit: int = Query(
+        default=settings.default_page_size,
+        ge=1,
+        le=settings.max_page_size,
+        description=f"Number of results to return (max {settings.max_page_size}).",
+    ),
     db: AsyncSession = Depends(get_async_db),
     feature_flag_service: FeatureFlagService = Depends(get_feature_flag_service),
     _current_user: User = Depends(get_current_admin_user),
@@ -129,10 +138,18 @@ async def list_feature_flags(
     try:
         scope_id_str = str(scope_id) if scope_id is not None else None
         flags, total = await feature_flag_service.list_flags(
-            db, key=key, scope_type=scope_type, scope_id=scope_id_str
+            db,
+            key=key,
+            scope_type=scope_type,
+            scope_id=scope_id_str,
+            offset=offset,
+            limit=limit,
         )
         items = [FeatureFlagOut.model_validate(flag) for flag in flags]
-        return ListFeatureFlagsOut(items=items, total=total)
+        return ListFeatureFlagsOut(
+            data=items,
+            pagination=PaginationOut(offset=offset, limit=limit, total=total),
+        )
 
     except Exception as exc:
         logging.error(

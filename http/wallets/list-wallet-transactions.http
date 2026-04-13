@@ -63,20 +63,20 @@ Authorization: {{bobToken}}
 ###
 
 ### 200 – Happy path: jero's transactions — no cashback activity
-# Expects: { "transactions": [], "total": 0 }
+# Expects: { "data": [], "pagination": {"offset": 0, "limit": 10, "total": 0} }
 GET {{baseUrl}}/users/me/wallet/transactions
 Authorization: {{jeroToken}}
 
 ###
 
-### 200 – Pagination: alice's transactions, first page of 3
+### 200 – Pagination: alice's transactions, first chunk of 3
 # Expects: 3 items returned (the 3 most recent), total reflects full count (7).
 GET {{baseUrl}}/users/me/wallet/transactions?limit=3&offset=0
 Authorization: {{aliceToken}}
 
 ###
 
-### 200 – Pagination: alice's transactions, second page of 3
+### 200 – Pagination: alice's transactions, second chunk of 3
 # Expects: next 3 items, skipping the first 3.
 GET {{baseUrl}}/users/me/wallet/transactions?limit=3&offset=3
 Authorization: {{aliceToken}}
