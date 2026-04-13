@@ -40,8 +40,8 @@ class OfferRepositoryABC(ABC):
     async def list_offers(
         self,
         db: AsyncSession,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         active: bool | None = None,
         merchant_id: str | None = None,
         date_from: date | None = None,
@@ -53,8 +53,8 @@ class OfferRepositoryABC(ABC):
     async def list_active_offers(
         self,
         db: AsyncSession,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         today: date,
     ) -> tuple[list[tuple[Offer, str]], int]:
         pass
@@ -97,8 +97,8 @@ class OfferRepository(OfferRepositoryABC):
     async def list_offers(
         self,
         db: AsyncSession,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         active: bool | None = None,
         merchant_id: str | None = None,
         date_from: date | None = None,
@@ -121,7 +121,7 @@ class OfferRepository(OfferRepositoryABC):
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
 
-        items_stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+        items_stmt = stmt.offset(offset).limit(limit)
         result = await db.execute(items_stmt)
         items = list(result.scalars().all())
         return items, total
@@ -129,8 +129,8 @@ class OfferRepository(OfferRepositoryABC):
     async def list_active_offers(
         self,
         db: AsyncSession,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         today: date,
     ) -> tuple[list[tuple[Offer, str]], int]:
         from app.merchants.models import (
@@ -161,9 +161,7 @@ class OfferRepository(OfferRepositoryABC):
             .subquery()
         )
         total = (await db.execute(count_stmt)).scalar_one()
-        rows = (
-            await db.execute(base_stmt.offset((page - 1) * page_size).limit(page_size))
-        ).all()
+        rows = (await db.execute(base_stmt.offset(offset).limit(limit))).all()
         return [(row[0], row[1]) for row in rows], total
 
     async def get_offer_with_merchant_name(

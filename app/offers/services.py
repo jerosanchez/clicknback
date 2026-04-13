@@ -95,8 +95,8 @@ class OfferService:
 
     async def list_offers(
         self,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         active: bool | None,
         merchant_id: UUID | None,
         date_from: date | None,
@@ -105,8 +105,8 @@ class OfferService:
     ) -> tuple[list[Offer], int]:
         return await self.offer_repository.list_offers(
             db,
-            page,
-            page_size,
+            offset,
+            limit,
             active=active,
             merchant_id=str(merchant_id) if merchant_id is not None else None,
             date_from=date_from,
@@ -115,14 +115,12 @@ class OfferService:
 
     async def list_active_offers(
         self,
-        page: int,
-        page_size: int,
+        offset: int,
+        limit: int,
         today: date,
         db: AsyncSession,
     ) -> tuple[list[tuple[Offer, str]], int]:
-        return await self.offer_repository.list_active_offers(
-            db, page, page_size, today
-        )
+        return await self.offer_repository.list_active_offers(db, offset, limit, today)
 
     async def get_offer_details(
         self,

@@ -13,6 +13,7 @@ from app.core.errors.builders import (
     not_found_error,
 )
 from app.core.logging import logging
+from app.core.schemas import PaginationOut
 from app.offers.composition import get_offer_service
 from app.offers.exceptions import (
     InactiveMerchantForOfferException,
@@ -42,12 +43,12 @@ router = APIRouter(prefix="/offers", tags=["offers"])
     ),
 )
 async def list_active_offers(
-    page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
-    page_size: int = Query(
+    offset: int = Query(default=0, ge=0, description="Number of results to skip."),
+    limit: int = Query(
         default=settings.default_page_size,
         ge=1,
         le=settings.max_page_size,
-        description=f"Number of results per page (max {settings.max_page_size}).",
+        description=f"Number of results to return (max {settings.max_page_size}).",
     ),
     offer_service: OfferService = Depends(get_offer_service),
     db: AsyncSession = Depends(get_async_db),
@@ -55,8 +56,8 @@ async def list_active_offers(
 ) -> PaginatedActiveOffersOut:
     try:
         items, total = await offer_service.list_active_offers(
-            page,
-            page_size,
+            offset,
+            limit,
             date.today(),
             db,
         )
@@ -68,13 +69,11 @@ async def list_active_offers(
         raise internal_server_error()
 
     return PaginatedActiveOffersOut(
-        offers=[
+        data=[
             _map_to_active_offer_out(offer, merchant_name)
             for offer, merchant_name in items
         ],
-        total=total,
-        page=page,
-        page_size=page_size,
+        pagination=PaginationOut(offset=offset, limit=limit, total=total),
     )
 
 

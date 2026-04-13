@@ -78,15 +78,15 @@ def _assert_active_offers_response(
     data: dict[str, Any],
     items: list[tuple[Offer, str]],
     total: int,
-    page: int,
-    page_size: int,
+    offset: int,
+    limit: int,
 ) -> None:
-    assert data["total"] == total
-    assert data["page"] == page
-    assert data["page_size"] == page_size
-    assert len(data["offers"]) == len(items)
+    assert data["pagination"]["total"] == total
+    assert data["pagination"]["offset"] == offset
+    assert data["pagination"]["limit"] == limit
+    assert len(data["data"]) == len(items)
     for i, (offer, merchant_name) in enumerate(items):
-        item = data["offers"][i]
+        item = data["data"][i]
         assert item["id"] == str(offer.id)
         assert item["merchant_name"] == merchant_name
         expected_cashback_type = (
@@ -131,8 +131,8 @@ def test_list_active_offers_returns_200_on_success(
         response.json(),
         items,
         total=2,
-        page=1,
-        page_size=settings.default_page_size,
+        offset=0,
+        limit=settings.default_page_size,
     )
 
 
@@ -156,8 +156,8 @@ def test_list_active_offers_maps_fixed_cashback_correctly(
         response.json(),
         items,
         total=1,
-        page=1,
-        page_size=settings.default_page_size,
+        offset=0,
+        limit=settings.default_page_size,
     )
 
 
@@ -174,8 +174,8 @@ def test_list_active_offers_returns_200_on_empty_results(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["total"] == 0
-    assert data["offers"] == []
+    assert data["pagination"]["total"] == 0
+    assert data["data"] == []
 
 
 @pytest.mark.parametrize(
@@ -209,9 +209,9 @@ def test_list_active_offers_returns_error_on_exception(
 @pytest.mark.parametrize(
     "query_string",
     [
-        "page=0",  # below minimum page
-        "page_size=0",  # below minimum page_size
-        f"page_size={settings.max_page_size + 1}",  # above maximum page_size
+        "offset=-1",  # below minimum offset
+        "limit=0",  # below minimum limit
+        f"limit={settings.max_page_size + 1}",  # above maximum limit
     ],
 )
 def test_list_active_offers_returns_422_on_invalid_pagination_params(
@@ -228,10 +228,10 @@ def test_list_active_offers_returns_422_on_invalid_pagination_params(
 @pytest.mark.parametrize(
     "query_string",
     [
-        "page=1",  # minimum valid page
-        "page_size=1",  # minimum valid page_size
-        f"page_size={settings.default_page_size}",  # default page_size
-        f"page_size={settings.max_page_size}",  # maximum valid page_size
+        "offset=0",  # minimum valid offset
+        "limit=1",  # minimum valid limit
+        f"limit={settings.default_page_size}",  # default limit
+        f"limit={settings.max_page_size}",  # maximum valid limit
     ],
 )
 def test_list_active_offers_returns_200_on_valid_pagination_params(

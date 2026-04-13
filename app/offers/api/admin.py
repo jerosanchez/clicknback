@@ -16,6 +16,7 @@ from app.core.errors.builders import (
 )
 from app.core.errors.codes import ErrorCode
 from app.core.logging import logging
+from app.core.schemas import PaginationOut
 from app.core.unit_of_work import SQLAlchemyUnitOfWork, UnitOfWorkABC
 from app.merchants.exceptions import MerchantNotFoundException
 from app.offers.composition import get_offer_service
@@ -177,12 +178,12 @@ _VALID_OFFER_STATUS_VALUES = {"active", "inactive"}
     ),
 )
 async def list_offers(
-    page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
-    page_size: int = Query(
+    offset: int = Query(default=0, ge=0, description="Number of results to skip."),
+    limit: int = Query(
         default=settings.default_page_size,
         ge=1,
         le=settings.max_page_size,
-        description=f"Number of results per page (max {settings.max_page_size}).",
+        description=f"Number of results to return (max {settings.max_page_size}).",
     ),
     status_filter: str | None = Query(
         default=None,
@@ -209,8 +210,8 @@ async def list_offers(
 
     try:
         items, total = await offer_service.list_offers(
-            page,
-            page_size,
+            offset,
+            limit,
             _map_to_active(status_filter),
             merchant_id,
             date_from,
@@ -225,10 +226,8 @@ async def list_offers(
         raise internal_server_error()
 
     return PaginatedOffersOut(
-        items=[OfferOut.model_validate(item) for item in items],
-        total=total,
-        page=page,
-        page_size=page_size,
+        data=[OfferOut.model_validate(item) for item in items],
+        pagination=PaginationOut(offset=offset, limit=limit, total=total),
     )
 
 

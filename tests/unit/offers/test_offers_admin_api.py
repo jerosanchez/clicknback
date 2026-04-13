@@ -84,15 +84,15 @@ def _assert_paginated_offers_response(
     data: dict[str, Any],
     items: list[Offer],
     total: int,
-    page: int,
-    page_size: int,
+    offset: int,
+    limit: int,
 ) -> None:
-    assert data["total"] == total
-    assert data["page"] == page
-    assert data["page_size"] == page_size
-    assert len(data["items"]) == len(items)
+    assert data["pagination"]["total"] == total
+    assert data["pagination"]["offset"] == offset
+    assert data["pagination"]["limit"] == limit
+    assert len(data["data"]) == len(items)
     for i, offer in enumerate(items):
-        item = data["items"][i]
+        item = data["data"][i]
         assert item["id"] == str(offer.id)
         assert item["merchant_id"] == str(offer.merchant_id)
         expected_cashback_type = (
@@ -263,7 +263,7 @@ def test_list_offers_returns_200_on_success(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     _assert_paginated_offers_response(
-        response.json(), offers, total=3, page=1, page_size=settings.default_page_size
+        response.json(), offers, total=3, offset=0, limit=settings.default_page_size
     )
 
 
@@ -280,8 +280,8 @@ def test_list_offers_returns_200_on_empty_results(
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["total"] == 0
-    assert data["items"] == []
+    assert data["pagination"]["total"] == 0
+    assert data["data"] == []
 
 
 @pytest.mark.parametrize(
@@ -326,9 +326,9 @@ def test_list_offers_enforces_admin_user(
 @pytest.mark.parametrize(
     "query_string",
     [
-        "page=0",  # below minimum page
-        "page_size=0",  # below minimum page_size
-        f"page_size={settings.max_page_size + 1}",  # above maximum page_size
+        "offset=-1",  # below minimum offset
+        "limit=0",  # below minimum limit
+        f"limit={settings.max_page_size + 1}",  # above maximum limit
     ],
 )
 def test_list_offers_returns_422_on_invalid_pagination_params(
@@ -345,10 +345,10 @@ def test_list_offers_returns_422_on_invalid_pagination_params(
 @pytest.mark.parametrize(
     "query_string",
     [
-        "page=1",  # minimum page
-        "page_size=1",  # minimum page_size
-        f"page_size={settings.default_page_size}",  # default page_size
-        f"page_size={settings.max_page_size}",  # maximum page_size
+        "offset=0",  # minimum offset
+        "limit=1",  # minimum limit
+        f"limit={settings.default_page_size}",  # default limit
+        f"limit={settings.max_page_size}",  # maximum limit
     ],
 )
 def test_list_offers_returns_200_on_valid_pagination_params(
