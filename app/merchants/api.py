@@ -13,6 +13,7 @@ from app.core.errors.builders import (
 )
 from app.core.errors.codes import ErrorCode
 from app.core.logging import logging
+from app.core.schemas import PaginationOut
 from app.core.unit_of_work import SQLAlchemyUnitOfWork, UnitOfWorkABC
 from app.merchants.composition import get_merchant_service
 from app.merchants.exceptions import (
@@ -82,12 +83,12 @@ async def create_merchant(
     description="List merchants with pagination and optional active status filtering.",
 )
 async def list_merchants(
-    page: int = Query(default=1, ge=1, description="Page number (1-indexed)."),
-    page_size: int = Query(
+    offset: int = Query(default=0, ge=0, description="Number of results to skip."),
+    limit: int = Query(
         default=settings.default_page_size,
         ge=1,
         le=settings.max_page_size,
-        description=f"Number of results per page (max {settings.max_page_size}).",
+        description=f"Number of results to return (max {settings.max_page_size}).",
     ),
     active: bool | None = Query(default=None, description="Filter by active status."),
     merchant_service: MerchantService = Depends(get_merchant_service),
@@ -95,9 +96,7 @@ async def list_merchants(
     _current_user: User = Depends(get_current_admin_user),
 ) -> PaginatedMerchantsOut:
     try:
-        items, total = await merchant_service.list_merchants(
-            page, page_size, active, db
-        )
+        items, total = await merchant_service.list_merchants(offset, limit, active, db)
 
     except Exception as e:
         logging.error(
@@ -107,10 +106,8 @@ async def list_merchants(
         raise internal_server_error()
 
     return PaginatedMerchantsOut(
-        items=[MerchantOut.model_validate(m) for m in items],
-        total=total,
-        page=page,
-        page_size=page_size,
+        data=[MerchantOut.model_validate(m) for m in items],
+        pagination=PaginationOut(offset=offset, limit=limit, total=total),
     )
 
 

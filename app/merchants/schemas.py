@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.core.schemas import PaginationOut
+
 
 class MerchantSchemaBase(BaseModel):
     name: str
@@ -22,10 +24,8 @@ class MerchantCreate(MerchantSchemaBase):
 
 
 class PaginatedMerchantsOut(BaseModel):
-    items: list[MerchantOut]
-    total: int
-    page: int
-    page_size: int
+    data: list[MerchantOut]
+    pagination: PaginationOut
 
 
 class MerchantStatusUpdate(BaseModel):
