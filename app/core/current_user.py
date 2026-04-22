@@ -10,7 +10,7 @@ from app.users.composition import get_user_repository
 from app.users.models import User, UserRoleEnum
 from app.users.repositories import UserRepositoryABC
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
 
 
 def get_token_provider() -> OAuth2TokenProviderABC:
@@ -18,11 +18,13 @@ def get_token_provider() -> OAuth2TokenProviderABC:
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token: str | None = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_async_db),
     token_provider: OAuth2TokenProviderABC = Depends(get_token_provider),
     user_repository: UserRepositoryABC = Depends(get_user_repository),
 ) -> User:
+    if token is None:
+        raise InvalidTokenException()
     logger.debug("Verifying access token.", extra={"token": token})
     payload = token_provider.verify_access_token(token)
 
