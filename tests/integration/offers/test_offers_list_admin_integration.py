@@ -1,4 +1,4 @@
-"""Integration tests for GET /api/v1/offers/ (admin)."""
+"""Integration tests for GET /api/v1/offers/ (any authenticated user)."""
 
 from datetime import date, timedelta
 from typing import Any
@@ -24,7 +24,7 @@ def _offer_payload(merchant_id: str) -> dict[str, Any]:
     }
 
 
-async def test_list_offers_admin_returns_200_with_pagination(
+async def test_list_offers_returns_200_with_pagination_for_admin(
     admin_http_client: AsyncClient,
 ) -> None:
     # Arrange: create a merchant and an offer
@@ -51,11 +51,24 @@ async def test_list_offers_admin_returns_200_with_pagination(
     assert body["pagination"]["total"] >= 1
 
 
-async def test_list_offers_admin_returns_401_on_non_admin(
+async def test_list_offers_returns_200_for_regular_user(
     user_http_client: AsyncClient,
 ) -> None:
-    # Act
+    # Act: any authenticated user can list offers
     response = await user_http_client.get("/api/v1/offers/")
+
+    # Assert
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert "data" in body
+    assert "pagination" in body
+
+
+async def test_list_offers_returns_401_for_unauthenticated(
+    http_client: AsyncClient,
+) -> None:
+    # Act
+    response = await http_client.get("/api/v1/offers/")
 
     # Assert
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
