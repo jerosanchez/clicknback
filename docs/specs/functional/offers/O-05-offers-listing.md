@@ -1,10 +1,10 @@
-# O-05: Offers Listing (Admin)
+# O-05: Offers Listing
 
 IMPORTANT: This is a living document, specs are subject to change.
 
 ## User Story
 
-_As an admin, I want to view a list of all offers with their status so that I can monitor and manage cashback promotions._
+_As an authenticated user, I want to view a paginated list of all offers so that I can browse and filter available and past cashback promotions._
 
 ---
 
@@ -12,135 +12,116 @@ _As an admin, I want to view a list of all offers with their status so that I ca
 
 ### Authorization Constraints
 
-- Only authenticated admin users can list offers
-- Admin role must be verified before allowing access
+- Any authenticated user (user or admin role) can list offers
+- Unauthenticated requests are rejected
 
 ### Listing Constraints
 
-- Results must be paginated
-- Default page size should be appropriate (e.g., 20 items)
-- Offer status information must be included
-- Support filtering by status, merchant, or date range
+- Results must be paginated; default page size is 20, maximum is 100
+- Optional filtering by `status` (`active` / `inactive`), `merchant_id`, `date_from`, and `date_to`
+- `date_from` and `date_to` filters use ISO 8601 date format (`YYYY-MM-DD`)
+- `date_from` must not be after `date_to` when both are provided
 
 ---
 
 ## BDD Acceptance Criteria
 
-**Scenario:** Admin successfully retrieves offer list with status
-**Given** I am an authenticated admin user
-**And** offers exist in the system
-**When** the authorization is verified
-**Then** a paginated list of offers with status information is returned
+**Scenario:** Authenticated user successfully retrieves offer list
 
-**Scenario:** Admin filters offer list by status
-**Given** I am an authenticated admin user
-**When** the request includes a valid `status` filter (`active` or `inactive`)
+**Given** I am an authenticated user
+**And** offers exist in the system
+**When** I send `GET /api/v1/offers`
+**Then** a paginated list of offers with full details is returned with HTTP 200
+
+**Scenario:** User filters offer list by status
+
+**Given** I am an authenticated user
+**When** the request includes `status=active` or `status=inactive`
 **Then** only offers matching that status are returned
 
-**Scenario:** Admin filters offer list by merchant
-**Given** I am an authenticated admin user
+**Scenario:** User filters offer list by merchant
+
+**Given** I am an authenticated user
 **When** the request includes a valid `merchant_id` filter
 **Then** only offers belonging to that merchant are returned
 
-**Scenario:** Admin filters offer list by date range
-**Given** I am an authenticated admin user
+**Scenario:** User filters offer list by date range
+
+**Given** I am an authenticated user
 **When** the request includes `date_from` and/or `date_to` filters
 **Then** only offers whose validity window overlaps the specified date range are returned
 
-**Scenario:** Non-admin user attempts to list offers
-**Given** I am an authenticated non-admin user
-**When** the system checks authorization
-**Then** access is denied
-
 **Scenario:** Unauthenticated user attempts to list offers
+
 **Given** I am not authenticated
-**When** the system checks authentication
-**Then** the request is rejected as unauthorized
+**When** I send `GET /api/v1/offers`
+**Then** the request is rejected with HTTP 401 Unauthorized
 
-**Scenario:** Admin retrieves empty offer list
-**Given** I am an authenticated admin user
-**And** no offers exist in the system
-**When** the system processes the request
-**Then** an empty paginated list is returned
+**Scenario:** Empty offer list
 
-**Scenario:** Admin requests offer list with invalid pagination parameters
-**Given** I am an authenticated admin user
-**When** the request contains invalid pagination parameters (e.g., negative page number)
-**Then** a validation error is returned
+**Given** I am an authenticated user
+**And** no offers exist or no offers match the applied filters
+**When** I send `GET /api/v1/offers`
+**Then** an empty paginated list is returned with HTTP 200
 
-**Scenario:** Admin provides an invalid status filter value
-**Given** I am an authenticated admin user
-**When** the request contains a `status` filter value not in `[active, inactive]`
-**Then** a validation error is returned identifying the invalid status value
+**Scenario:** Invalid pagination parameters
 
-**Scenario:** Admin provides an inverted date range
-**Given** I am an authenticated admin user
+**Given** I am an authenticated user
+**When** the request contains invalid pagination parameters (e.g. `offset=-1`, `limit=0`)
+**Then** HTTP 422 is returned with `VALIDATION_ERROR` and a `violations` list
+
+**Scenario:** Invalid status filter value
+
+**Given** I am an authenticated user
+**When** the request contains a `status` value not in `[active, inactive]`
+**Then** HTTP 400 is returned with `VALIDATION_ERROR` identifying the `status` field
+
+**Scenario:** Inverted date range
+
+**Given** I am an authenticated user
 **When** the request contains `date_from` that is after `date_to`
-**Then** a validation error is returned identifying the invalid date range
+**Then** HTTP 400 is returned with `VALIDATION_ERROR` identifying the `date_from` field
 
 ---
 
 ## Use Cases
 
-### Happy Path
+### Use Case 1: List Offers (Happy Path)
 
-An authenticated admin successfully retrieves offer list
-
-1. Admin requests offer list (optionally with `status`, `merchant_id`, `date_from`, or `date_to` filters).
-2. System verifies admin authentication and role.
-3. System validates all filter values.
+1. Authenticated user sends `GET /api/v1/offers` with optional filters.
+2. System verifies authentication.
+3. System validates all filter values (`status`, `date_from`/`date_to` cross-field check).
 4. System retrieves paginated offer records matching the applied filters.
 5. System returns paginated offer list with status and validity information.
 
-### Sad Paths
+### Use Case 2: Unauthenticated Request
 
-#### Unauthorized - Non-Admin User
+1. Anonymous user sends `GET /api/v1/offers`.
+2. System checks for a valid Bearer token.
+3. No valid token is found.
+4. System returns HTTP 401 Unauthorized.
 
-1. Non-admin user requests offer list.
+### Use Case 3: Empty Results
+
+1. Authenticated user sends `GET /api/v1/offers` with filters that match nothing.
+2. System verifies authentication and validates parameters.
+3. System finds no matching offers.
+4. System returns HTTP 200 with an empty `data` array.
+
+### Use Case 4: Invalid Status Filter
+
+1. Authenticated user sends `GET /api/v1/offers?status=pending`.
 2. System verifies authentication.
-3. System checks admin role.
-4. System finds user does not have admin role.
-5. System returns `HTTP 403 Forbidden`.
+3. System detects `status` value is not `active` or `inactive`.
+4. System returns HTTP 400 with `VALIDATION_ERROR` and a `violations` list identifying `status`.
 
-#### Unauthenticated Request
+### Use Case 5: Inverted Date Range
 
-1. Anonymous user requests offer list.
+1. Authenticated user sends `GET /api/v1/offers?date_from=2026-12-31&date_to=2026-01-01`.
 2. System verifies authentication.
-3. System finds no valid credentials.
-4. System returns `HTTP 401 Unauthorized`.
-
-#### Empty Results
-
-1. Admin requests offer list.
-2. System verifies admin role.
-3. System retrieves offer records from database.
-4. System finds no offers exist (or none match the applied filters).
-5. System returns empty paginated list.
-
-#### Invalid Pagination Parameters
-
-1. Admin requests offer list with invalid pagination values.
-2. System verifies admin role.
-3. System validates pagination parameters.
-4. System detects invalid values (e.g., negative page number or oversized page size).
-5. System rejects the request with validation error.
-
-#### Invalid Status Filter Value
-
-1. Admin requests offer list with a `status` value that is not `active` or `inactive`.
-2. System verifies admin role.
-3. System validates query parameters.
-4. System detects the unrecognised status value.
-5. System rejects the request with `HTTP 400 Bad Request` and a validation error identifying the `status` field.
-
-#### Invalid Date Range (date_from after date_to)
-
-1. Admin requests offer list with `date_from` set after `date_to`.
-2. System verifies admin role.
-3. System validates query parameters.
-4. System detects that `date_from` is after `date_to`.
-5. System rejects the request with `HTTP 400 Bad Request` and a validation error identifying the `date_from` field.
+3. System detects `date_from` is after `date_to`.
+4. System returns HTTP 400 with `VALIDATION_ERROR` and a `violations` list identifying `date_from`.
 
 ## API Contract
 
-See [List all offers](../../design/api-contracts/offers/list-offers.md) for detailed API specifications.
+See [List Offers (API contract)](../../design/api-contracts/offers/list-offers.md) for detailed API specifications.
