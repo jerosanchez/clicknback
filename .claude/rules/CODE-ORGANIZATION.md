@@ -78,7 +78,7 @@ app/offers/
   api/
     __init__.py       ← Imports and re-exports routers
     admin.py          ← Admin endpoints (create, update, delete)
-    public.py         ← Public endpoints (list, get details)
+    public.py         ← User-role endpoints (list, get details)
 ```
 
 ```python
@@ -92,13 +92,13 @@ async def create_offer(...):
 
 # app/offers/api/__init__.py
 from app.offers.api.admin import router as admin_router
-from app.offers.api.public import router as public_router
-__all__ = ["admin_router", "public_router"]
+from app.offers.api.public import router as user_router
+__all__ = ["admin_router", "user_router"]
 
 # app/main.py
-from app.offers.api import admin_router, public_router
+from app.offers.api import admin_router, user_router
 app.include_router(admin_router)
-app.include_router(public_router)
+app.include_router(user_router)
 ```
 
 ## Test File Organization
