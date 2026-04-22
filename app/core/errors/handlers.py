@@ -1,6 +1,7 @@
 from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.auth.exceptions import (
@@ -15,6 +16,30 @@ from app.core.errors.codes import ErrorCode
 
 
 def register_error_handlers(app: FastAPI) -> None:
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        violations = []
+        for error in exc.errors():
+            loc = error.get("loc", ())
+            field = (
+                ".".join(str(part) for part in loc[1:])
+                if len(loc) > 1
+                else str(loc[0]) if loc else "unknown"
+            )
+            violations.append(
+                {"field": field, "reason": error.get("msg", "Invalid value.")}
+            )
+        return JSONResponse(
+            status_code=422,
+            content=error_response(
+                ErrorCode.VALIDATION_ERROR,
+                "Request validation failed.",
+                {"violations": violations},
+            ),
+        )
 
     @app.exception_handler(ExpiredTokenException)
     async def expired_token_exception_handler(
